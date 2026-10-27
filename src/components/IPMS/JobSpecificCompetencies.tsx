@@ -111,7 +111,13 @@ function getIsDualLayerTeamLeader(email) {
 export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JobSpecificCompetenciesProps) {
   const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   // Navigation Tabs state
-  const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'self_evaluation' | 'manager_approval' | 'reporting'>('templates');
+  const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'self_evaluation' | 'manager_approval' | 'reporting'>(() => {
+    const email = (currentUser?.email || '').toLowerCase().trim();
+    if (['singhn', 'joubertm', 'linkss', 'magampeas', 'khuboni', 'nkosije', 'mahlanguml'].some(m => email.includes(m))) {
+      return 'manager_approval';
+    }
+    return 'self_evaluation';
+  });
 
   // Database / API Loading Sync states
   const [loading, setLoading] = useState<boolean>(true);
@@ -263,7 +269,12 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
 
   useEffect(() => {
     if (currentUser.email) {
-      setSelectedUserEmailState(currentUser.email);
+      const norm = currentUser.email.toLowerCase().trim();
+      if (norm.includes('singhn')) {
+        setSelectedUserEmailState('rachidimb@nkangaladm.gov.za');
+      } else {
+        setSelectedUserEmailState(currentUser.email);
+      }
     }
   }, [currentUser.email]);
 
@@ -359,7 +370,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
         competencyMasters: cmComp,
         definitionMasters: cmDef,
         levelMasters: cmLvl,
-        weightMasters: cmWt
+        weightMasters: cmWt,
+        isCleared: currentRowsList.length === 0
       };
       
       const emailToSave = explicitTargetEmail || selectedUserEmail;
@@ -1154,6 +1166,15 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
       setSelectedRowId(null);
     }
     handleSaveToDatabase(updated);
+  };
+
+  const handleClearAll = () => {
+    if (!window.confirm("Are you sure you want to delete all core competencies for this profile? You will be able to recapture competencies and reupload PoEs.")) {
+      return;
+    }
+    setRows([]);
+    setSelectedRowId(null);
+    handleSaveToDatabase([], jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters, undefined, customColumns);
   };
 
   const handleMoveRow = (idx: number, dir: 'up' | 'down') => {
@@ -2056,6 +2077,31 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
             {/* Right Hand: Primary Live Laptop Interactive Table Grid */}
             <div className="col-span-1 xl:col-span-8 bg-white rounded-2xl border border-gray-200 p-6 flex flex-col justify-between shadow-sm select-text overflow-hidden">
               <div className="space-y-4 flex-1 flex flex-col overflow-hidden min-h-0">
+
+                {/* PoE Quick Navigation Alert Banner */}
+                <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-emerald-50 border border-orange-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 shrink-0 font-black">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-black text-gray-900 tracking-tight">
+                        Quarterly Self-Evaluation Scores & Portfolio of Evidence (PoE)
+                      </p>
+                      <p className="text-[11px] text-gray-600 font-medium">
+                        Subordinates (e.g. Mr. Rachidi, Ms. Mokhabela) capture ratings and upload quarterly evidence in Tab 3.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('self_evaluation')}
+                    className="shrink-0 bg-orange-600 hover:bg-orange-700 text-white font-black px-3.5 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition uppercase tracking-wide cursor-pointer shadow-xs"
+                  >
+                    <span>Go to Tab 3: Self Evaluation & PoE</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
                 
                 {/* Table Control and quick calculator helpers */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-150 pb-3 gap-3 shrink-0 select-none">
@@ -2096,11 +2142,22 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                     {/* Dynamic Column Management Button */}
                     <button
                       onClick={() => setIsAddColModalOpen(true)}
-                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1 transition shadow-sm"
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1 transition shadow-sm cursor-pointer"
                       title="Add custom column to table"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>+ Add Column</span>
+                    </button>
+
+                    {/* Clear All Competencies Button */}
+                    <button
+                      onClick={handleClearAll}
+                      disabled={saving || rows.length === 0}
+                      className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold px-2.5 py-1 rounded-lg text-[10px] flex items-center gap-1 transition shadow-sm cursor-pointer disabled:opacity-40"
+                      title="Delete all core competencies to start fresh and re-upload Portfolios of Evidence (PoEs)"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Clear All</span>
                     </button>
                   </div>
                 </div>
@@ -2126,13 +2183,13 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleAddCustomColumn}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
                       >
                         Add Column
                       </button>
                       <button
                         onClick={() => { setIsAddColModalOpen(false); setNewColTitle(''); }}
-                        className="bg-white hover:bg-gray-100 text-gray-600 border border-gray-300 font-bold px-3 py-1.5 rounded-lg text-xs transition"
+                        className="bg-white hover:bg-gray-100 text-gray-600 border border-gray-300 font-bold px-3 py-1.5 rounded-lg text-xs transition cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -2148,14 +2205,20 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                       <p className="text-xs text-gray-500">Querying Supabase registry database...</p>
                     </div>
                   ) : rows.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-                      <AlertTriangle className="w-9 h-9 text-amber-500" />
-                      <p className="text-xs font-bold text-gray-700">No active competencies defined in database.</p>
+                    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center px-4">
+                      <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-full">
+                        <FileBadge className="w-8 h-8 text-indigo-600" />
+                      </div>
+                      <p className="text-sm font-bold text-gray-800">No core competencies captured for this profile.</p>
+                      <p className="text-xs text-gray-500 max-w-md">
+                        Competencies have been cleared for fresh entry. Click below to add a competency and upload your Portfolios of Evidence (PoEs).
+                      </p>
                       <button 
                         onClick={appendBlankRow} 
-                        className="bg-orange-500 text-white font-bold text-xs px-4 py-2 rounded-lg"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer mt-1"
                       >
-                        Create Initial Row
+                        <Plus className="w-4 h-4" />
+                        <span>Add New Competency</span>
                       </button>
                     </div>
                   ) : (
@@ -2391,20 +2454,30 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                               <td className="py-3 px-3 min-w-[200px] border-r border-gray-150">
                                 <div className="flex flex-col gap-1.5 text-left">
                                   <div className="flex items-center justify-between gap-1">
-                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-tight">POE Files:</span>
-                                    <label className="flex items-center gap-1 text-[9px] font-extrabold text-indigo-700 hover:text-indigo-900 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition select-none">
-                                      <Upload className="w-2.5 h-2.5" />
-                                      <span>Upload</span>
-                                      <input
-                                        type="file"
-                                        multiple
-                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          if (e.target.files) handlePoeUpload(row.id, e.target.files);
-                                        }}
-                                      />
-                                    </label>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveTab('self_evaluation')}
+                                        className="flex items-center gap-1 text-[9px] font-black text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition select-none cursor-pointer border border-emerald-200"
+                                        title="Jump to Tab 3 for quarterly self evaluation & PoE upload"
+                                      >
+                                        <CheckCircle className="w-2.5 h-2.5" />
+                                        <span>Quarter PoE / Score</span>
+                                      </button>
+                                      <label className="flex items-center gap-1 text-[9px] font-extrabold text-indigo-700 hover:text-indigo-900 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition select-none">
+                                        <Upload className="w-2.5 h-2.5" />
+                                        <span>Upload</span>
+                                        <input
+                                          type="file"
+                                          multiple
+                                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/*"
+                                          className="hidden"
+                                          onChange={(e) => {
+                                            if (e.target.files) handlePoeUpload(row.id, e.target.files);
+                                          }}
+                                        />
+                                      </label>
+                                    </div>
                                   </div>
 
                                   {row.poeDocs && row.poeDocs.length > 0 ? (
@@ -2516,7 +2589,13 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
 
         {/* TAB 4: Supervisor & Line Manager Approval */}
         {activeTab === 'manager_approval' && (
-          <JSCManagerApprovalSection currentUser={currentUser} activeTenantId={activeTenantId} defaultEmployeeEmail={selectedUserEmail} isTeamJSC={isTeamJSC} isTeamJSC2={isTeamJSC2} />
+          <JSCManagerApprovalSection 
+            currentUser={currentUser} 
+            activeTenantId={activeTenantId} 
+            defaultEmployeeEmail={(currentUser?.email || '').toLowerCase().includes('singhn') && (!selectedUserEmail || selectedUserEmail === currentUser?.email) ? 'rachidimb@nkangaladm.gov.za' : selectedUserEmail} 
+            isTeamJSC={isTeamJSC} 
+            isTeamJSC2={isTeamJSC2} 
+          />
         )}
 
         {/* TAB 5: Analytical Reporting Statistics and Visualizations */}

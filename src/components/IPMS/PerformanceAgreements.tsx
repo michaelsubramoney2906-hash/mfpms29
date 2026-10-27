@@ -195,11 +195,8 @@ export const DEFAULT_CORPORATE_SERVICES_ROWS = [
 ];
 
 export const DEFAULT_PMS_TEAM_ROWS = [
-  ['1', 'Delphine Naidoo (PMS Manager / Performance Lead)', 'PM-0100', 'Team Leader'],
-  ['2', 'Qiniso Sithole (SDBIP & Reporting Specialist)', 'PM-0210', 'Team Member'],
-  ['3', 'Marlan Botha (M&E Data Analyst)', 'PM-0320', 'Team Member'],
-  ['4', 'Nomvula Khumalo (Institutional Performance Officer)', 'PM-0415', 'Team Member'],
-  ['5', 'Brandon Pillay (Quality Assurance & Audit Liaison)', 'PM-0530', 'Team Member']
+  ['1', 'Noluthando E. Zulu', 'P113807', 'PMS Officer'],
+  ['2', 'Nompumelelo P. Nsibande', 'P120480', 'PMS Officer']
 ];
 
 const STRATEGIC_OBJECTIVES = [

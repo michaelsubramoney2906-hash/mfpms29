@@ -1072,7 +1072,7 @@ export function DraftingSuiteTeam({
     try {
       const emailToUse = getEmailScope(currentUser?.email || (documentIdSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
       const candidateEmails = documentIdSuffix === 'pms_team'
-        ? Array.from(new Set(['zulune@nkangaladm.gov.za', emailToUse]))
+        ? Array.from(new Set(['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', emailToUse]))
         : [emailToUse];
 
       for (const candidateEmail of candidateEmails) {
@@ -1898,9 +1898,22 @@ export function DraftingSuiteTeam({
       }
 
       if ((!data || !data.html) && documentIdSuffix === 'pms_team' && teamIdx === 0) {
-        const zuluRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=zulune@nkangaladm.gov.za&documentId=${docId}&t=${Date.now()}`);
-        if (zuluRes.ok) {
-          data = await zuluRes.json();
+        const candidateUserScopes = [
+          'pms_team_shared',
+          'zulune@nkangaladm.gov.za',
+          'nsibandenp@nkangaladm.gov.za'
+        ];
+        for (const uScope of candidateUserScopes) {
+          try {
+            const zuluRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(uScope)}&documentId=${docId}&force=true&t=${Date.now()}`);
+            if (zuluRes.ok) {
+              const uData = await zuluRes.json();
+              if (uData && uData.html) {
+                data = uData;
+                break;
+              }
+            }
+          } catch (e) {}
         }
       }
 
@@ -2082,9 +2095,39 @@ export function DraftingSuiteTeam({
         setAnnexureA(true);
       }
     };
+    const handlePmsTeamDraftSaved = (e: any) => {
+      if (documentIdSuffix === 'pms_team') {
+        const sender = e?.detail?.updatedBy;
+        if (sender && currentUser?.email && sender.toLowerCase() !== currentUser.email.toLowerCase()) {
+          loadDraftForTeam(activeTeamIndex);
+        }
+      }
+    };
+    const handleStorageChange = (e: StorageEvent) => {
+      if (documentIdSuffix === 'pms_team' && e.key === 'pms_team_last_update') {
+        loadDraftForTeam(activeTeamIndex);
+      }
+    };
+
     window.addEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
-    return () => window.removeEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
-  }, [documentIdSuffix]);
+    window.addEventListener('pms-team-draft-saved', handlePmsTeamDraftSaved);
+    window.addEventListener('storage', handleStorageChange);
+
+    // Periodic sync check for PMS team (every 25 seconds) to ensure changes made by either teammate reflect seamlessly
+    let syncInterval: any = null;
+    if (documentIdSuffix === 'pms_team') {
+      syncInterval = setInterval(() => {
+        loadDraftForTeam(activeTeamIndex);
+      }, 25000);
+    }
+
+    return () => {
+      window.removeEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
+      window.removeEventListener('pms-team-draft-saved', handlePmsTeamDraftSaved);
+      window.removeEventListener('storage', handleStorageChange);
+      if (syncInterval) clearInterval(syncInterval);
+    };
+  }, [documentIdSuffix, activeTeamIndex, activeTenantId, currentUser?.email]);
 
   // Save Current Team to Supabase
   const saveToProfile = async () => {
@@ -2184,6 +2227,12 @@ export function DraftingSuiteTeam({
 
       if (res.ok) {
         setSaveStatus('success');
+        if (documentIdSuffix === 'pms_team') {
+          window.dispatchEvent(new CustomEvent('pms-team-draft-saved', { detail: { updatedBy: currentUser?.email, updatedAt: stateObj.updatedAt } }));
+          try {
+            localStorage.setItem('pms_team_last_update', Date.now().toString());
+          } catch (e) {}
+        }
         setTimeout(() => setSaveStatus('idle'), 3000);
       } else {
         throw new Error("Failed to save team draft");

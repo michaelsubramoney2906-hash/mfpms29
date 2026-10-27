@@ -8033,6 +8033,30 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Priscilla Fenyane';
         dynamicReportTo = 'Priscilla Fenyane';
         dynamicManagerEmail = 'fenyanep@nkangaladm.gov.za';
+      } else if (emailLower.includes('xabang') || emailLower.includes('sukazip')) {
+        dynamicManager = 'Siphesihle O. Nkosi';
+        dynamicReportTo = 'Siphesihle O. Nkosi';
+        dynamicManagerEmail = 'nkosiso@nkangaladm.gov.za';
+      } else if (emailLower.includes('wakenis') || emailLower.includes('mokgolomothome')) {
+        dynamicManager = 'Sanele Nkosi';
+        dynamicReportTo = 'Sanele Nkosi';
+        dynamicManagerEmail = 'nkosis@nkangaladm.gov.za';
+      } else if (emailLower.includes('myenispl')) {
+        dynamicManager = 'Elmon Nkosi';
+        dynamicReportTo = 'Elmon Nkosi';
+        dynamicManagerEmail = 'nkosije@nkangaladm.gov.za';
+      } else if (emailLower.includes('mazwitc') || emailLower.includes('mazwit')) {
+        dynamicManager = 'Nkululeko Motshwene';
+        dynamicReportTo = 'Nkululeko Motshwene';
+        dynamicManagerEmail = 'motshwenenm@nkangaladm.gov.za';
+      } else if (emailLower.includes('zulune') || emailLower.includes('nsibandenp') || emailLower.includes('nsibande')) {
+        dynamicManager = 'Sibusiso M. Shabangu';
+        dynamicReportTo = 'Sibusiso M. Shabangu';
+        dynamicManagerEmail = 'shabangusm@nkangaladm.gov.za';
+      } else if (emailLower.includes('mathibelanmb') || emailLower.includes('ngomatkr') || emailLower.includes('skosanast') || emailLower.includes('motebupp')) {
+        dynamicManager = 'Nirupa Parbhoo';
+        dynamicReportTo = 'Nirupa Parbhoo';
+        dynamicManagerEmail = 'nparbhoo@nkangaladm.gov.za';
       }
 
       return {
@@ -8075,6 +8099,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             resolvedTenant = 'tenant-229';
           }
           const isShabanguDisk = emailKey.includes('shabangusm') || emailKey.includes('shabangugm');
+          const isZuluOrNsibandeDisk = emailKey.includes('zulune') || emailKey.includes('nsibandenp') || emailKey.includes('nsibande');
+          const isParbhooSubDisk = emailKey.includes('mathibelanmb') || emailKey.includes('ngomatkr') || emailKey.includes('skosanast') || emailKey.includes('motebupp');
           if (emailKey && !existingEmails.has(emailKey)) {
             formatted.push({
               id: du.id || `disk-${Math.random().toString(36).substring(2)}`,
@@ -8085,10 +8111,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               source: 'azure_ad',
               role: du.role || 'tenant_user',
               tenantId: resolvedTenant,
-              manager: isShabanguDisk ? 'Mandla L. Mahlangu' : (du.manager || extraMap[du.id]?.manager || ''),
-              directorate: isShabanguDisk ? 'Office of the Municipal Manager' : (du.directorate || extraMap[du.id]?.directorate || ''),
-              reportTo: isShabanguDisk ? 'Mandla L. Mahlangu' : (du.reportTo || extraMap[du.id]?.reportTo || ''),
-              managerEmail: isShabanguDisk ? 'mahlanguml@nkangaladm.gov.za' : (du.managerEmail || extraMap[du.id]?.managerEmail || ''),
+              manager: isShabanguDisk ? 'Mandla L. Mahlangu' : (isZuluOrNsibandeDisk ? 'Sibusiso M. Shabangu' : (isParbhooSubDisk ? 'Nirupa Parbhoo' : (du.manager || extraMap[du.id]?.manager || ''))),
+              directorate: (isShabanguDisk || isZuluOrNsibandeDisk) ? 'Office of the Municipal Manager' : (du.directorate || extraMap[du.id]?.directorate || ''),
+              reportTo: isShabanguDisk ? 'Mandla L. Mahlangu' : (isZuluOrNsibandeDisk ? 'Sibusiso M. Shabangu' : (isParbhooSubDisk ? 'Nirupa Parbhoo' : (du.reportTo || extraMap[du.id]?.reportTo || ''))),
+              managerEmail: isShabanguDisk ? 'mahlanguml@nkangaladm.gov.za' : (isZuluOrNsibandeDisk ? 'shabangusm@nkangaladm.gov.za' : (isParbhooSubDisk ? 'nparbhoo@nkangaladm.gov.za' : (du.managerEmail || extraMap[du.id]?.managerEmail || ''))),
               level: isShabanguDisk ? '3' : (du.level || extraMap[du.id]?.level || '1'),
               signatureType: du.signatureType || 'draw',
               signatureData: du.signatureData || ''
@@ -8439,8 +8465,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       'alice l stander': 'standeral@nkangaladm.gov.za',
       'a bvuma': 'bvumaa@nkangaladm.gov.za',
       'alvin bvuma': 'bvumaa@nkangaladm.gov.za',
-      'nirupa parbhoo': 'parbhoon@nkangaladm.gov.za',
-      'nirupha parbhoo': 'parbhoon@nkangaladm.gov.za',
+      'nirupa parbhoo': 'nparbhoo@nkangaladm.gov.za',
+      'nirupha parbhoo': 'nparbhoo@nkangaladm.gov.za',
       'ts mazwi': 'mazwits@nkangaladm.gov.za',
       'tc mazwi': 'mazwits@nkangaladm.gov.za',
       'thandiwe mazwi': 'mazwits@nkangaladm.gov.za',
@@ -12241,7 +12267,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (data && data.content) {
           try {
             const parsed = JSON.parse(data.content);
-            if (parsed && Array.isArray(parsed.competencies) && parsed.competencies.length > 0) {
+            if (parsed && (parsed.isCleared || Array.isArray(parsed.competencies))) {
+              if (parsed.isCleared || parsed.competencies.length === 0) {
+                return res.json({ ...parsed, competencies: [], isCleared: true });
+              }
               return res.json(parsed);
             }
           } catch (parseErr) {}
@@ -12334,7 +12363,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         ? 'tenant-229'
         : tenantId;
       const targetTenants = Array.from(new Set([canonicalTenant, tenantId]));
-      const payload = JSON.stringify(req.body);
+
+      let bodyToSave = req.body;
+      if (Array.isArray(req.body)) {
+        const { items: offloaded } = await offloadInlinePoeBlobs(req.body, userId, supabase);
+        bodyToSave = offloaded;
+      } else if (req.body && Array.isArray(req.body.competencies)) {
+        const { items: offloaded } = await offloadInlinePoeBlobs(req.body.competencies, userId, supabase);
+        bodyToSave = { ...req.body, competencies: offloaded };
+      }
+      const payload = JSON.stringify(bodyToSave);
 
       for (const tKey of targetTenants) {
         const uDocId = `job_competencies_${tKey}_${userId}`;
@@ -13342,6 +13380,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             loadedCfoItems = [];
           }
 
+          if (parsed.isCleared) {
+            return res.json({
+              items: [],
+              directorItems: [],
+              communityServicesItems: [],
+              technicalServicesItems: [],
+              cfoItems: [],
+              mmItems: [],
+              pedItems: [],
+              corporateServicesItems: [],
+              isCleared: true
+            });
+          }
+
           return res.json({
             items: parsed.items || [],
             directorItems: loadedDirectorItems,
@@ -13350,11 +13402,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             cfoItems: loadedCfoItems,
             mmItems: loadedMmItems,
             pedItems: parsed.pedItems || [],
-            corporateServicesItems: parsed.corporateServicesItems || []
+            corporateServicesItems: parsed.corporateServicesItems || [],
+            isCleared: false
           });
         } catch (parseErr) {}
       }
-      return res.json({ items: [], directorItems: [], communityServicesItems: [], technicalServicesItems: [], cfoItems: [], mmItems: [], pedItems: [], corporateServicesItems: [] });
+      return res.json({ items: [], directorItems: [], communityServicesItems: [], technicalServicesItems: [], cfoItems: [], mmItems: [], pedItems: [], corporateServicesItems: [], isCleared: false });
     } catch (err: any) {
       console.error("Core competencies load exception:", err);
       res.status(500).json({ error: err.message });
@@ -13364,7 +13417,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   app.post("/api/tenant/:tenantId/core-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
-    const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems } = req.body;
+    const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems, isCleared } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
@@ -13387,7 +13440,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               cfoItems: cfoItems || [], 
               mmItems: mmItems || [], 
               pedItems: pedItems || [], 
-              corporateServicesItems: corporateServicesItems || [] 
+              corporateServicesItems: corporateServicesItems || [],
+              isCleared: !!isCleared
             }),
             message_type: 'core_competencies_list',
             created_at: new Date().toISOString()
@@ -14354,26 +14408,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   };
 
   // Dedicated PoE Attachment Blob Vault Helper:
-  // Offloads large inline Base64 data: URLs from KPI items into individual `poe_blob_*` rows in Supabase
-  // and replaces `doc.dataUrl` with `/api/poe/blob/<blobId>` so pplan_* and kpis_* payloads stay < 50KB with zero data loss.
-  const makeDeterministicPoeBlobId = (doc: any, userId: string, kpiId: string, qField: string): string => {
+  // Offloads large inline Base64 data: URLs from KPI and JSC items into individual `poe_blob_*` rows in Supabase
+  // and replaces `doc.dataUrl` with `/api/poe/blob/<blobId>` so pplan_*, kpis_*, and job_competencies_* payloads stay lean with zero data loss.
+  function makeDeterministicPoeBlobId(doc: any, userId: string, kpiId: string, qField: string): string {
     const rawId = String(doc?.id || `${userId}_${kpiId}_${qField}_${doc?.name || 'doc'}_${doc?.size || 0}`)
       .replace(/[^a-zA-Z0-9_.-]/g, '_')
       .slice(0, 140);
     return rawId.startsWith('poe_blob_') ? rawId : `poe_blob_${rawId}`;
-  };
+  }
 
-  const offloadInlinePoeBlobs = async (
+  async function offloadInlinePoeBlobs(
     items: any[],
     userId: string,
     supabaseClient: any
-  ): Promise<{ items: any[]; offloadedCount: number }> => {
+  ): Promise<{ items: any[]; offloadedCount: number }> {
     if (!Array.isArray(items) || items.length === 0 || !supabaseClient) {
       return { items: Array.isArray(items) ? items : [], offloadedCount: 0 };
     }
     let offloadedCount = 0;
     const nowIso = new Date().toISOString();
-    const docFields = ['q1PoeDocs', 'q2PoeDocs', 'q3PoeDocs', 'q4PoeDocs', 'annualPoeDocs', 'midtermPoeDocs'];
+    const docFields = ['q1PoeDocs', 'q2PoeDocs', 'q3PoeDocs', 'q4PoeDocs', 'annualPoeDocs', 'midtermPoeDocs', 'poeDocs'];
     const nextItems: any[] = [];
 
     for (const item of items) {
@@ -14382,7 +14436,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         continue;
       }
       const nextItem: any = { ...item };
-      const kpiKey = String(item.id || item.kpiNo || 'kpi');
+      const kpiKey = String(item.id || item.jscNo || item.kpiNo || 'item');
 
       for (const qField of docFields) {
         const docs = nextItem[qField];
@@ -14447,6 +14501,78 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
         }
         nextItem[qField] = nextDocs;
+      }
+
+      // Check quarterly objects (q1, q2, q3, q4) for nested poeDocs
+      for (const qKey of ['q1', 'q2', 'q3', 'q4']) {
+        const qObj = nextItem[qKey] || (nextItem.quarters && nextItem.quarters[qKey]);
+        if (qObj && Array.isArray(qObj.poeDocs) && qObj.poeDocs.length > 0) {
+          const nextQDocs: any[] = [];
+          for (const doc of qObj.poeDocs) {
+            if (!doc || typeof doc !== 'object') {
+              nextQDocs.push(doc);
+              continue;
+            }
+            const rawData = String(doc.dataUrl || doc.fileData || '');
+            const isLargeInlineBase64 =
+              rawData.startsWith('data:') &&
+              !rawData.startsWith('data:image/svg+xml') &&
+              rawData.length > 1024;
+            if (isLargeInlineBase64) {
+              const blobId = makeDeterministicPoeBlobId(doc, userId, kpiKey, `${qKey}_poeDocs`);
+              const blobUrl = `/api/poe/blob/${encodeURIComponent(blobId)}`;
+              const blobPayload = JSON.stringify({
+                id: blobId,
+                docId: doc.id || blobId,
+                name: doc.name || 'JSC_PoE_Evidence',
+                mimeType: doc.mimeType || 'application/octet-stream',
+                size: doc.size || Math.round((rawData.length * 3) / 4),
+                uploadedAt: doc.uploadedAt || nowIso,
+                uploadedBy: doc.uploadedBy || userId,
+                userId,
+                dataUrl: rawData
+              });
+              try {
+                const { error: blobErr } = await supabaseClient
+                  .from('messages')
+                  .upsert({
+                    id: blobId,
+                    tenant_id: 'tenant-229',
+                    sender_id: 'poe_blob_vault',
+                    sender_email: userId || 'poe@system.local',
+                    sender_name: doc.uploadedBy || 'PoE Attachment Vault',
+                    content: blobPayload,
+                    message_type: 'poe_blob_v1',
+                    created_at: nowIso
+                  }, { onConflict: 'id' });
+
+                if (!blobErr) {
+                  offloadedCount++;
+                  const { fileData: _removedFileData, ...cleanDoc } = doc;
+                  nextQDocs.push({
+                    ...cleanDoc,
+                    id: doc.id || blobId,
+                    dataUrl: blobUrl,
+                    url: blobUrl
+                  });
+                } else {
+                  nextQDocs.push(doc);
+                }
+              } catch (_) {
+                nextQDocs.push(doc);
+              }
+            } else {
+              nextQDocs.push(doc);
+            }
+          }
+          if (nextItem[qKey]) nextItem[qKey] = { ...nextItem[qKey], poeDocs: nextQDocs };
+          if (nextItem.quarters && nextItem.quarters[qKey]) {
+            nextItem.quarters = {
+              ...nextItem.quarters,
+              [qKey]: { ...nextItem.quarters[qKey], poeDocs: nextQDocs }
+            };
+          }
+        }
       }
 
       if (typeof nextItem.poeFileBase64 === 'string' && nextItem.poeFileBase64.startsWith('data:') && nextItem.poeFileBase64.length > 1024) {
@@ -15584,13 +15710,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               'mashilesm@nkangaladm.gov.za', 'moreroaml@nkangaladm.gov.za', 'thumbathiamd@nkangaladm.gov.za',
               'mthethwanm@nkangaladm.gov.za'
             ],
-            'khuboni': ['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', 'lukhelema@nkangaladm.gov.za', 'sakisd@nkangaladm.gov.za'],
+            'khuboni': ['lukhelema@nkangaladm.gov.za', 'sakisd@nkangaladm.gov.za'],
+            'shabangusm': ['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za'],
+            'nparbhoo': ['mathibelanmb@nkangaladm.gov.za', 'ngomatkr@nkangaladm.gov.za', 'skosanast@nkangaladm.gov.za', 'motebupp@nkangaladm.gov.za'],
+            'parbhoon': ['mathibelanmb@nkangaladm.gov.za', 'ngomatkr@nkangaladm.gov.za', 'skosanast@nkangaladm.gov.za', 'motebupp@nkangaladm.gov.za'],
+            'nkosiso': ['sukazip@nkangaladm.gov.za', 'xabang@nkangaladm.gov.za'],
+            'nkosis': ['wakenis@nkangaladm.gov.za', 'mokgolomothome@nkangaladm.gov.za'],
             'nkosije': ['myenispl@nkangaladm.gov.za'],
+            'motshwenenm': ['mazwitc@nkangaladm.gov.za'],
             'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za']
           };
 
+          const normMgrUser = normMgr.split('@')[0];
           for (const [key, subs] of Object.entries(KNOWN_MGR_MAP)) {
-            if (normMgr.includes(key)) {
+            const keyNorm = key.toLowerCase().trim();
+            const keyUser = keyNorm.split('@')[0];
+            if (normMgr === keyNorm || normMgrUser === keyUser) {
               subs.forEach(s => {
                 if (!targetSubs.includes(s)) targetSubs.push(s);
               });
@@ -15614,8 +15749,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const uEmail = (u.email || '').toLowerCase().trim();
               if (!uEmail || uEmail === normMgr) return false;
               const mEmail = (u.managerEmail || '').toLowerCase().trim();
-              if (mEmail && (mEmail === normMgr || mEmail.includes(normMgr) || normMgr.includes(mEmail))) {
-                return true;
+              if (mEmail) {
+                const mEmailUser = mEmail.split('@')[0];
+                if (mEmail === normMgr || mEmailUser === normMgrUser) {
+                  return true;
+                }
+                // If the employee already has an explicit different manager email, never cross-assign
+                return false;
               }
               const mName = (u.manager || u.reportTo || '').toLowerCase().trim().replace(/['"\.,]/g, ' ').replace(/\s+/g, ' ').trim();
               if (!mName) return false;
@@ -15625,6 +15765,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               if (mgrTokens.length >= 2) {
                 const mTokens = mName.split(' ').filter(Boolean);
                 if (mTokens.length >= 2 && mTokens[0] === mgrTokens[0] && mTokens[mTokens.length - 1] === mgrTokens[mgrTokens.length - 1]) {
+                  // If last name is 'nkosi', verify first name matches beyond just the single initial to avoid Siphesihle / Sanele collision
+                  if (mTokens[mTokens.length - 1] === 'nkosi' && mTokens[0] !== mgrTokens[0]) {
+                    return false;
+                  }
                   return true;
                 }
               }
@@ -15973,11 +16117,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             if (uProfile.department && !entry.plan.metadata.department) {
               entry.plan.metadata.department = uProfile.department;
             }
-            if (uProfile.manager && !entry.plan.metadata.manager) {
-              entry.plan.metadata.manager = uProfile.manager;
+            if (uProfile.manager) {
+              if (subId.includes('zulune') || subId.includes('nsibande') || !entry.plan.metadata.manager) {
+                entry.plan.metadata.manager = uProfile.manager;
+              }
             }
-            if (uProfile.managerEmail && !entry.plan.metadata.managerEmail) {
-              entry.plan.metadata.managerEmail = uProfile.managerEmail;
+            if (uProfile.managerEmail) {
+              if (subId.includes('zulune') || subId.includes('nsibande') || !entry.plan.metadata.managerEmail) {
+                entry.plan.metadata.managerEmail = uProfile.managerEmail;
+              }
             }
           }
         }
@@ -16750,7 +16898,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify(req.body);
+      let bodyToSave = req.body;
+      if (Array.isArray(req.body)) {
+        const { items: offloaded } = await offloadInlinePoeBlobs(req.body, userId, supabase);
+        bodyToSave = offloaded;
+      } else if (req.body && Array.isArray(req.body.competencies)) {
+        const { items: offloaded } = await offloadInlinePoeBlobs(req.body.competencies, userId, supabase);
+        bodyToSave = { ...req.body, competencies: offloaded };
+      }
+      const payload = JSON.stringify(bodyToSave);
 
       for (const tKey of targetTenants) {
         const uDocId = `team_jsc_${tKey}_${userId}`;
@@ -17046,7 +17202,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const payload = JSON.stringify({ competencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters });
+      let offloadedCompetencies = competencies;
+      if (Array.isArray(competencies)) {
+        const { items: offloaded } = await offloadInlinePoeBlobs(competencies, userId, supabase);
+        offloadedCompetencies = offloaded;
+      }
+      const payload = JSON.stringify({ competencies: offloadedCompetencies, jscMasters, competencyMasters, definitionMasters, levelMasters, weightMasters });
 
       for (const tKey of targetTenants) {
         const uDocId = `team_jsc_2_${tKey}_${userId}`;
@@ -17647,8 +17808,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
 
+      const isPmsTeamDoc = Boolean(reqDocumentId && reqDocumentId.toLowerCase().includes('pms_team'));
       let documentId = reqDocumentId || `draft_doc_${tenantId}`;
-      if (userId && userId !== 'default') {
+      if (userId && userId !== 'default' && !isPmsTeamDoc) {
         if (reqDocumentId) {
           const resolvedDocumentId = reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
           documentId = resolvedDocumentId.toLowerCase().includes(userId.toLowerCase()) ? resolvedDocumentId : `${resolvedDocumentId}_${userId}`;
@@ -17660,6 +17822,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       const candidateDraftIds = Array.from(new Set([
         documentId,
+        ...(isPmsTeamDoc ? [
+          'draft_doc_pms_team_team_1_tenant-229',
+          'draft_doc_pms_team_team_1_nkangala_auto',
+          'draft_doc_pms_team_team_1',
+          'draft_doc_pms_team_tenant-229',
+          'draft_doc_pms_team_nkangala_auto',
+          'draft_doc_pms_team_team_1_tenant-229_zulune@nkangaladm.gov.za',
+          'draft_doc_pms_team_team_1_tenant-229_nsibandenp@nkangaladm.gov.za',
+          'draft_doc_pms_team_team_1_nkangala_auto_zulune@nkangaladm.gov.za',
+          'draft_doc_pms_team_team_1_nkangala_auto_nsibandenp@nkangaladm.gov.za',
+          'draft_doc_pms_team_team_1_global_zulune@nkangaladm.gov.za',
+          'draft_doc_pms_team_team_1_global_nsibandenp@nkangaladm.gov.za',
+          'draft_doc_pms_team_tenant-229_zulune@nkangaladm.gov.za',
+          'draft_doc_pms_team_tenant-229_nsibandenp@nkangaladm.gov.za'
+        ] : []),
         ...(userId && userId !== 'default' && !reqDocumentId ? [
           `draft_doc_tenant-229_${userId}`.toLowerCase(),
           `draft_doc_nkangala_auto_${userId}`.toLowerCase(),
@@ -17908,12 +18085,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               });
             }
           }
-        } else if (documentId.startsWith('draft_doc_pms_team_team_1')) {
+        } else if (documentId.includes('pms_team')) {
           const pmsTeamSyncIds = [
             { id: 'draft_doc_pms_team_team_1', tenant_id: tenantId },
+            { id: 'draft_doc_pms_team_team_1_tenant-229', tenant_id: 'tenant-229' },
+            { id: 'draft_doc_pms_team_team_1_nkangala_auto', tenant_id: 'nkangala_auto' },
+            { id: 'draft_doc_pms_team_tenant-229', tenant_id: 'tenant-229' },
+            { id: 'draft_doc_pms_team_nkangala_auto', tenant_id: 'nkangala_auto' },
             { id: 'draft_doc_pms_team_team_1_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
             { id: 'draft_doc_pms_team_team_1_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
-            { id: 'draft_doc_pms_team_team_1_global_zulune@nkangaladm.gov.za', tenant_id: 'global' }
+            { id: 'draft_doc_pms_team_team_1_global_zulune@nkangaladm.gov.za', tenant_id: 'global' },
+            { id: 'draft_doc_pms_team_team_1_tenant-229_nsibandenp@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+            { id: 'draft_doc_pms_team_team_1_nkangala_auto_nsibandenp@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
+            { id: 'draft_doc_pms_team_team_1_global_nsibandenp@nkangaladm.gov.za', tenant_id: 'global' },
+            { id: 'draft_doc_pms_team_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+            { id: 'draft_doc_pms_team_tenant-229_nsibandenp@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+            { id: 'draft_doc_pms_team_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
+            { id: 'draft_doc_pms_team_nkangala_auto_nsibandenp@nkangaladm.gov.za', tenant_id: 'nkangala_auto' }
           ];
           for (const entry of pmsTeamSyncIds) {
             if (entry.id !== documentId) {

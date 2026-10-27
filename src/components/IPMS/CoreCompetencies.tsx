@@ -588,30 +588,38 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
       .then(res => res.json())
       .then(data => {
         if (data) {
-          if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-            setRows(data.items);
-          }
-          // Community Service: prioritize communityServicesItems, fall back to legacy directorItems
-          if (data.communityServicesItems && Array.isArray(data.communityServicesItems) && data.communityServicesItems.length > 0) {
-            setCommunityRows(data.communityServicesItems);
-          } else if (data.directorItems && Array.isArray(data.directorItems) && data.directorItems.length > 0) {
-            setCommunityRows(data.directorItems);
-          }
-          // Technical Service: load technicalServicesItems
-          if (data.technicalServicesItems && Array.isArray(data.technicalServicesItems) && data.technicalServicesItems.length > 0) {
-            setTechnicalRows(data.technicalServicesItems);
-          }
-          if (data.cfoItems && Array.isArray(data.cfoItems) && data.cfoItems.length > 0) {
-            setCfoRows(data.cfoItems);
-          }
-          if (data.mmItems && Array.isArray(data.mmItems) && data.mmItems.length > 0) {
-            setMmRows(data.mmItems);
-          }
-          if (data.pedItems && Array.isArray(data.pedItems) && data.pedItems.length > 0) {
-            setPedRows(data.pedItems);
-          }
-          if (data.corporateServicesItems && Array.isArray(data.corporateServicesItems) && data.corporateServicesItems.length > 0) {
-            setCorpRows(data.corporateServicesItems);
+          if (data.isCleared) {
+            setRows([]);
+            setCommunityRows([]);
+            setTechnicalRows([]);
+            setCfoRows([]);
+            setMmRows([]);
+            setPedRows([]);
+            setCorpRows([]);
+          } else {
+            if (data.items && Array.isArray(data.items)) {
+              setRows(data.items);
+            }
+            if (data.communityServicesItems && Array.isArray(data.communityServicesItems)) {
+              setCommunityRows(data.communityServicesItems);
+            } else if (data.directorItems && Array.isArray(data.directorItems)) {
+              setCommunityRows(data.directorItems);
+            }
+            if (data.technicalServicesItems && Array.isArray(data.technicalServicesItems)) {
+              setTechnicalRows(data.technicalServicesItems);
+            }
+            if (data.cfoItems && Array.isArray(data.cfoItems)) {
+              setCfoRows(data.cfoItems);
+            }
+            if (data.mmItems && Array.isArray(data.mmItems)) {
+              setMmRows(data.mmItems);
+            }
+            if (data.pedItems && Array.isArray(data.pedItems)) {
+              setPedRows(data.pedItems);
+            }
+            if (data.corporateServicesItems && Array.isArray(data.corporateServicesItems)) {
+              setCorpRows(data.corporateServicesItems);
+            }
           }
           setSyncStatus('saved');
         }
@@ -625,12 +633,17 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
   }, [activeTenantId, currentUser?.email]);
 
   // Save to backend
-  const handleSave = async () => {
+  const handleSave = async (explicitCleared?: boolean | React.MouseEvent) => {
     if (!activeTenantId) return;
     
     setSaving(true);
     setSyncStatus('saving');
     
+    const isNowCleared = typeof explicitCleared === 'boolean' ? explicitCleared : (
+      rows.length === 0 && communityRows.length === 0 && technicalRows.length === 0 &&
+      cfoRows.length === 0 && mmRows.length === 0 && pedRows.length === 0 && corpRows.length === 0
+    );
+
     try {
       await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser?.email || 'default'}`, {
         method: 'POST',
@@ -643,7 +656,8 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
           cfoItems: cfoRows, 
           mmItems: mmRows, 
           pedItems: pedRows, 
-          corporateServicesItems: corpRows 
+          corporateServicesItems: corpRows,
+          isCleared: isNowCleared
         })
       });
       setSyncStatus('saved');
@@ -652,6 +666,51 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
       setSyncStatus('error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleClearAllCompetencies = async () => {
+    if (!window.confirm("Are you sure you want to delete all core competencies for your profile? You will be able to capture new competencies and reupload Portfolios of Evidence (PoEs) from scratch.")) {
+      return;
+    }
+    setRows([]);
+    setCommunityRows([]);
+    setTechnicalRows([]);
+    setCfoRows([]);
+    setMmRows([]);
+    setPedRows([]);
+    setCorpRows([]);
+    setSyncStatus('cached');
+
+    if (activeTenantId) {
+      setSaving(true);
+      try {
+        await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser?.email || 'default'}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [],
+            communityServicesItems: [],
+            technicalServicesItems: [],
+            directorItems: [],
+            cfoItems: [],
+            mmItems: [],
+            pedItems: [],
+            corporateServicesItems: [],
+            isCleared: true
+          })
+        });
+        setSyncStatus('saved');
+        setImportMessage({
+          text: '✓ All core competencies have been deleted for this profile. You can now recapture competencies and reupload PoEs.',
+          type: 'success'
+        });
+      } catch (e: any) {
+        console.error("Failed to clear core competencies:", e);
+        setSyncStatus('error');
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -1297,6 +1356,17 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
             <Plus className="w-4 h-4" /> Add Row
           </button>
 
+          <button 
+            type="button"
+            onClick={handleClearAllCompetencies}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-300 text-sm font-bold rounded-lg transition cursor-pointer disabled:opacity-50"
+            title="Delete all core competencies to start fresh and re-upload Portfolios of Evidence (PoEs)"
+          >
+            <Trash2 className="w-4 h-4 text-rose-600" />
+            <span>Clear All</span>
+          </button>
+
           {onNavigateToSubModule && (
             <button
               id="btn-launch-fred-extractor-engine"
@@ -1311,7 +1381,7 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
           )}
 
           <button 
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={saving}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
           >

@@ -377,13 +377,8 @@ const RAW_TEAM_CONFIGS: Record<string, DepartmentConfig> = {
         name: "Institutional Performance & SDBIP Planning",
         description: "Top-layer SDBIP formulation, institutional scorecard drafting, and quarterly review frameworks",
         defaultRows: [
-          ["1", "Delphine Naidoo (PMS Manager / Performance Lead)", "PM-0100"],
-          ["2", "Qiniso Sithole (SDBIP & Reporting Specialist)", "PM-0210"],
-          ["3", "Marlan Botha (M&E Data Analyst)", "PM-0320"],
-          ["4", "Nomvula Khumalo (Institutional Performance Officer)", "PM-0415"],
-          ["5", "Brandon Pillay (Quality Assurance & Audit Liaison)", "PM-0530"],
-          ["6", "Dumisani Nkosi (Evidence & POE Verification Analyst)", "PM-0640"],
-          ["7", "Grace Mahlangu (Departmental Scorecard Coordinator)", "PM-0750"]
+          ["1", "Noluthando E. Zulu", "P113807", "PMS Officer"],
+          ["2", "Nompumelelo P. Nsibande", "P120480", "PMS Officer"]
         ]
       },
       {

@@ -504,9 +504,6 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       // Explicit list for KhuboniY@nkangaladm.gov.za
       const khuboniSubordinates = [
-        'zulune@nkangaladm.gov.za',
-        'nsibandenp@nkangaladm.gov.za',
-        'nsibandenp@nkangaldm.gov.za',
         'lukhelema@nkangaladm.gov.za',
         'lukhelema@nkangaladmgov.za',
         'sakisd@nkangaladm.gov.za'
@@ -515,6 +512,31 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       if (managerEmail.includes('khuboni')) {
         khuboniSubordinates.forEach(email => mySubordinateEmails.add(email));
         mySubordinateEmails.delete('shabangusm@nkangaladm.gov.za');
+        mySubordinateEmails.delete('zulune@nkangaladm.gov.za');
+        mySubordinateEmails.delete('nsibandenp@nkangaladm.gov.za');
+      }
+
+      // Explicit list for Sibusiso M. Shabangu (shabangusm@nkangaladm.gov.za)
+      const shabanguSubordinates = [
+        'zulune@nkangaladm.gov.za',
+        'nsibandenp@nkangaladm.gov.za',
+        'nsibandenp@nkangaldm.gov.za'
+      ];
+
+      if (managerEmail.includes('shabangusm') || normCurrent.includes('sibusiso') || (normCurrent.includes('shabangu') && !normCurrent.includes('mandla') && !normCurrent.includes('gabsile') && !normCurrent.includes('gabriel') && !normCurrent.includes('pretty') && !normCurrent.includes('fortress'))) {
+        shabanguSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
+      // Explicit list for Nirupa Parbhoo (nparbhoo@nkangaladm.gov.za)
+      const parbhooSubordinates = [
+        'mathibelanmb@nkangaladm.gov.za',
+        'ngomatkr@nkangaladm.gov.za',
+        'skosanast@nkangaladm.gov.za',
+        'motebupp@nkangaladm.gov.za'
+      ];
+
+      if (managerEmail.includes('nparbhoo') || managerEmail.includes('parbhoon') || normCurrent.includes('nirupa') || normCurrent.includes('parbhoo')) {
+        parbhooSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
       // Explicit list for Mandla L. Mahlangu (mahlanguml@nkangaladm.gov.za)
@@ -623,12 +645,23 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const doesManagerMatchCurrentUser = (uManagerRaw: string, uManagerEmailRaw: string) => {
         const uManager = normalize(uManagerRaw || '');
         const uManagerEmail = (uManagerEmailRaw || '').toLowerCase().trim();
-        if (uManagerEmail && managerEmail && (uManagerEmail === managerEmail || uManagerEmail.includes(managerEmail) || managerEmail.includes(uManagerEmail))) {
+        const normCurrentEmail = (managerEmail || '').toLowerCase().trim();
+
+        // 1. Authoritative email check if manager email is present on the subordinate record
+        if (uManagerEmail && normCurrentEmail) {
+          const uPrefix = uManagerEmail.split('@')[0];
+          const curPrefix = normCurrentEmail.split('@')[0];
+          if (uManagerEmail === normCurrentEmail || uPrefix === curPrefix) {
+            return true;
+          }
+          // Explicit non-matching manager email -> reject to avoid surname collisions
+          return false;
+        }
+
+        if (uManager && normCurrentEmail && uManager.includes(normCurrentEmail)) {
           return true;
         }
-        if (uManager && managerEmail && uManager.includes(managerEmail)) {
-          return true;
-        }
+
         if (uManager && normCurrent) {
           if (uManager === normCurrent || uManager.includes(normCurrent) || normCurrent.includes(uManager)) {
             return true;
@@ -640,9 +673,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             const cLast = curTokens[curTokens.length - 1];
             const mFirst = mTokens[0];
             const mLast = mTokens[mTokens.length - 1];
-            if (cFirst === mFirst && cLast === mLast) return true;
-            if (mTokens.includes(cFirst) && mTokens.includes(cLast)) return true;
-            if (mFirst.length <= 2 && cFirst.startsWith(mFirst[0]) && mLast === cLast) return true;
+            if (cLast === mLast) {
+              if (cFirst === mFirst) return true;
+              if (mTokens.includes(cFirst) && mTokens.includes(cLast)) return true;
+              // If surname is 'nkosi', do not do fuzzy initial matching because of multiple Nkosi managers
+              if (cLast === 'nkosi') {
+                return false;
+              }
+              if (mFirst.length <= 2 && cFirst.startsWith(mFirst[0])) return true;
+            }
           }
         }
         return false;
@@ -743,8 +782,18 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           }
         }
 
+        // Rule: Zulu and Nsibande report to Shabangu, NOT Khuboni
+        if (targetEmail.includes('zulune') || targetEmail.includes('nsibandenp')) {
+          if (managerEmail.includes('khuboni')) return false;
+          if (managerEmail.includes('shabangusm') || normCurrent.includes('sibusiso') || (normCurrent.includes('shabangu') && !normCurrent.includes('mandla') && !normCurrent.includes('gabsile') && !normCurrent.includes('gabriel'))) {
+            return true;
+          }
+        }
+
         const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
           doesManagerMatchCurrentUser(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '', pManagerEmail) ||
+          ((managerEmail.includes('shabangusm') || normCurrent.includes('sibusiso') || (normCurrent.includes('shabangu') && !normCurrent.includes('mandla'))) && (shabanguSubordinates.includes(targetEmail) || pManager.includes('shabangu'))) ||
+          ((managerEmail.includes('nparbhoo') || managerEmail.includes('parbhoon') || normCurrent.includes('nirupa') || normCurrent.includes('parbhoo')) && (parbhooSubordinates.includes(targetEmail) || pManager.includes('parbhoo'))) ||
           ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(targetEmail) || pManager.includes('links'))) ||
           ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(targetEmail) || pManager.includes('singh'))) ||
           ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(targetEmail) || pManager.includes('joubert'))) ||
@@ -1857,7 +1906,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               <JSCManagerApprovalSection 
                 currentUser={currentUser} 
                 activeTenantId={activeTenantId} 
-                defaultEmployeeEmail={selectedPlan?.userId} 
+                defaultEmployeeEmail={
+                  (selectedPlan?.userId && selectedPlan.userId !== currentUser.email)
+                    ? selectedPlan.userId
+                    : (currentUser?.email || '').toLowerCase().includes('singhn')
+                      ? 'rachidimb@nkangaladm.gov.za'
+                      : undefined
+                } 
               />
             </div>
           ) : mgrTab === 'cc' ? (
@@ -1878,6 +1933,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               activeTenantId={activeTenantId}
               onSelectUserPlan={async (targetUserEmail, kpiId, quarter, targetKpiIds) => {
                 const normTarget = (targetUserEmail || '').toLowerCase().trim();
+                const isJscNotification = kpiId === 'JSC' || 
+                                         (targetKpiIds && targetKpiIds.includes('JSC')) || 
+                                         (kpiId && kpiId.toLowerCase().includes('jsc'));
+
+                if (isJscNotification) {
+                  setMgrTab('jsc');
+                  setSelectedPlan({ userId: normTarget, plan: { metadata: { email: normTarget } } });
+                  return;
+                }
+
                 const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
                   ? targetKpiIds 
                   : (kpiId ? [kpiId] : null);

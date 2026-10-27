@@ -37,6 +37,7 @@ export interface IPMSNotification {
   recipientName: string;
   title: string;
   message: string;
+  type?: string;
   kpiId?: string;
   kpiIds?: string[];
   kpiNo?: string;
@@ -1591,6 +1592,11 @@ export function IPMSWorkflowInbox({
 
                               // If still empty or single KPI text, parse from title and message
                               const fullText = `${item.title || ''} ${item.message || ''}`;
+                              const itemType = String(item.type || item.actionType || '');
+
+                              if (itemType.toLowerCase().includes('jsc') || fullText.toLowerCase().includes('job specific competency') || fullText.toLowerCase().includes('single jsc') || fullText.toLowerCase().includes('jsc-')) {
+                                if (!extractedIds.includes('JSC')) extractedIds.push('JSC');
+                              }
                               const kpiRegexes = [
                                 /(?:Single KPI|KPI\(s\)|PoE Submitted for KPI|dispatched single KPI|approved single KPI|approved KPI\(s\))\s*#?([a-zA-Z0-9_\-/]+)/gi,
                                 /•\s*KPI\s*#?([a-zA-Z0-9_\-/]+):/gi,

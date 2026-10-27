@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, CheckCircle, BarChart2, Check, RefreshCw, Send,
   User, Shield, FileBadge, Info, Layers, AlertCircle, ShieldAlert,
-  Search, Eye, Edit3, MessageSquare, Award, RotateCcw, Upload, FileText, X
+  Search, Eye, Edit3, MessageSquare, Award, RotateCcw, Upload, FileText, X,
+  Paperclip
 } from 'lucide-react';
 import { PoeDocument, QuarterPoeSelector } from './Evaluation_IPMS';
 import { viewOriginalFile } from '../../utils/documentBinaryHelper';
@@ -36,11 +37,43 @@ export interface CompetencyRow {
   };
   level: string;
   weight: number; 
+  poeDocs?: PoeDocument[];
   q1?: CompetencyQuarterData;
   q2?: CompetencyQuarterData;
   q3?: CompetencyQuarterData;
   q4?: CompetencyQuarterData;
 }
+
+export const NIRISHA_DIRECT_SUBORDINATES = [
+  { email: 'rachidimb@nkangaladm.gov.za', name: 'Mr. M.B. Rachidi (Senior Manager: Legal Services)' },
+  { email: 'mokhabelagg@nkangaladm.gov.za', name: 'Ms. G.G. Mokhabela (Manager: Administration)' },
+  { email: 'marxc@nkangaladm.gov.za', name: 'Ms. Chanel Marx (Chief Committee Officer)' },
+  { email: 'nakapm@nkangaladm.gov.za', name: 'Ms. P.M. Naka (Manager: Records & Archives)' }
+];
+
+export const getTargetManagerForUser = (userEmail: string, fallbackManager?: string): string => {
+  const norm = (userEmail || '').toLowerCase().trim();
+  if (norm.includes('shabangusm') || norm.includes('shabangugm')) return 'mahlanguml@nkangaladm.gov.za';
+  if (['rachidimb', 'mokhabelagg', 'marxc', 'nakapm'].some(id => norm.includes(id))) {
+    return 'singhn@nkangaladm.gov.za';
+  }
+  if (['matsebulan', 'mathenjwabh'].some(id => norm.includes(id))) {
+    return 'joubertm@nkangaladm.gov.za';
+  }
+  if (['joubertm', 'tloujmt', 'singhn'].some(id => norm.includes(id))) {
+    return 'linkss@nkangaladm.gov.za';
+  }
+  if (['giyasi-affulph', 'sibanyonimj', 'singorl'].some(id => norm.includes(id))) {
+    return 'magampeas@nkangaladm.gov.za';
+  }
+  if (['zulune', 'nsibandenp', 'lukhelema', 'sakisd'].some(id => norm.includes(id))) {
+    return 'khuboniy@nkangaladm.gov.za';
+  }
+  if (norm.includes('myenispl')) {
+    return 'nkosije@nkangaladm.gov.za';
+  }
+  return fallbackManager || 'singhn@nkangaladm.gov.za';
+};
 
 interface JSCModuleProps {
   currentUser: {
@@ -66,11 +99,14 @@ export const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
     internalAuditorComments: qData?.internalAuditorComments || '',
     dpmcScore: qData?.dpmcScore || 0,
     dpmcComments: qData?.dpmcComments || '',
-    status: qData?.status || 'draft'
+    status: qData?.status || 'draft',
+    poeDocs: qData?.poeDocs || [],
+    poeText: qData?.poeText || ''
   });
 
   return {
     ...row,
+    poeDocs: row.poeDocs || [],
     q1: defaultQuarter(row.q1),
     q2: defaultQuarter(row.q2),
     q3: defaultQuarter(row.q3),
@@ -246,8 +282,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
     await handleSaveToDatabase(updated);
 
     try {
-      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
-      const targetManager = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
+      const targetManager = getTargetManagerForUser(currentUser.email, currentUser.managerEmail);
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -258,10 +293,13 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
             recipientEmail: targetManager,
             recipientName: targetManager.split('@')[0],
             senderEmail: currentUser.email,
-            senderName: currentUser.name || currentUser.email,
+            senderName: currentUser.name || currentUser.fullName || currentUser.email,
+            employeeEmail: currentUser.email,
             type: 'jsc_submission',
+            actionType: 'submission',
+            quarter: selectedQuarter.toUpperCase(),
             title: `Single JSC ${target?.jscNo || ''} Submitted (${selectedQuarter.toUpperCase()})`,
-            message: `${currentUser.name || currentUser.email} submitted competency ${target?.jscNo || ''} (${target?.competency || ''}) with Self Score ${score}/5 for ${selectedQuarter.toUpperCase()}.`,
+            message: `${currentUser.name || currentUser.fullName || currentUser.email} (${currentUser.email}) submitted competency ${target?.jscNo || ''} (${target?.competency || ''}) with Self Score ${score}/5 for ${selectedQuarter.toUpperCase()}.`,
             read: false,
             createdAt: new Date().toISOString()
           }
@@ -304,8 +342,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
         return `${r.jscNo || 'JSC'}: Score ${score}/5`;
       }).join(' | ');
 
-      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
-      const targetManager = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
+      const targetManager = getTargetManagerForUser(currentUser.email, currentUser.managerEmail);
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,10 +353,13 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJS
             recipientEmail: targetManager,
             recipientName: targetManager.split('@')[0],
             senderEmail: currentUser.email,
-            senderName: currentUser.name || currentUser.email,
+            senderName: currentUser.name || currentUser.fullName || currentUser.email,
+            employeeEmail: currentUser.email,
             type: 'jsc_submission',
+            actionType: 'submission',
+            quarter: selectedQuarter.toUpperCase(),
             title: `Job Specific Competency Self Evaluation Submitted (${selectedQuarter.toUpperCase()})`,
-            message: `${currentUser.name || currentUser.email} has submitted JSC self evaluations for ${selectedQuarter.toUpperCase()}.\nSummary: ${summaryMsg}`,
+            message: `${currentUser.name || currentUser.fullName || currentUser.email} (${currentUser.email}) has submitted JSC self evaluations and evidence for ${selectedQuarter.toUpperCase()}.\nSummary: ${summaryMsg}`,
             read: false,
             createdAt: new Date().toISOString()
           }
@@ -612,16 +652,31 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
   const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(defaultEmployeeEmail || '');
-  const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>([]);
+  const isNirisha = (currentUser.email || '').toLowerCase().includes('singhn');
+  const initialSubordinate = isNirisha 
+    ? 'rachidimb@nkangaladm.gov.za' 
+    : (defaultEmployeeEmail && defaultEmployeeEmail.toLowerCase().trim() !== (currentUser.email || '').toLowerCase().trim()
+        ? defaultEmployeeEmail.toLowerCase().trim()
+        : '');
+
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>(initialSubordinate);
+  const [subordinates, setSubordinates] = useState<Array<{ email: string; name: string }>>(
+    isNirisha ? NIRISHA_DIRECT_SUBORDINATES : []
+  );
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
   useEffect(() => {
     if (defaultEmployeeEmail) {
-      setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
+      const norm = defaultEmployeeEmail.toLowerCase().trim();
+      const currNorm = (currentUser.email || '').toLowerCase().trim();
+      if (norm && norm !== currNorm) {
+        setSelectedUserEmail(norm);
+      } else if (currNorm.includes('singhn')) {
+        setSelectedUserEmail('rachidimb@nkangaladm.gov.za');
+      }
     }
-  }, [defaultEmployeeEmail]);
+  }, [defaultEmployeeEmail, currentUser.email]);
 
   useEffect(() => {
     let active = true;
@@ -634,13 +689,19 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
 
         const emailMap = new Map<string, string>();
 
+        if (isNirisha) {
+          NIRISHA_DIRECT_SUBORDINATES.forEach(s => emailMap.set(s.email, s.name));
+        }
+
         if (usersRes.ok) {
           const usersData = await usersRes.json();
           if (Array.isArray(usersData)) {
             usersData.forEach((u: any) => {
               const em = (u.email || '').toLowerCase().trim();
               if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
-                emailMap.set(em, u.fullName || u.full_name || u.name || em);
+                if (!emailMap.has(em)) {
+                  emailMap.set(em, u.fullName || u.full_name || u.name || em);
+                }
               }
             });
           }
@@ -660,17 +721,30 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
           }
         }
 
-        const list = Array.from(emailMap.entries()).map(([email, name]) => ({ email, name }));
+        const currNorm = (currentUser.email || '').toLowerCase().trim();
+        const list = Array.from(emailMap.entries())
+          .filter(([email]) => email !== currNorm)
+          .map(([email, name]) => ({ email, name }));
+
+        if (isNirisha) {
+          list.sort((a, b) => {
+            const aIsDirect = NIRISHA_DIRECT_SUBORDINATES.some(s => s.email === a.email);
+            const bIsDirect = NIRISHA_DIRECT_SUBORDINATES.some(s => s.email === b.email);
+            if (aIsDirect && !bIsDirect) return -1;
+            if (!aIsDirect && bIsDirect) return 1;
+            return a.name.localeCompare(b.name);
+          });
+        }
+
         if (active) {
           setSubordinates(list);
 
-          if (defaultEmployeeEmail) {
+          if (isNirisha && (!selectedUserEmail || selectedUserEmail === currNorm)) {
+            setSelectedUserEmail('rachidimb@nkangaladm.gov.za');
+          } else if (defaultEmployeeEmail && defaultEmployeeEmail.toLowerCase().trim() !== currNorm) {
             setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
           } else if (list.length > 0 && !selectedUserEmail) {
-            const sub = list.find((s: any) => s.email !== currentUser.email?.toLowerCase().trim()) || list[0];
-            if (sub) {
-              setSelectedUserEmail(sub.email);
-            }
+            setSelectedUserEmail(list[0].email);
           }
         }
       } catch (err) {
@@ -679,7 +753,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
     };
     if (activeTenantId) fetchTeam();
     return () => { active = false; };
-  }, [activeTenantId, defaultEmployeeEmail, currentUser.email]);
+  }, [activeTenantId, defaultEmployeeEmail, currentUser.email, isNirisha]);
 
   useEffect(() => {
     let active = true;
@@ -1099,62 +1173,89 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                           {row.weight}%
                         </td>
                         <td className="px-4 py-3 text-xs">
-                          {qData.selfScore ? (
-                            <div className="space-y-1.5">
-                              <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
-                                Score: {qData.selfScore}/5
-                              </span>
-                              <p className="text-[10px] text-gray-500 leading-tight italic break-words">
-                                "{qData.selfComments || 'No comment added'}"
-                              </p>
-                              {qData.poeText && (
-                                <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
-                                  <span className="font-extrabold text-slate-800 block">PoE Note:</span>
-                                  {qData.poeText}
-                                </div>
-                              )}
-                              {qData.poeDocs && qData.poeDocs.length > 0 && (
-                                <div className="space-y-1 mt-1">
-                                  <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-tight block">PoE Files:</span>
-                                  <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto">
-                                    {qData.poeDocs.map((file) => (
-                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] hover:bg-slate-50 transition duration-75">
-                                        <button
-                                          type="button"
-                                          onClick={() => viewOriginalFile(file.name, file.dataUrl)}
-                                          className="font-bold text-slate-800 hover:text-indigo-600 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
-                                          title={`Click to view ${file.name} in a new window`}
-                                        >
-                                          <FileText className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                          <span className="truncate">{file.name}</span>
-                                        </button>
-                                        <div className="flex items-center gap-1 shrink-0">
+                          {(() => {
+                            const qPoeDocs = Array.isArray(qData.poeDocs) ? qData.poeDocs : [];
+                            const rowPoeDocs = Array.isArray(row.poeDocs) ? row.poeDocs : [];
+                            const seenDocIds = new Set<string>();
+                            const combinedPoeDocs: PoeDocument[] = [];
+                            [...qPoeDocs, ...rowPoeDocs].forEach(d => {
+                              if (d && (d.id || d.name)) {
+                                const key = d.id || d.name;
+                                if (!seenDocIds.has(key)) {
+                                  seenDocIds.add(key);
+                                  combinedPoeDocs.push(d);
+                                }
+                              }
+                            });
+
+                            return (
+                              <div className="space-y-1.5">
+                                {qData.selfScore ? (
+                                  <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
+                                    Score: {qData.selfScore}/5
+                                  </span>
+                                ) : (
+                                  <span className="inline-block bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold text-[10px] italic">
+                                    Score: Pending ({qData.selfScore || 0}/5)
+                                  </span>
+                                )}
+                                {qData.selfComments && (
+                                  <p className="text-[10px] text-gray-500 leading-tight italic break-words">
+                                    "{qData.selfComments}"
+                                  </p>
+                                )}
+                                {qData.poeText && (
+                                  <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
+                                    <span className="font-extrabold text-slate-800 block">PoE Note:</span>
+                                    {qData.poeText}
+                                  </div>
+                                )}
+                                {combinedPoeDocs.length > 0 ? (
+                                  <div className="space-y-1 mt-1">
+                                    <span className="text-[9px] font-extrabold text-emerald-700 uppercase tracking-tight block flex items-center gap-1">
+                                      <Paperclip className="w-2.5 h-2.5 text-emerald-600" />
+                                      PoE Attachments ({combinedPoeDocs.length}):
+                                    </span>
+                                    <div className="flex flex-col gap-1 max-h-[90px] overflow-y-auto">
+                                      {combinedPoeDocs.map((file) => (
+                                        <div key={file.id || file.name} className="flex items-center justify-between gap-1 bg-white border border-emerald-200 rounded p-1 text-[9px] hover:bg-emerald-50 transition duration-75">
                                           <button
                                             type="button"
                                             onClick={() => viewOriginalFile(file.name, file.dataUrl)}
-                                            className="text-indigo-600 hover:text-indigo-800 font-black cursor-pointer text-[8px] bg-indigo-50 px-1 py-0.2 rounded border-none"
-                                            title="View in browser"
+                                            className="font-bold text-slate-800 hover:text-emerald-700 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
+                                            title={`Click to view ${file.name} in a new window`}
                                           >
-                                            View
+                                            <FileText className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                            <span className="truncate">{file.name}</span>
                                           </button>
-                                          <a
-                                            href={file.dataUrl}
-                                            download={file.name}
-                                            className="text-emerald-600 hover:text-emerald-800 font-black text-[8px] bg-emerald-50 px-1 py-0.2 rounded"
-                                            title="Download original file"
-                                          >
-                                            Down
-                                          </a>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                              className="text-emerald-700 hover:text-emerald-900 font-black cursor-pointer text-[8px] bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200"
+                                              title="View in browser"
+                                            >
+                                              View
+                                            </button>
+                                            <a
+                                              href={file.dataUrl}
+                                              download={file.name}
+                                              className="text-blue-700 hover:text-blue-900 font-black text-[8px] bg-blue-50 px-1 py-0.5 rounded border border-blue-200"
+                                              title="Download original file"
+                                            >
+                                              Down
+                                            </a>
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 italic font-medium text-[10px]">Not evaluated yet</span>
-                          )}
+                                ) : (
+                                  <span className="text-[9.5px] text-gray-400 italic block mt-0.5">No PoE attached</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <select
@@ -1465,8 +1566,7 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
     }
 
     try {
-      const isShabanguUser = (currentUser.email || '').toLowerCase().includes('shabangusm');
-      const managerEmail = isShabanguUser ? 'mahlanguml@nkangaladm.gov.za' : (currentUser.managerEmail || 'khuboniy@nkangaladm.gov.za');
+      const managerEmail = getTargetManagerForUser(emailToSave, currentUser.managerEmail);
       await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1663,62 +1763,89 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
                           {row.weight}%
                         </td>
                         <td className="px-4 py-3 text-xs">
-                          {qData.selfScore ? (
-                            <div className="space-y-1.5">
-                              <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
-                                Self Score: {qData.selfScore}/5
-                              </span>
-                              <p className="text-[10px] text-gray-500 leading-tight italic break-words">
-                                "{qData.selfComments || 'No self comment'}"
-                              </p>
-                              {qData.poeText && (
-                                <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
-                                  <span className="font-extrabold text-slate-800 block">PoE Note:</span>
-                                  {qData.poeText}
-                                </div>
-                              )}
-                              {qData.poeDocs && qData.poeDocs.length > 0 && (
-                                <div className="space-y-1 mt-1">
-                                  <span className="text-[9px] font-extrabold text-slate-500 uppercase tracking-tight block">PoE Files:</span>
-                                  <div className="flex flex-col gap-1 max-h-[80px] overflow-y-auto">
-                                    {qData.poeDocs.map((file) => (
-                                      <div key={file.id} className="flex items-center justify-between gap-1 bg-white border border-slate-200 rounded p-1 text-[9px] hover:bg-slate-50 transition duration-75">
-                                        <button
-                                          type="button"
-                                          onClick={() => viewOriginalFile(file.name, file.dataUrl)}
-                                          className="font-bold text-slate-800 hover:text-indigo-600 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
-                                          title={`Click to view ${file.name} in a new window`}
-                                        >
-                                          <FileText className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                          <span className="truncate">{file.name}</span>
-                                        </button>
-                                        <div className="flex items-center gap-1 shrink-0">
+                          {(() => {
+                            const qPoeDocs = Array.isArray(qData.poeDocs) ? qData.poeDocs : [];
+                            const rowPoeDocs = Array.isArray(row.poeDocs) ? row.poeDocs : [];
+                            const seenDocIds = new Set<string>();
+                            const combinedPoeDocs: PoeDocument[] = [];
+                            [...qPoeDocs, ...rowPoeDocs].forEach(d => {
+                              if (d && (d.id || d.name)) {
+                                const key = d.id || d.name;
+                                if (!seenDocIds.has(key)) {
+                                  seenDocIds.add(key);
+                                  combinedPoeDocs.push(d);
+                                }
+                              }
+                            });
+
+                            return (
+                              <div className="space-y-1.5">
+                                {qData.selfScore ? (
+                                  <span className="inline-block bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-black text-[10px]">
+                                    Self Score: {qData.selfScore}/5
+                                  </span>
+                                ) : (
+                                  <span className="inline-block bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded font-bold text-[10px] italic">
+                                    Score: Pending ({qData.selfScore || 0}/5)
+                                  </span>
+                                )}
+                                {qData.selfComments && (
+                                  <p className="text-[10px] text-gray-500 leading-tight italic break-words">
+                                    "{qData.selfComments}"
+                                  </p>
+                                )}
+                                {qData.poeText && (
+                                  <div className="bg-slate-50 border border-slate-200 rounded p-1.5 text-[9.5px] mt-1 text-slate-700">
+                                    <span className="font-extrabold text-slate-800 block">PoE Note:</span>
+                                    {qData.poeText}
+                                  </div>
+                                )}
+                                {combinedPoeDocs.length > 0 ? (
+                                  <div className="space-y-1 mt-1">
+                                    <span className="text-[9px] font-extrabold text-indigo-700 uppercase tracking-tight block flex items-center gap-1">
+                                      <Paperclip className="w-2.5 h-2.5 text-indigo-600" />
+                                      PoE Attachments ({combinedPoeDocs.length}):
+                                    </span>
+                                    <div className="flex flex-col gap-1 max-h-[90px] overflow-y-auto">
+                                      {combinedPoeDocs.map((file) => (
+                                        <div key={file.id || file.name} className="flex items-center justify-between gap-1 bg-white border border-indigo-200 rounded p-1 text-[9px] hover:bg-indigo-50 transition duration-75">
                                           <button
                                             type="button"
                                             onClick={() => viewOriginalFile(file.name, file.dataUrl)}
-                                            className="text-indigo-600 hover:text-indigo-800 font-black cursor-pointer text-[8px] bg-indigo-50 px-1 py-0.2 rounded border-none"
-                                            title="View in browser"
+                                            className="font-bold text-slate-800 hover:text-indigo-700 truncate max-w-[120px] flex items-center gap-1 cursor-pointer text-left border-none bg-transparent p-0"
+                                            title={`Click to view ${file.name} in a new window`}
                                           >
-                                            View
+                                            <FileText className="w-2.5 h-2.5 text-indigo-600 shrink-0" />
+                                            <span className="truncate">{file.name}</span>
                                           </button>
-                                          <a
-                                            href={file.dataUrl}
-                                            download={file.name}
-                                            className="text-emerald-600 hover:text-emerald-800 font-black text-[8px] bg-emerald-50 px-1 py-0.2 rounded"
-                                            title="Download original file"
-                                          >
-                                            Down
-                                          </a>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => viewOriginalFile(file.name, file.dataUrl)}
+                                              className="text-indigo-700 hover:text-indigo-900 font-black cursor-pointer text-[8px] bg-indigo-50 px-1 py-0.5 rounded border border-indigo-200"
+                                              title="View in browser"
+                                            >
+                                              View
+                                            </button>
+                                            <a
+                                              href={file.dataUrl}
+                                              download={file.name}
+                                              className="text-blue-700 hover:text-blue-900 font-black text-[8px] bg-blue-50 px-1 py-0.5 rounded border border-blue-200"
+                                              title="Download original file"
+                                            >
+                                              Down
+                                            </a>
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 italic font-medium text-[10px]">Not evaluated by employee</span>
-                          )}
+                                ) : (
+                                  <span className="text-[9.5px] text-gray-400 italic block mt-0.5">No PoE attached</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <select

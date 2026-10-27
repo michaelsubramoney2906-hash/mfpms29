@@ -112,13 +112,13 @@ export function QuarterPoeSelector({
     const fileList = Array.from(fileListParam);
     if (fileList.length === 0) return;
 
-    if (fileList.length > 20) {
-      alert(`File Upload Limits Notice:\n\n• You can upload at most 20 files at a time. Please select fewer files.`);
+    if (fileList.length > 100) {
+      alert(`File Upload Limits Notice:\n\n• You can upload at most 100 files at a time. Please select fewer files.`);
       return;
     }
 
-    if (files.length + fileList.length > 20) {
-      alert(`File Upload Limits Notice:\n\n• You can have a maximum of 20 PoE files per KPI.`);
+    if (files.length + fileList.length > 100) {
+      alert(`File Upload Limits Notice:\n\n• You can have a maximum of 100 PoE files per KPI.`);
       return;
     }
 

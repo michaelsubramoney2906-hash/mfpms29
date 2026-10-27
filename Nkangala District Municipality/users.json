@@ -248,10 +248,10 @@
     "source": "azure_ad",
     "role": "tenant_user",
     "tenantId": "nkangala_auto",
-    "manager": "Yena Khuboni",
+    "manager": "Sibusiso M. Shabangu",
     "directorate": "Office of the Municipal Manager",
-    "reportTo": "Yena Khuboni",
-    "managerEmail": "",
+    "reportTo": "Sibusiso M. Shabangu",
+    "managerEmail": "shabangusm@nkangaladm.gov.za",
     "level": "5"
   },
   {
@@ -2696,7 +2696,7 @@
     "manager": "Nirupa Parbhoo",
     "directorate": "Finance",
     "reportTo": "Nirupa Parbhoo",
-    "managerEmail": "",
+    "managerEmail": "nparbhoo@nkangaladm.gov.za",
     "level": "9"
   },
   {
@@ -3261,13 +3261,14 @@
     "jobFunction": "Accountant",
     "department": "Finance Services",
     "source": "azure_ad",
-    "role": "Standard User",
+    "role": "Manager",
     "tenantId": "nkangala_auto",
     "manager": "Andile N Hlongwa",
     "directorate": "Finance",
     "reportTo": "Andile N. Hlongwa",
     "managerEmail": "",
-    "level": "5"
+    "level": "5",
+    "hasSubordinates": true
   },
   {
     "id": "7796bd8b-1c67-4350-bdc5-81908acb7fca",
@@ -4718,10 +4719,10 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "nkangala_auto",
-    "manager": "Nirupha Parbhoo",
+    "manager": "Nirupa Parbhoo",
     "directorate": "Finance",
     "reportTo": "Nirupa Parbhoo",
-    "managerEmail": "",
+    "managerEmail": "nparbhoo@nkangaladm.gov.za",
     "level": "9"
   },
   {
@@ -5531,7 +5532,7 @@
     "manager": "Siphesihle O. Nkosi",
     "directorate": "Corporate",
     "reportTo": "Siphesihle O. Nkosi",
-    "managerEmail": "",
+    "managerEmail": "nkosiso@nkangaladm.gov.za",
     "level": "9"
   },
   {
@@ -5861,7 +5862,7 @@
     "manager": "Sanele Nkosi",
     "directorate": "Technical",
     "reportTo": "Sanele Nkosi",
-    "managerEmail": "",
+    "managerEmail": "nkosis@nkangaladm.gov.za",
     "level": "4"
   },
   {
@@ -5891,7 +5892,7 @@
     "manager": "Siphesihle O. Nkosi",
     "directorate": "Corporate Services",
     "reportTo": "Siphesihle O. Nkosi",
-    "managerEmail": "",
+    "managerEmail": "nkosiso@nkangaladm.gov.za",
     "level": "11"
   },
   {
@@ -5966,7 +5967,7 @@
     "manager": "Sibusiso M. Shabangu",
     "directorate": "Office of the Municipal Manager",
     "reportTo": "Sibusiso M. Shabangu",
-    "managerEmail": "",
+    "managerEmail": "shabangusm@nkangaladm.gov.za",
     "level": "4"
   },
   {
@@ -11591,7 +11592,7 @@
     "manager": "Nirupa Parbhoo",
     "directorate": "Finance",
     "reportTo": "Nirupa Parbhoo",
-    "managerEmail": "",
+    "managerEmail": "nparbhoo@nkangaladm.gov.za",
     "level": "6"
   },
   {
@@ -11906,7 +11907,7 @@
     "manager": "Nirupa Parbhoo",
     "directorate": "Finance",
     "reportTo": "Nirupa Parbhoo",
-    "managerEmail": "",
+    "managerEmail": "nparbhoo@nkangaladm.gov.za",
     "level": "6"
   },
   {
@@ -12191,7 +12192,7 @@
     "manager": "Sanele Nkosi",
     "directorate": "Technical",
     "reportTo": "Sanele Nkosi",
-    "managerEmail": "",
+    "managerEmail": "nkosis@nkangaladm.gov.za",
     "level": "4"
   },
   {

@@ -201,5 +201,27 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 7. Mr. Joseph Lebisi (lebisij@nkangaladm.gov.za) & Annual Performance Evaluation KPIs (due 29 August 2026)
+  if (normEmail === 'lebisij@nkangaladm.gov.za' || normEmail.includes('lebisi')) {
+    result = result.map(kpi => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      // Unlock KPI 4 / Annual Performance Evaluation KPI for Q1
+      if (ref === '4' || ref === 'KPI 4' || ref === 'KPI_4' || desc.includes('annual performance evaluation') || desc.includes('29 august 2026')) {
+        return {
+          ...kpi,
+          q1Applicable: true,
+          q1Locked: false,
+          '1st qtr target': '1 (annual assessment)',
+          q1Target: '1 (annual assessment)',
+          lockedQuarters: (kpi.lockedQuarters || []).filter((q: string) => q.toUpperCase() !== 'Q1')
+        };
+      }
+      return kpi;
+    });
+  }
+
   return result;
 }
+
