@@ -336,34 +336,46 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
           });
         };
 
+        const isCleared = Boolean(compData.isCleared || compData.cleared);
+
         // Initialize Directors rows
-        const rawDirectors = (compData.directorItems && Array.isArray(compData.directorItems) && compData.directorItems.length > 0)
-          ? compData.directorItems
-          : DEFAULT_DIRECTORS_COMPETENCIES;
+        const rawDirectors = isCleared 
+          ? (compData.directorItems || [])
+          : ((compData.directorItems && Array.isArray(compData.directorItems) && compData.directorItems.length > 0)
+            ? compData.directorItems
+            : DEFAULT_DIRECTORS_COMPETENCIES);
         setDirectorsRows(mergeWithEval(rawDirectors, 'directors', 'dir'));
 
         // Initialize CFO rows
-        const rawCfo = (compData.cfoItems && Array.isArray(compData.cfoItems) && compData.cfoItems.length > 0)
-          ? compData.cfoItems
-          : DEFAULT_CFO_COMPETENCIES;
+        const rawCfo = isCleared 
+          ? (compData.cfoItems || [])
+          : ((compData.cfoItems && Array.isArray(compData.cfoItems) && compData.cfoItems.length > 0)
+            ? compData.cfoItems
+            : DEFAULT_CFO_COMPETENCIES);
         setCfoRows(mergeWithEval(rawCfo, 'cfo', 'cfo'));
 
         // Initialize Municipal Managers (MM) rows
-        const rawMm = (compData.mmItems && Array.isArray(compData.mmItems) && compData.mmItems.length > 0)
-          ? compData.mmItems
-          : DEFAULT_MM_COMPETENCIES;
+        const rawMm = isCleared 
+          ? (compData.mmItems || [])
+          : ((compData.mmItems && Array.isArray(compData.mmItems) && compData.mmItems.length > 0)
+            ? compData.mmItems
+            : DEFAULT_MM_COMPETENCIES);
         setMmRows(mergeWithEval(rawMm, 'mm', 'mm'));
 
         // Initialize PED rows
-        const rawPed = (compData.pedItems && Array.isArray(compData.pedItems) && compData.pedItems.length > 0)
-          ? compData.pedItems
-          : DEFAULT_PED_COMPETENCIES;
+        const rawPed = isCleared 
+          ? (compData.pedItems || [])
+          : ((compData.pedItems && Array.isArray(compData.pedItems) && compData.pedItems.length > 0)
+            ? compData.pedItems
+            : DEFAULT_PED_COMPETENCIES);
         setPedRows(mergeWithEval(rawPed, 'ped', 'ped'));
 
         // Initialize Corporate Services rows
-        const rawCorp = (compData.corporateServicesItems && Array.isArray(compData.corporateServicesItems) && compData.corporateServicesItems.length > 0)
-          ? compData.corporateServicesItems
-          : DEFAULT_CORP_COMPETENCIES;
+        const rawCorp = isCleared 
+          ? (compData.corporateServicesItems || [])
+          : ((compData.corporateServicesItems && Array.isArray(compData.corporateServicesItems) && compData.corporateServicesItems.length > 0)
+            ? compData.corporateServicesItems
+            : DEFAULT_CORP_COMPETENCIES);
         setCorpRows(mergeWithEval(rawCorp, 'corp', 'corp'));
 
       } catch (err) {
