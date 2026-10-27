@@ -20601,6 +20601,105 @@ User Request: ${prompt}`;
       next();
     });
 
+    // ----------------------------------------------------
+    // PERSISTENT ANNUAL REPORT API ENDPOINTS (ALL SYSTEM USERS)
+    // ----------------------------------------------------
+    app.get('/api/annual-report', async (req, res) => {
+      try {
+        const tenantId = (req.query.tenantId as string) || 'tenant-229';
+        const supabase = getSupabase();
+        
+        if (supabase) {
+          const { data, error } = await supabase
+            .from('messages')
+            .select('content, created_at')
+            .in('id', ['annual_report_master_v1', `annual_report_master_${tenantId}`])
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!error && data && data.length > 0) {
+            const parsed = typeof data[0].content === 'string' ? JSON.parse(data[0].content) : data[0].content;
+            return res.json({ success: true, report: parsed });
+          }
+        }
+
+        // Fallback to local backup on disk
+        const localBackupPath = path.join(process.cwd(), 'backup_archive', 'Annual_Report_Master.json');
+        if (fs.existsSync(localBackupPath)) {
+          const content = fs.readFileSync(localBackupPath, 'utf8');
+          return res.json({ success: true, report: JSON.parse(content) });
+        }
+
+        return res.json({ success: true, report: null });
+      } catch (err: any) {
+        console.error("[Annual Report GET API Error]:", err);
+        return res.status(500).json({ error: err.message || "Failed to fetch annual report record" });
+      }
+    });
+
+    app.post('/api/annual-report', async (req, res) => {
+      try {
+        const { metadata, dataUrl, tenantId } = req.body || {};
+        if (!metadata) {
+          return res.status(400).json({ error: "Missing report metadata." });
+        }
+
+        const activeTenant = tenantId || 'tenant-229';
+        const payload = {
+          metadata: {
+            ...metadata,
+            savedAt: new Date().toISOString()
+          },
+          dataUrl: dataUrl || '',
+          savedBy: metadata.uploadedBy || 'mike@mzansiflow.co.za'
+        };
+
+        const payloadStr = JSON.stringify(payload);
+
+        // Save to Supabase messages table under canonical keys
+        const supabase = getSupabase();
+        if (supabase) {
+          const targetKeys = ['annual_report_master_v1', `annual_report_master_${activeTenant}`];
+          for (const key of targetKeys) {
+            try {
+              await supabase.from('messages').upsert({
+                id: key,
+                content: payloadStr,
+                tenant_id: activeTenant,
+                sender_id: metadata.uploadedBy || 'mike@mzansiflow.co.za',
+                sender_email: metadata.uploadedBy || 'mike@mzansiflow.co.za',
+                sender_name: 'Super Admin Mike',
+                created_at: new Date().toISOString()
+              }, { onConflict: 'id' });
+            } catch (dbErr) {
+              console.warn(`[Annual Report POST] Supabase upsert notice for key ${key}:`, dbErr);
+            }
+          }
+        }
+
+        // Also save to persistent disk backup file
+        try {
+          const backupDir = path.join(process.cwd(), 'backup_archive');
+          fs.mkdirSync(backupDir, { recursive: true });
+          fs.writeFileSync(path.join(backupDir, 'Annual_Report_Master.json'), payloadStr, 'utf8');
+        } catch (fsErr) {
+          console.warn("[Annual Report POST] Disk backup notice:", fsErr);
+        }
+
+        // Invalidate memory cache
+        invalidateCacheKey(`annual_report_master_${activeTenant}`);
+
+        return res.json({
+          success: true,
+          message: "Annual Report persistently stored in Supabase. Visible to all users across the system.",
+          report: payload
+        });
+      } catch (err: any) {
+        console.error("[Annual Report POST API Error]:", err);
+        return res.status(500).json({ error: err.message || "Failed to persist annual report document" });
+      }
+    });
+
     // 1. Static hashed assets (safe to cache indefinitely because the filename hash changes on every build)
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
       maxAge: '1y',

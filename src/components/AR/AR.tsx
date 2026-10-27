@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Search, Settings, Download, Upload, Cpu, LayoutTemplate, Printer, Share2, ZoomIn, Info, List, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { FileText, Search, Settings, Download, Upload, Cpu, LayoutTemplate, Printer, Share2, ZoomIn, Info, List, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify, Eye } from 'lucide-react';
 import { cn } from '../Branding';
 
 import { User } from '../../types';
@@ -7,6 +7,7 @@ import io, { Socket } from 'socket.io-client';
 import { VirtualWordProcessor } from './VirtualWordProcessor';
 
 import { GenerationTab } from './GenerationTab';
+import { AnnualReportPDFViewer } from './AnnualReportPDFViewer';
 
 interface ARProps {
   currentUser: User;
@@ -14,7 +15,7 @@ interface ARProps {
 }
 
 export function AR({ currentUser, activeTenantId }: ARProps) {
-  const [activeTab, setActiveTab] = useState<'brief' | 'research' | 'template' | 'drafts' | 'generation'>('brief');
+  const [activeTab, setActiveTab] = useState<'brief' | 'research' | 'template' | 'drafts' | 'generation' | 'pdf_viewer'>('pdf_viewer');
   const [extractedData, setExtractedData] = useState<string | null>(null);
   const [templateData, setTemplateData] = useState<string | null>(null);
 
@@ -24,44 +25,50 @@ export function AR({ currentUser, activeTenantId }: ARProps) {
       {/* Header */}
       <div className="h-16 px-6 border-b border-gray-100 flex items-center justify-between shrink-0 bg-white">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-700 shrink-0">
-            <FileText className="w-5 h-5" />
+          <div className="w-10 h-10 rounded-full bg-[#00D65B]/15 flex items-center justify-center text-[#00D65B] shrink-0">
+            <FileText className="w-5 h-5 text-[#00D65B]" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-900 leading-tight">Annual Report</h3>
-            <p className="text-xs text-gray-500 font-medium tracking-tight uppercase">Module Overview & Working Suite</p>
+            <h3 className="font-bold text-gray-900 leading-tight">Annual Report Module</h3>
+            <p className="text-xs text-gray-500 font-medium tracking-tight uppercase">Statutory Master Viewer & Working Suite</p>
           </div>
         </div>
         
         {/* Navigation Tabs */}
         <div className="flex gap-2">
           <button 
+            onClick={() => setActiveTab('pdf_viewer')}
+            className={cn("px-4 py-2 text-sm font-black rounded-lg transition-all flex items-center gap-1.5", activeTab === 'pdf_viewer' ? "bg-[#00D65B] text-slate-950 shadow-sm" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
+          >
+            <Eye className="w-4 h-4" /> 800-Page PDF Viewer
+          </button>
+          <button 
             onClick={() => setActiveTab('brief')}
-            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'brief' ? "bg-green-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
+            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'brief' ? "bg-[#00D65B] text-slate-950 font-black" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
           >
             Brief
           </button>
           <button 
             onClick={() => setActiveTab('research')}
-            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'research' ? "bg-green-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
+            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'research' ? "bg-[#00D65B] text-slate-950 font-black" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
           >
             AR Research
           </button>
           <button 
             onClick={() => setActiveTab('template')}
-            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'template' ? "bg-green-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
+            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'template' ? "bg-[#00D65B] text-slate-950 font-black" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
           >
             Template
           </button>
           <button 
             onClick={() => setActiveTab('drafts')}
-            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'drafts' ? "bg-emerald-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
+            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all", activeTab === 'drafts' ? "bg-[#00D65B] text-slate-950 font-black" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
           >
             Drafts
           </button>
           <button 
             onClick={() => setActiveTab('generation')}
-            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2", activeTab === 'generation' ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100")}
+            className={cn("px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2", activeTab === 'generation' ? "bg-slate-900 text-white font-black" : "bg-gray-50 text-gray-600 hover:bg-gray-100")}
           >
             <Cpu className="w-4 h-4" /> Generation
           </button>
@@ -85,6 +92,7 @@ export function AR({ currentUser, activeTenantId }: ARProps) {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-hidden relative">
+        {activeTab === 'pdf_viewer' && <AnnualReportPDFViewer currentUser={currentUser} activeTenantId={activeTenantId} />}
         {activeTab === 'brief' && <BriefTab />}
         {activeTab === 'research' && <ResearchTab extractedData={extractedData} setExtractedData={setExtractedData} />}
         {activeTab === 'template' && <TemplateTab templateData={templateData} setTemplateData={setTemplateData} />}
