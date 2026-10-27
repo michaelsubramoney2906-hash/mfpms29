@@ -43,48 +43,88 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
 
   // 1. Ms. Jayvanti Morar (MorarJ@nkangaladm.gov.za or morarj@nkangaladm.gov.za or morari@nkangaladm.gov.za)
   if (isJayvantiMorar(normEmail)) {
-    return MORARJ_OFFICIAL_KPIS.map(kpi => ({
-      id: kpi.id,
-      kpiNo: kpi.kpiNo,
-      refNum: kpi.refNum,
-      kpaName: kpi.kpaName,
-      kpaNumber: kpi.kpaNumber,
-      kpiDescription: kpi.kpiDescription,
-      kpi: kpi.kpiDescription,
-      description: kpi.kpiDescription,
-      indicator: kpi.kpiDescription,
-      weight: kpi.weight,
-      weighting: String(kpi.weight),
-      wt: String(kpi.weight),
-      baseline: kpi.baseline,
-      annualTarget: kpi.annualTarget,
-      target: kpi.annualTarget,
-      q1Target: kpi.q1Target,
-      q2Target: kpi.q2Target,
-      q3Target: kpi.q3Target,
-      q4Target: kpi.q4Target,
-      poe: kpi.poe,
-      budgetAllocated: kpi.budgetAllocated,
-      budget: kpi.budgetAllocated,
-      q1Applicable: kpi.q1Applicable,
-      q2Applicable: kpi.q2Applicable,
-      q3Applicable: kpi.q3Applicable,
-      q4Applicable: kpi.q4Applicable,
-      lockedQuarters: kpi.q1Applicable ? [] : ['Q1'],
-      kpa: kpi.kpaName,
-      strategicGoal: kpi.kpaName,
-      functionalKpa: kpi.kpaName,
-      // Aliases
-      'kpi no': kpi.kpiNo,
-      'kpi description': kpi.kpiDescription,
-      '%wt': kpi.weight,
-      'annual target': kpi.annualTarget,
-      '1st qtr target': kpi.q1Target,
-      '2nd qtr target': kpi.q2Target,
-      '3rd qtr target': kpi.q3Target,
-      '4th qtr target': kpi.q4Target,
-      'functional kpa': kpi.kpaName
-    }));
+    const existingMap = new Map<string, any>();
+    if (Array.isArray(inputKpis)) {
+      inputKpis.forEach(item => {
+        if (item) {
+          if (item.id) existingMap.set(String(item.id).toLowerCase(), item);
+          if (item.kpiNo) existingMap.set(String(item.kpiNo).toLowerCase(), item);
+          if (item.refNum) existingMap.set(String(item.refNum).toLowerCase(), item);
+        }
+      });
+    }
+
+    return MORARJ_OFFICIAL_KPIS.map(kpi => {
+      const existing = existingMap.get(String(kpi.id).toLowerCase()) || 
+                       existingMap.get(String(kpi.kpiNo).toLowerCase()) || 
+                       existingMap.get(String(kpi.refNum).toLowerCase()) || {};
+
+      return {
+        ...kpi,
+        ...existing,
+        id: kpi.id,
+        kpiNo: kpi.kpiNo,
+        refNum: kpi.refNum,
+        kpaName: kpi.kpaName,
+        kpaNumber: kpi.kpaNumber,
+        kpiDescription: kpi.kpiDescription,
+        kpi: kpi.kpiDescription,
+        description: kpi.kpiDescription,
+        indicator: kpi.kpiDescription,
+        weight: kpi.weight,
+        weighting: String(kpi.weight),
+        wt: String(kpi.weight),
+        baseline: kpi.baseline,
+        annualTarget: kpi.annualTarget,
+        target: kpi.annualTarget,
+        q1Target: kpi.q1Target,
+        q2Target: kpi.q2Target,
+        q3Target: kpi.q3Target,
+        q4Target: kpi.q4Target,
+        poe: existing.poe || kpi.poe,
+        budgetAllocated: kpi.budgetAllocated,
+        budget: kpi.budgetAllocated,
+        q1Applicable: kpi.q1Applicable,
+        q2Applicable: kpi.q2Applicable,
+        q3Applicable: kpi.q3Applicable,
+        q4Applicable: kpi.q4Applicable,
+        lockedQuarters: kpi.q1Applicable ? [] : ['Q1'],
+        kpa: kpi.kpaName,
+        strategicGoal: kpi.kpaName,
+        functionalKpa: kpi.kpaName,
+        // Preserve all user evaluation data across quarters
+        q1Score: existing.q1Score !== undefined ? existing.q1Score : (kpi as any).q1Score,
+        q1Actual: existing.q1Actual !== undefined ? existing.q1Actual : (kpi as any).q1Actual,
+        q1ActualExpense: existing.q1ActualExpense !== undefined ? existing.q1ActualExpense : (kpi as any).q1ActualExpense,
+        q1Comment: existing.q1Comment !== undefined ? existing.q1Comment : (kpi as any).q1Comment,
+        q1Corrective: existing.q1Corrective !== undefined ? existing.q1Corrective : (kpi as any).q1Corrective,
+        q1Poe: existing.q1Poe !== undefined ? existing.q1Poe : (kpi as any).q1Poe,
+        q1PoeDocs: Array.isArray(existing.q1PoeDocs) ? existing.q1PoeDocs : ((kpi as any).q1PoeDocs || []),
+        q2PoeDocs: Array.isArray(existing.q2PoeDocs) ? existing.q2PoeDocs : ((kpi as any).q2PoeDocs || []),
+        q3PoeDocs: Array.isArray(existing.q3PoeDocs) ? existing.q3PoeDocs : ((kpi as any).q3PoeDocs || []),
+        q4PoeDocs: Array.isArray(existing.q4PoeDocs) ? existing.q4PoeDocs : ((kpi as any).q4PoeDocs || []),
+        annualPoeDocs: Array.isArray(existing.annualPoeDocs) ? existing.annualPoeDocs : ((kpi as any).annualPoeDocs || []),
+        midtermPoeDocs: Array.isArray(existing.midtermPoeDocs) ? existing.midtermPoeDocs : ((kpi as any).midtermPoeDocs || []),
+        reviewStatus: existing.reviewStatus || (kpi as any).reviewStatus,
+        q1PoeStatus: existing.q1PoeStatus || (kpi as any).q1PoeStatus,
+        q2PoeStatus: existing.q2PoeStatus || (kpi as any).q2PoeStatus,
+        q3PoeStatus: existing.q3PoeStatus || (kpi as any).q3PoeStatus,
+        q4PoeStatus: existing.q4PoeStatus || (kpi as any).q4PoeStatus,
+        poeFileName: existing.poeFileName || (kpi as any).poeFileName,
+        poeFileBase64: existing.poeFileBase64 || (kpi as any).poeFileBase64,
+        myScore: existing.myScore || (kpi as any).myScore,
+        // Aliases
+        'kpi no': kpi.kpiNo,
+        'kpi description': kpi.kpiDescription,
+        '%wt': kpi.weight,
+        'annual target': kpi.annualTarget,
+        '1st qtr target': kpi.q1Target,
+        '2nd qtr target': kpi.q2Target,
+        '3rd qtr target': kpi.q3Target,
+        '4th qtr target': kpi.q4Target,
+        'functional kpa': kpi.kpaName
+      };
+    });
   }
 
   let result = [...inputKpis];
@@ -222,6 +262,21 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 8. Ms. Noluthando Mbulawa (mbulawan@nkangaladm.gov.za) - Remove vacancy rate and vacancy position KPIs (KPI 26, KPI 27)
+  if (normEmail === 'mbulawan@nkangaladm.gov.za' || normEmail.includes('mbulawan')) {
+    result = result.filter(kpi => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      const isVacancyKpi = ['26', '27', 'KPI 26', 'KPI 27', 'KPI_26', 'KPI_27'].includes(ref) || 
+                           desc.includes('vacancy rate') || 
+                           desc.includes('vacant posts') || 
+                           desc.includes('vacancy position');
+      return !isVacancyKpi;
+    });
+  }
+
   return result;
 }
+
 

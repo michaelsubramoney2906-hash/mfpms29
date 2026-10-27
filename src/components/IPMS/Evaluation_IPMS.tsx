@@ -1391,6 +1391,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
         resolvedMgr = { manager: 'Priscilla Fenyane', managerEmail: 'fenyanep@nkangaladm.gov.za', reportTo: 'Priscilla Fenyane' };
       } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
         resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
+      } else if (userEmailForMgr.includes('morar')) {
+        resolvedMgr = { manager: 'Amos D. Twala', managerEmail: 'twalaad@nkangaladm.gov.za', reportTo: 'Amos D. Twala' };
       }
 
       const metadata = { 
