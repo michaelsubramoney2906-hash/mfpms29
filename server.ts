@@ -20198,7 +20198,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         userEmail.includes('@mzansiflow.co.za') ||
         userEmail === 'mike@massivedynamixdistributors.com';
 
-      const visibleTickets = isMzansi || !userEmail
+      if (!userEmail) {
+        return res.status(200).json({ tickets: [] });
+      }
+
+      const visibleTickets = isMzansi
         ? allTickets
         : allTickets.filter(t => String(t.reporterEmail || '').toLowerCase().trim() === userEmail);
 
@@ -20206,6 +20210,35 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     } catch (err: any) {
       console.error("GET /api/support/tickets error:", err);
       return res.status(200).json({ tickets: [], error: err.message });
+    }
+  });
+
+  // Support Article Helpful / Feedback Collection Route
+  app.post("/api/support/feedback", async (req, res) => {
+    try {
+      const { articleId, articleTitle, userEmail, isHelpful, feedbackText } = req.body || {};
+      const supabase = getSupabase();
+      const feedbackId = `supp_fb_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const doc = {
+        id: feedbackId,
+        articleId: articleId || 'general',
+        articleTitle: articleTitle || 'General FAQ',
+        userEmail: userEmail || 'anonymous',
+        isHelpful: Boolean(isHelpful),
+        feedbackText: feedbackText || '',
+        createdAt: new Date().toISOString()
+      };
+      await supabase.from('messages').insert([{
+        id: feedbackId,
+        content: JSON.stringify(doc),
+        sender_id: userEmail || 'support_system',
+        conversation_id: 'support_article_feedback',
+        created_at: new Date().toISOString()
+      }]);
+      return res.status(200).json({ success: true, feedback: doc });
+    } catch (err: any) {
+      console.error("POST /api/support/feedback error:", err);
+      return res.status(200).json({ success: false, error: err.message });
     }
   });
 
