@@ -203,7 +203,9 @@ export const ALIAS_MAP: Record<string, string> = {
   "morarj": "morari",
   "nhlaphomj": "nhlapomj",
   "sibanyonimj": "sibanyonimi",
-  "madhilabapk": "madihlabapk"
+  "madhilabapk": "madihlabapk",
+  "khumalobs": "nkosibs",
+  "nkosibs": "khumalobs"
 };
 
 // STRICT STATUTORY FACT: ONLY these 6 Section 57 Senior Managers have Core Competencies (5).
@@ -241,7 +243,7 @@ export const ATTACHED_CERTIFICATE_OFFICIAL_EMAILS: string[] = [
   "fenyanep@nkangaladm.gov.za", "gakwamf@nkangaladm.gov.za", "gambulc@nkangaladm.gov.za", "giyasi-affulph@nkangaladm.gov.za",
   "hlezard@nkangaladm.gov.za", "hlongwaan@nkangaladm.gov.za", "jeleb@nkangaladm.gov.za", "jiyanewb@nkangaladm.gov.za",
   "joubertm@nkangaladm.gov.za", "kgomomb@nkangaladm.gov.za", "kgwedigl@nkangaladm.gov.za", "khanyeem@nkangaladm.gov.za",
-  "nkosibs@nkangaladm.gov.za", "kubhekazc@nkangaladm.gov.za", "kubhekavs@nkangaladm.gov.za", "kwakwatc@nkangaladm.gov.za",
+  "nkosibs@nkangaladm.gov.za", "khumalobs@nkangaladm.gov.za", "kubhekazc@nkangaladm.gov.za", "kubhekavs@nkangaladm.gov.za", "kwakwatc@nkangaladm.gov.za",
   "lengwatetm@nkangaladm.gov.za", "linkss@nkangaladm.gov.za", "lukhelema@nkangaladm.gov.za", "mabenaam@nkangaladm.gov.za",
   "madhilabapk@nkangaladm.gov.za", "madlalacnn@nkangaladm.gov.za", "magagulayl@nkangaladm.gov.za", "magampeas@nkangaladm.gov.za",
   "mahlawanalm@nkangaladm.gov.za", "mahlanguv@nkangaladm.gov.za", "mahlanguw@nkangaladm.gov.za", "mahlanguad@nkangaladm.gov.za",

@@ -647,6 +647,255 @@ export function normalizeNkangalaEmail(email: string): string {
   return email.toLowerCase().trim();
 }
 
+export function getKhumaloNkosiAliases(email: string): string[] {
+  const clean = (email || '').toLowerCase().trim();
+  if (!clean) return [];
+  if (clean === 'khumalobs@nkangaladm.gov.za' || clean === 'nkosibs@nkangaladm.gov.za' || clean.includes('khumalobs') || clean.includes('nkosibs')) {
+    return Array.from(new Set([clean, 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za']));
+  }
+  return [clean];
+}
+
+async function syncKhumaloNkosiDualProfile() {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    // 1. Ensure khumalobs@nkangaladm.gov.za exists in Supabase `users` table alongside nkosibs@nkangaladm.gov.za
+    const { data: nkosiUser } = await supabase
+      .from('users')
+      .select('*')
+      .ilike('email', 'nkosibs@nkangaladm.gov.za')
+      .maybeSingle();
+
+    await supabase.from('users').upsert({
+      id: 'nk-user-khumalobs',
+      full_name: nkosiUser?.full_name || 'Bongani S. Khumalo',
+      email: 'khumalobs@nkangaladm.gov.za',
+      job_function: nkosiUser?.job_function || 'Divisional Manager: ICT',
+      department: nkosiUser?.department || 'Information and Communication Technology',
+      source: nkosiUser?.source || 'azure_ad',
+      role: nkosiUser?.role || 'Standard User',
+      tenant_id: 'tenant-229'
+    }, { onConflict: 'id' }).then(() => {}).catch(() => {});
+
+    // 2. Ensure users_extra_metadata in messages includes khumalobs metadata (and signature from nkosibs)
+    const { data: extraMsg } = await supabase
+      .from('messages')
+      .select('content')
+      .eq('id', 'users_extra_metadata')
+      .maybeSingle();
+
+    if (extraMsg?.content) {
+      try {
+        const extraMap = JSON.parse(extraMsg.content);
+        const nkosiId = nkosiUser?.id || '841669a3-6414-4413-a39b-759fe4ea0aa8';
+        const nkosiExtra = extraMap[nkosiId] || {};
+        extraMap['nk-user-khumalobs'] = {
+          ...nkosiExtra,
+          ...(extraMap['nk-user-khumalobs'] || {}),
+          manager: 'Mandla L. Mahlangu',
+          directorate: 'Office of the Municipal Manager',
+          reportTo: 'Mandla L. Mahlangu',
+          managerEmail: 'mahlanguml@nkangaladm.gov.za',
+          level: '3',
+          signatureType: extraMap['nk-user-khumalobs']?.signatureType || nkosiExtra.signatureType || 'draw',
+          signatureData: extraMap['nk-user-khumalobs']?.signatureData || nkosiExtra.signatureData || ''
+        };
+        await supabase.from('messages').upsert({
+          id: 'users_extra_metadata',
+          tenant_id: 'global',
+          sender_id: 'system',
+          sender_email: 'system@local',
+          sender_name: 'Directory Sync',
+          content: JSON.stringify(extraMap),
+          message_type: 'system_metadata',
+          created_at: new Date().toISOString()
+        }, { onConflict: 'id' }).then(() => {}).catch(() => {});
+      } catch (e) {}
+    }
+
+    // 3. Mirror all Supabase messages rows between nkosibs and khumalobs (36 KPIs, 7 KPAs, 5 JSCs, PDPs, PA, workflow progress)
+    const { data: nkosiRows } = await supabase
+      .from('messages')
+      .select('*')
+      .or('id.ilike.%nkosibs%,id.ilike.%khumalobs%');
+
+    if (Array.isArray(nkosiRows) && nkosiRows.length > 0) {
+      const existingById = new Map<string, any>();
+      for (const r of nkosiRows) {
+        if (r?.id) existingById.set(String(r.id).toLowerCase(), r);
+      }
+
+      // Extract authoritative 36 KPIs and 5 JSCs from Bongani S. Khumalo's Performance Agreement (draft_doc)
+      // in case standalone pplan_* or job_competencies_* rows still hold old 1-item / 3-item seed data
+      let authoritativeKpis: any[] | null = null;
+      let authoritativeJscs: any[] | null = null;
+      for (const r of nkosiRows) {
+        const idLower = String(r.id || '').toLowerCase();
+        if (idLower.startsWith('draft_doc_') && r.content) {
+          try {
+            const p = JSON.parse(r.content);
+            const h = p?.html ? (typeof p.html === 'string' ? JSON.parse(p.html) : p.html) : p;
+            const draftKpis = h?.pulledFilteredPplanItems || h?.pulledPplanItems;
+            if (Array.isArray(draftKpis) && draftKpis.length >= 36) {
+              authoritativeKpis = draftKpis;
+            }
+            const draftJscs = h?.pulledKhuboniJscRows || h?.pulledCompetencyRows;
+            if (Array.isArray(draftJscs) && draftJscs.length >= 5) {
+              authoritativeJscs = draftJscs;
+            }
+          } catch (e) {}
+        }
+      }
+
+      const rowsToUpsert: any[] = [];
+      const nowIso = new Date().toISOString();
+      const targetEmails = ['nkosibs@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za'];
+      const targetTenants = ['tenant-229', 'nkangala_auto', 'global'];
+
+      // Ensure both nkosibs@nkangaladm.gov.za and khumalobs@nkangaladm.gov.za have the full 36 KPIs in pplan_* and kpis_*
+      if (authoritativeKpis && authoritativeKpis.length >= 36) {
+        for (const em of targetEmails) {
+          for (const tId of targetTenants) {
+            const pplanId = `pplan_${tId}_${em}`;
+            const existingPplan = existingById.get(pplanId.toLowerCase());
+            let existingCount = 0;
+            let existingMeta: any = {};
+            if (existingPplan?.content) {
+              try {
+                const ep = JSON.parse(existingPplan.content);
+                const elist = ep?.items || ep?.rows || [];
+                existingCount = Array.isArray(elist) ? elist.length : 0;
+                existingMeta = ep?.metadata || {};
+              } catch (e) {}
+            }
+            if (existingCount < 36) {
+              const pplanPayload = JSON.stringify({
+                metadata: {
+                  ...existingMeta,
+                  name: 'Bongani S. Khumalo',
+                  email: em,
+                  position: 'Divisional Manager: ICT',
+                  jobTitle: 'Divisional Manager: ICT',
+                  department: 'Information and Communication Technology',
+                  directorate: 'Office of the Municipal Manager',
+                  manager: 'Mandla L. Mahlangu',
+                  reportTo: 'Mandla L. Mahlangu',
+                  managerEmail: 'mahlanguml@nkangaladm.gov.za',
+                  financialYear: '2026/2027',
+                  _isFredExtracted: true,
+                  updatedAt: nowIso
+                },
+                items: authoritativeKpis
+              });
+              const upRow = {
+                id: pplanId,
+                tenant_id: tId,
+                sender_id: 'pplan_editor_tool',
+                sender_email: em,
+                sender_name: 'Bongani S. Khumalo',
+                content: pplanPayload,
+                message_type: 'pplan_list',
+                created_at: nowIso
+              };
+              rowsToUpsert.push(upRow);
+              existingById.set(pplanId.toLowerCase(), upRow);
+
+              const kpisId = `kpis_${tId}_${em}`;
+              const kpisRow = {
+                id: kpisId,
+                tenant_id: tId,
+                sender_id: 'kpi_manager_tool',
+                sender_email: em,
+                sender_name: 'Bongani S. Khumalo',
+                content: JSON.stringify({ kpis: authoritativeKpis }),
+                message_type: 'kpis_list',
+                created_at: nowIso
+              };
+              rowsToUpsert.push(kpisRow);
+              existingById.set(kpisId.toLowerCase(), kpisRow);
+            }
+          }
+        }
+      }
+
+      // Ensure both nkosibs@nkangaladm.gov.za and khumalobs@nkangaladm.gov.za have the full 5 JSCs in job_competencies_*
+      if (authoritativeJscs && authoritativeJscs.length >= 5) {
+        for (const em of targetEmails) {
+          for (const tId of targetTenants) {
+            const jscId = `job_competencies_${tId}_${em}`;
+            const existingJsc = existingById.get(jscId.toLowerCase());
+            let existingJscCount = 0;
+            if (existingJsc?.content) {
+              try {
+                const ej = JSON.parse(existingJsc.content);
+                const elist = ej?.competencies || (Array.isArray(ej) ? ej : []);
+                existingJscCount = Array.isArray(elist) ? elist.length : 0;
+              } catch (e) {}
+            }
+            if (existingJscCount < 5) {
+              const jscRow = {
+                id: jscId,
+                tenant_id: tId,
+                sender_id: 'job_competencies_editor',
+                sender_email: em,
+                sender_name: 'Bongani S. Khumalo',
+                content: JSON.stringify({ competencies: authoritativeJscs }),
+                message_type: 'job_competencies_list',
+                created_at: nowIso
+              };
+              rowsToUpsert.push(jscRow);
+              existingById.set(jscId.toLowerCase(), jscRow);
+            }
+          }
+        }
+      }
+
+      for (const r of nkosiRows) {
+        const idStr = String(r.id || '');
+        if (!idStr) continue;
+        let mirrorId = '';
+        if (idStr.toLowerCase().includes('nkosibs')) {
+          mirrorId = idStr
+            .replace(/nkosibs@nkangaladm\.gov\.za/gi, 'khumalobs@nkangaladm.gov.za')
+            .replace(/nkosibs_nkangaladm_gov_za/gi, 'khumalobs_nkangaladm_gov_za')
+            .replace(/nkosibs/gi, 'khumalobs');
+        } else if (idStr.toLowerCase().includes('khumalobs')) {
+          mirrorId = idStr
+            .replace(/khumalobs@nkangaladm\.gov\.za/gi, 'nkosibs@nkangaladm.gov.za')
+            .replace(/khumalobs_nkangaladm_gov_za/gi, 'nkosibs_nkangaladm_gov_za')
+            .replace(/khumalobs/gi, 'nkosibs');
+        }
+        if (mirrorId && mirrorId.toLowerCase() !== idStr.toLowerCase()) {
+          const existingMirror = existingById.get(mirrorId.toLowerCase());
+          const srcTime = new Date(r.created_at || 0).getTime();
+          const dstTime = existingMirror ? new Date(existingMirror.created_at || 0).getTime() : 0;
+          // Copy if mirror doesn't exist yet, or if source is newer and non-empty
+          if (!existingMirror || (srcTime > dstTime && r.content && String(r.content).length > 20)) {
+            rowsToUpsert.push({
+              ...r,
+              id: mirrorId,
+              sender_email: r.sender_email === 'nkosibs@nkangaladm.gov.za'
+                ? 'khumalobs@nkangaladm.gov.za'
+                : r.sender_email
+            });
+            existingById.set(mirrorId.toLowerCase(), r);
+          }
+        }
+      }
+
+      if (rowsToUpsert.length > 0) {
+        const dedupedUpsert = Array.from(new Map(rowsToUpsert.map(item => [item.id, item])).values());
+        await supabase.from('messages').upsert(dedupedUpsert, { onConflict: 'id' }).then(() => {}).catch(() => {});
+      }
+    }
+    invalidateCacheKey('consolidated_users_nkangala_master');
+  } catch (err) {
+    console.warn("[syncKhumaloNkosiDualProfile] Notice:", err);
+  }
+}
+
 export async function resolveTenantId(reqTenantId: string, userEmail?: string): Promise<string> {
   const cleanEmail = (userEmail || '').toLowerCase().trim();
   if (cleanEmail.endsWith('@neda.gov.za') || cleanEmail.includes('neda.gov.za')) {
@@ -667,6 +916,7 @@ export async function resolveTenantId(reqTenantId: string, userEmail?: string): 
 async function startServer() {
   fixNkangalaTenants().catch(err => console.error("[Nkangala Fix] Background loop failure:", err));
   fixNedaTenants().catch(err => console.error("[NEDA Fix] Background loop failure:", err));
+  syncKhumaloNkosiDualProfile().catch(err => console.error("[Khumalo/Nkosi Sync] Background failure:", err));
   const app = express();
   app.use(compression());
   const server = http.createServer(app);
@@ -8110,6 +8360,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Nirupa Parbhoo';
         dynamicReportTo = 'Nirupa Parbhoo';
         dynamicManagerEmail = 'nparbhoo@nkangaladm.gov.za';
+      } else if (emailLower === 'nkosibs@nkangaladm.gov.za' || emailLower === 'khumalobs@nkangaladm.gov.za') {
+        dynamicManager = 'Mandla L. Mahlangu';
+        dynamicReportTo = 'Mandla L. Mahlangu';
+        dynamicManagerEmail = 'mahlanguml@nkangaladm.gov.za';
       }
 
       return {
@@ -8701,6 +8955,53 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       });
     }
 
+    // Ensure Bongani S. Khumalo appears under both nkosibs@nkangaladm.gov.za and khumalobs@nkangaladm.gov.za in User Management Current Directory
+    const primaryNkosi = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'nkosibs@nkangaladm.gov.za');
+    if (primaryNkosi) {
+      primaryNkosi.fullName = 'Bongani S. Khumalo';
+      primaryNkosi.jobFunction = primaryNkosi.jobFunction || 'Divisional Manager: ICT';
+      primaryNkosi.department = primaryNkosi.department || 'Information and Communication Technology';
+      primaryNkosi.directorate = primaryNkosi.directorate || 'Office of the Municipal Manager';
+      primaryNkosi.manager = 'Mandla L. Mahlangu';
+      primaryNkosi.reportTo = 'Mandla L. Mahlangu';
+      primaryNkosi.managerEmail = 'mahlanguml@nkangaladm.gov.za';
+      primaryNkosi.level = primaryNkosi.level || '3';
+    }
+    const existingKhumalo = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'khumalobs@nkangaladm.gov.za');
+    if (existingKhumalo) {
+      existingKhumalo.fullName = 'Bongani S. Khumalo';
+      existingKhumalo.jobFunction = existingKhumalo.jobFunction || primaryNkosi?.jobFunction || 'Divisional Manager: ICT';
+      existingKhumalo.department = existingKhumalo.department || primaryNkosi?.department || 'Information and Communication Technology';
+      existingKhumalo.directorate = existingKhumalo.directorate || primaryNkosi?.directorate || 'Office of the Municipal Manager';
+      existingKhumalo.manager = 'Mandla L. Mahlangu';
+      existingKhumalo.reportTo = 'Mandla L. Mahlangu';
+      existingKhumalo.managerEmail = 'mahlanguml@nkangaladm.gov.za';
+      existingKhumalo.level = existingKhumalo.level || primaryNkosi?.level || '3';
+      existingKhumalo.signatureType = existingKhumalo.signatureType || primaryNkosi?.signatureType || 'draw';
+      existingKhumalo.signatureData = existingKhumalo.signatureData || primaryNkosi?.signatureData || '';
+    } else if (normTenant === 'nkangala_master' || normTenant === 'tenant-229' || normTenant === 'nkangala_auto') {
+      sanitizedFormatted.push({
+        id: 'nk-user-khumalobs',
+        fullName: 'Bongani S. Khumalo',
+        email: 'khumalobs@nkangaladm.gov.za',
+        jobFunction: primaryNkosi?.jobFunction || 'Divisional Manager: ICT',
+        department: primaryNkosi?.department || 'Information and Communication Technology',
+        source: primaryNkosi?.source || 'azure_ad',
+        role: primaryNkosi?.role || 'Standard User',
+        tenantId: normTenant === 'nkangala_master' ? 'tenant-229' : normTenant,
+        manager: 'Mandla L. Mahlangu',
+        directorate: primaryNkosi?.directorate || 'Office of the Municipal Manager',
+        reportTo: 'Mandla L. Mahlangu',
+        level: primaryNkosi?.level || '3',
+        signatureType: primaryNkosi?.signatureType || 'draw',
+        signatureData: primaryNkosi?.signatureData || '',
+        managerEmail: 'mahlanguml@nkangaladm.gov.za',
+        hasSubordinates: Boolean(primaryNkosi?.hasSubordinates),
+        subordinateCount: primaryNkosi?.subordinateCount || 0,
+        subordinateEmails: primaryNkosi?.subordinateEmails || []
+      });
+    }
+
     return sanitizedFormatted;
   });
 }
@@ -9061,12 +9362,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       // 1. If user is specified and not 'default', check user-specific KPA documents first
       if (userId && userId !== 'default') {
-        const userDocIds = [
-          `kpas_${tenantId}_${userId}`,
-          `kpas_tenant-229_${userId}`,
-          `kpas_nkangala_auto_${userId}`,
-          `kpas_global_${userId}`
-        ];
+        const aliasUsers = getKhumaloNkosiAliases(userId);
+        const userDocIds: string[] = [];
+        for (const aUser of aliasUsers) {
+          userDocIds.push(
+            `kpas_${tenantId}_${aUser}`,
+            `kpas_tenant-229_${aUser}`,
+            `kpas_nkangala_auto_${aUser}`,
+            `kpas_global_${aUser}`
+          );
+        }
         if (rawUserId !== userId) {
           userDocIds.unshift(
             `kpas_${tenantId}_${rawUserId}`,
@@ -9092,11 +9397,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
 
         // Check user's own pplan document for KPAs before falling back to draft_doc or tenant defaults
-        const pplanDocIds = [
-          `pplan_${tenantId}_${userId}`,
-          `pplan_tenant-229_${userId}`,
-          `pplan_nkangala_auto_${userId}`
-        ];
+        const pplanDocIds: string[] = [];
+        for (const aUser of aliasUsers) {
+          pplanDocIds.push(
+            `pplan_${tenantId}_${aUser}`,
+            `pplan_tenant-229_${aUser}`,
+            `pplan_nkangala_auto_${aUser}`
+          );
+        }
         for (const pDocId of pplanDocIds) {
           const cachedPplan = pplanCache.get(pDocId);
           let pContent = cachedPplan ? cachedPplan.raw : null;
@@ -9138,12 +9446,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
         // Live fallback to draft_doc using exact primary-key lookup if user-specific KPA doc is missing
         if (userId.includes('@')) {
-          const draftCandidateIds = Array.from(new Set([
-            `draft_doc_${tenantId}_${userId}`,
-            `draft_doc_tenant-229_${userId}`,
-            `draft_doc_nkangala_auto_${userId}`,
-            `draft_doc_global_${userId}`
-          ]));
+          const draftCandidateIds = Array.from(new Set(
+            aliasUsers.flatMap(aUser => [
+              `draft_doc_${tenantId}_${aUser}`,
+              `draft_doc_tenant-229_${aUser}`,
+              `draft_doc_nkangala_auto_${aUser}`,
+              `draft_doc_global_${aUser}`
+            ])
+          ));
           const { data: draftDocs } = await supabase
             .from('messages')
             .select('content')
@@ -9247,18 +9557,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         ? 'tenant-229'
         : tenantId;
       const targetTenants = Array.from(new Set([canonicalTenant, tenantId]));
+      const targetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
       const nowIso = new Date().toISOString();
 
-      const upsertRows = targetTenants.map(tKey => ({
-        id: `kpas_${tKey}_${userId}`,
-        tenant_id: tKey,
-        sender_id: 'kpa_capturing_tool',
-        sender_email: 'kpa@system.local',
-        sender_name: 'KPA Manager',
-        content: JSON.stringify(payload),
-        message_type: 'kpas_list',
-        created_at: nowIso
-      }));
+      const upsertRows = targetUsers.flatMap(uKey =>
+        targetTenants.map(tKey => ({
+          id: `kpas_${tKey}_${uKey}`,
+          tenant_id: tKey,
+          sender_id: 'kpa_capturing_tool',
+          sender_email: 'kpa@system.local',
+          sender_name: 'KPA Manager',
+          content: JSON.stringify(payload),
+          message_type: 'kpas_list',
+          created_at: nowIso
+        }))
+      );
 
       const kpaSavePromise = Promise.resolve(
         supabase.from('messages').upsert(upsertRows, { onConflict: 'id' })
@@ -9602,6 +9915,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'mahlangulm_nkangaladm_gov_za'
           );
         }
+        if (email.includes('khumalobs') || rawEmail.includes('khumalobs') || email.includes('nkosibs') || rawEmail.includes('nkosibs')) {
+          userKeys.push(
+            'nkosibs@nkangaladm.gov.za',
+            'nkosibs_nkangaladm_gov_za',
+            'khumalobs@nkangaladm.gov.za',
+            'khumalobs_nkangaladm_gov_za'
+          );
+        }
 
         const isMahlangu = email.includes('mahlanguml') || email.includes('mahlangulm') || email.includes('mandlaml') || rawEmail.includes('mahlanguml') || rawEmail.includes('mahlangulm');
         const tenantCandidates = [tenantId, 'tenant-229', 'nkangala_auto', 'global', 'tenant-1'];
@@ -9850,12 +10171,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
-      const documentId = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
-      let { data, error } = await supabase
+      const aliasUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
+      const candidateIds = Array.from(new Set(
+        aliasUsers.flatMap(u => [
+          `ipms_progress_${tenantId}_${u.replace(/[^a-zA-Z0-9_.-]/g, '_')}`,
+          `ipms_progress_tenant-229_${u.replace(/[^a-zA-Z0-9_.-]/g, '_')}`,
+          `ipms_progress_nkangala_auto_${u.replace(/[^a-zA-Z0-9_.-]/g, '_')}`
+        ])
+      ));
+      const { data: rows, error } = await supabase
         .from('messages')
-        .select('content')
-        .eq('id', documentId)
-        .maybeSingle();
+        .select('id, content')
+        .in('id', candidateIds);
 
       if (error) {
         logSupabaseError("ipms-progress", error);
@@ -9863,13 +10190,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       let completedSteps: string[] = [];
-      if (data && data.content) {
-        try {
-          const parsed = JSON.parse(data.content);
-          completedSteps = parsed.completedSteps || [];
-        } catch (parseErr) {
-          console.error("Error parsing ipms-progress JSON:", parseErr);
+      if (Array.isArray(rows) && rows.length > 0) {
+        const mergedSteps = new Set<string>();
+        for (const r of rows) {
+          if (!r?.content) continue;
+          try {
+            const parsed = JSON.parse(r.content);
+            if (Array.isArray(parsed?.completedSteps)) {
+              parsed.completedSteps.forEach((s: string) => mergedSteps.add(s));
+            }
+          } catch (parseErr) {}
         }
+        completedSteps = Array.from(mergedSteps);
       }
 
       // Fallback check: check other case variations in case-insensitive way (e.g. KhuboniY vs khuboniy)
@@ -9911,24 +10243,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const { completedSteps } = req.body;
     try {
       const supabase = getSupabase();
-      const documentId = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
+      const aliasUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
       const payload = { completedSteps };
+      const nowIso = new Date().toISOString();
+      const upsertRows = aliasUsers.map(u => ({
+        id: `ipms_progress_${tenantId}_${u.replace(/[^a-zA-Z0-9_.-]/g, '_')}`,
+        tenant_id: tenantId,
+        sender_id: 'ipms_workflow_manager',
+        sender_email: 'ipms@system.local',
+        sender_name: 'IPMS Progress Manager',
+        content: JSON.stringify(payload),
+        message_type: 'ipms_progress',
+        created_at: nowIso
+      }));
       const { error } = await supabase
         .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'ipms_workflow_manager',
-          sender_email: 'ipms@system.local',
-          sender_name: 'IPMS Progress Manager',
-          content: JSON.stringify(payload),
-          message_type: 'ipms_progress',
-          created_at: new Date().toISOString()
-        });
+        .upsert(upsertRows, { onConflict: 'id' });
       
       if (error) throw error;
 
       // Ensure any existing alternative casing records of progress are also updated to stay in sync
+      const documentId = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
       const searchPattern = `ipms_progress_${tenantId}_${userId.replace(/[^a-zA-Z0-9_.-]/g, '_')}`;
       const { data: matches } = await supabase
         .from('messages')
@@ -10694,14 +11029,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let data = null;
       if (userId && userId !== 'default') {
-        const userDocId = `pa_templates_${tenantId}_${userId}`;
-        const userRes = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', userDocId)
-          .maybeSingle();
-        if (userRes.data && userRes.data.content) {
-          data = userRes.data;
+        const aliasUsers = getKhumaloNkosiAliases(userId);
+        for (const aUser of aliasUsers) {
+          const userDocId = `pa_templates_${tenantId}_${aUser}`;
+          const userRes = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', userDocId)
+            .maybeSingle();
+          if (userRes.data && userRes.data.content) {
+            data = userRes.data;
+            break;
+          }
         }
       }
 
@@ -10801,20 +11140,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const documentId = (userId && userId !== 'default') ? `pa_templates_${tenantId}_${userId}` : `pa_templates_${tenantId}`;
+      const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : ['default'];
       const payload = { templates };
+      const nowIso = new Date().toISOString();
+      const upsertRows = aliasUsers.map(u => ({
+        id: (u && u !== 'default') ? `pa_templates_${tenantId}_${u}` : `pa_templates_${tenantId}`,
+        tenant_id: tenantId,
+        sender_id: 'pa_templates_manager',
+        sender_email: u !== 'default' ? u : 'ipms@system.local',
+        sender_name: 'PA Templates Manager',
+        content: JSON.stringify(payload),
+        message_type: 'pa_templates',
+        created_at: nowIso
+      }));
       const { error } = await supabase
         .from('messages')
-        .upsert({ 
-          id: documentId,
-          tenant_id: tenantId,
-          sender_id: 'pa_templates_manager',
-          sender_email: userId !== 'default' ? userId : 'ipms@system.local',
-          sender_name: 'PA Templates Manager',
-          content: JSON.stringify(payload),
-          message_type: 'pa_templates',
-          created_at: new Date().toISOString()
-        });
+        .upsert(upsertRows, { onConflict: 'id' });
 
       if (error) {
         logSupabaseError("save pa-templates", error);
@@ -12295,12 +12636,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const candidateDocIds = [
-        `job_competencies_${tenantId}_${userId}`,
-        `job_competencies_tenant-229_${userId}`,
-        `job_competencies_nkangala_auto_${userId}`,
-        `job_competencies_global_${userId}`
-      ];
+      const aliasUsers = getKhumaloNkosiAliases(userId);
+      const candidateDocIds: string[] = [];
+      for (const aUser of aliasUsers) {
+        candidateDocIds.push(
+          `job_competencies_${tenantId}_${aUser}`,
+          `job_competencies_tenant-229_${aUser}`,
+          `job_competencies_nkangala_auto_${aUser}`,
+          `job_competencies_global_${aUser}`
+        );
+      }
       if (rawUserId !== userId) {
         candidateDocIds.unshift(
           `job_competencies_${tenantId}_${rawUserId}`,
@@ -12332,14 +12677,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       // Check templates and draft docs fallback using exact primary-key lookup
       if (userId.includes('@')) {
-        const draftAndTplIds = Array.from(new Set([
-          `draft_doc_${tenantId}_${userId}`,
-          `draft_doc_tenant-229_${userId}`,
-          `draft_doc_nkangala_auto_${userId}`,
-          `pa_templates_${tenantId}_${userId}`,
-          `pa_templates_tenant-229_${userId}`,
-          `pa_templates_nkangala_auto_${userId}`
-        ]));
+        const draftAndTplIds = Array.from(new Set(
+          aliasUsers.flatMap(aUser => [
+            `draft_doc_${tenantId}_${aUser}`,
+            `draft_doc_tenant-229_${aUser}`,
+            `draft_doc_nkangala_auto_${aUser}`,
+            `pa_templates_${tenantId}_${aUser}`,
+            `pa_templates_tenant-229_${aUser}`,
+            `pa_templates_nkangala_auto_${aUser}`
+          ])
+        ));
         const { data: draftDocs } = await supabase
           .from('messages')
           .select('content')
@@ -12427,21 +12774,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       const payload = JSON.stringify(bodyToSave);
 
-      for (const tKey of targetTenants) {
-        const uDocId = `job_competencies_${tKey}_${userId}`;
-        const { error } = await supabase
-          .from('messages')
-          .upsert({ 
-            id: uDocId,
-            tenant_id: tKey,
-            sender_id: 'job_competencies_editor',
-            sender_email: 'job_competencies@system.local',
-            sender_name: 'Job Competencies Editor',
-            content: payload,
-            message_type: 'job_competencies_list',
-            created_at: new Date().toISOString()
-          }, { onConflict: 'id' });
-        if (error) throw error;
+      const targetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
+      for (const uKey of targetUsers) {
+        for (const tKey of targetTenants) {
+          const uDocId = `job_competencies_${tKey}_${uKey}`;
+          const { error } = await supabase
+            .from('messages')
+            .upsert({ 
+              id: uDocId,
+              tenant_id: tKey,
+              sender_id: 'job_competencies_editor',
+              sender_email: 'job_competencies@system.local',
+              sender_name: 'Job Competencies Editor',
+              content: payload,
+              message_type: 'job_competencies_list',
+              created_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          if (error) throw error;
+        }
       }
       res.json({ success: true });
     } catch (err: any) {
@@ -13652,12 +14002,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const candidateDocIds = [
-        `pdp_${tenantId}_${userId}`,
-        `pdp_tenant-229_${userId}`,
-        `pdp_nkangala_auto_${userId}`,
-        `pdp_global_${userId}`
-      ];
+      const aliasUsers = getKhumaloNkosiAliases(userId);
+      const candidateDocIds: string[] = [];
+      for (const aUser of aliasUsers) {
+        candidateDocIds.push(
+          `pdp_${tenantId}_${aUser}`,
+          `pdp_tenant-229_${aUser}`,
+          `pdp_nkangala_auto_${aUser}`,
+          `pdp_global_${aUser}`
+        );
+      }
       if (rawUserId !== userId) {
         candidateDocIds.unshift(
           `pdp_${tenantId}_${rawUserId}`,
@@ -13750,21 +14104,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
       const payload = JSON.stringify(req.body);
 
-      for (const tKey of targetTenants) {
-        const uDocId = `pdp_${tKey}_${userId}`;
-        const { error } = await supabase
-          .from('messages')
-          .upsert({ 
-            id: uDocId,
-            tenant_id: tKey,
-            sender_id: 'pdp_editor',
-            sender_email: 'pdp@system.local',
-            sender_name: 'PDP Editor',
-            content: payload,
-            message_type: 'pdp_list',
-            created_at: new Date().toISOString()
-          }, { onConflict: 'id' });
-        if (error) throw error;
+      const targetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
+      for (const uKey of targetUsers) {
+        for (const tKey of targetTenants) {
+          const uDocId = `pdp_${tKey}_${uKey}`;
+          const { error } = await supabase
+            .from('messages')
+            .upsert({ 
+              id: uDocId,
+              tenant_id: tKey,
+              sender_id: 'pdp_editor',
+              sender_email: 'pdp@system.local',
+              sender_name: 'PDP Editor',
+              content: payload,
+              message_type: 'pdp_list',
+              created_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          if (error) throw error;
+        }
       }
       invalidateCommandCenterCache();
       res.json({ success: true });
@@ -15000,11 +15357,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       let error: any = null;
       let hadQueryError = false;
 
+      const aliasUsers = getKhumaloNkosiAliases(userId);
       const primaryCacheKeys = Array.from(new Set([
         documentId,
-        `pplan_tenant-229_${userId}`,
-        `pplan_nkangala_auto_${userId}`,
-        `pplan_global_${userId}`
+        ...aliasUsers.flatMap(aUser => [
+          `pplan_tenant-229_${aUser}`,
+          `pplan_nkangala_auto_${aUser}`,
+          `pplan_global_${aUser}`
+        ])
       ]));
       if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
         primaryCacheKeys.push(
@@ -15032,7 +15392,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       if (!data) {
         // Fast Canonical Lookup First: query ONLY the canonical row (`pplan_tenant-229_${userId}` or `documentId`) first
-        // so users with large embedded POE documents never download 4x redundant 40MB-80MB rows on a single request!
+        // so users with large embedded POE documents never download 40MB-80MB redundant rows on a single request!
         const canonicalDocId = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
           ? `pplan_tenant-229_${userId}`
           : documentId;
@@ -15050,13 +15410,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         } else if (canonicalRes.data && canonicalRes.data.content) {
           batchRowsData = [canonicalRes.data];
         } else {
-          // Canonical row missing: fall back to querying secondary pplan and kpis keys
-          const kpiCandidateKeys = Array.from(new Set([
-            `kpis_${tenantId}_${userId}`,
-            `kpis_tenant-229_${userId}`,
-            `kpis_nkangala_auto_${userId}`,
-            `kpis_global_${userId}`
-          ]));
+          // Canonical row missing: fall back to querying secondary pplan and kpis keys (including nkosibs/khumalobs aliases)
+          const kpiCandidateKeys = Array.from(new Set(
+            aliasUsers.flatMap(aUser => [
+              `kpis_${tenantId}_${aUser}`,
+              `kpis_tenant-229_${aUser}`,
+              `kpis_nkangala_auto_${aUser}`,
+              `kpis_global_${aUser}`
+            ])
+          ));
           const secondaryKeys = [...primaryCacheKeys.filter(k => k !== canonicalDocId), ...kpiCandidateKeys];
           const batchRes = await supabase
             .from('messages')
@@ -15204,11 +15566,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
         // Only check kpis_ documents if NO pplan document exists and NO database query error/timeout occurred
         if (!bestFallbackParsed && !hadQueryError) {
-          const kpiFallbackKeys = [
-            `kpis_tenant-229_${userId}`,
-            `kpis_nkangala_auto_${userId}`,
-            `kpis_global_${userId}`
-          ];
+          const kpiFallbackKeys = aliasUsers.flatMap(aUser => [
+            `kpis_tenant-229_${aUser}`,
+            `kpis_nkangala_auto_${aUser}`,
+            `kpis_global_${aUser}`
+          ]);
           for (const kKey of kpiFallbackKeys) {
             const fbRes = await supabase.from('messages').select('content').eq('id', kKey).maybeSingle();
             if (fbRes.data && fbRes.data.content) {
@@ -16384,7 +16746,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetUsers = [userId];
+      const targetUsers = getKhumaloNkosiAliases(userId);
       if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
         if (!targetUsers.includes('mahlanguml@nkangaladm.gov.za')) targetUsers.push('mahlanguml@nkangaladm.gov.za');
         if (!targetUsers.includes('mahlangulm@nkangaladm.gov.za')) targetUsers.push('mahlangulm@nkangaladm.gov.za');
@@ -17873,6 +18235,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       documentId = documentId.toLowerCase();
 
+      const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : [];
       const candidateDraftIds = Array.from(new Set([
         documentId,
         ...(isPmsTeamDoc ? [
@@ -17890,11 +18253,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           'draft_doc_pms_team_tenant-229_zulune@nkangaladm.gov.za',
           'draft_doc_pms_team_tenant-229_nsibandenp@nkangaladm.gov.za'
         ] : []),
-        ...(userId && userId !== 'default' && !reqDocumentId ? [
-          `draft_doc_tenant-229_${userId}`.toLowerCase(),
-          `draft_doc_nkangala_auto_${userId}`.toLowerCase(),
-          `draft_doc_global_${userId}`.toLowerCase()
-        ] : [])
+        ...(userId && userId !== 'default' && !reqDocumentId ? aliasUsers.flatMap(aUser => [
+          `draft_doc_tenant-229_${aUser}`.toLowerCase(),
+          `draft_doc_nkangala_auto_${aUser}`.toLowerCase(),
+          `draft_doc_global_${aUser}`.toLowerCase()
+        ]) : [])
       ]));
 
       if (req.query.force !== 'true') {
@@ -18033,7 +18396,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         (typeof html === 'object' && Object.keys(html).length === 0) ||
         (typeof html === 'object' && html.html === '' && !html.pulledPplanItems && !html.coverPage && !html.purpose);
 
-      const targetUsers = [userId];
+      const targetUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : ['default'];
       for (const u of targetUsers) {
         let documentId = htmlDocumentId || `draft_doc_${tenantId}`;
         if (u && u !== 'default') {
@@ -18804,11 +19167,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     try {
       const supabase = getSupabase();
+      const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : ['default'];
       const docCandidateIds = [
-        `perf_agreement_${tenantId}_${userId}`,
-        `perf_agreement_tenant-229_${userId}`,
-        `perf_agreement_nkangala_auto_${userId}`,
-        `perf_agreement_global_${userId}`,
+        ...aliasUsers.flatMap(aUser => [
+          `perf_agreement_${tenantId}_${aUser}`,
+          `perf_agreement_tenant-229_${aUser}`,
+          `perf_agreement_nkangala_auto_${aUser}`,
+          `perf_agreement_global_${aUser}`
+        ]),
         `perf_agreement_${tenantId}`
       ];
 
@@ -19136,11 +19502,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         `perf_agreement_${tenantId}`
       ];
       if (userId && userId !== 'default') {
-        documentIds.unshift(
-          `perf_agreement_${tenantId}_${userId}`,
-          `perf_agreement_tenant-229_${userId}`,
-          `perf_agreement_nkangala_auto_${userId}`
-        );
+        const aliasUsers = getKhumaloNkosiAliases(userId);
+        for (const aUser of aliasUsers) {
+          documentIds.unshift(
+            `perf_agreement_${tenantId}_${aUser}`,
+            `perf_agreement_tenant-229_${aUser}`,
+            `perf_agreement_nkangala_auto_${aUser}`
+          );
+        }
       }
 
       for (const docId of Array.from(new Set(documentIds))) {
