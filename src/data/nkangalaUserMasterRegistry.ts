@@ -51,7 +51,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "madihlabapk@nkangaladm.gov.za": { email: "madihlabapk@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 3 },
   "madlalacnn@nkangaladm.gov.za": { email: "madlalacnn@nkangaladm.gov.za", kpis: 12, kpas: 5, jscs: 5, pdps: 0 },
   "magagulayl@nkangaladm.gov.za": { email: "magagulayl@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 0 },
-  "magampeas@nkangaladm.gov.za": { email: "magampeas@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 2 },
+  "magampeas@nkangaladm.gov.za": { email: "magampeas@nkangaladm.gov.za", kpis: 30, kpas: 6, jscs: 5, pdps: 2 },
   "mahlawanalm@nkangaladm.gov.za": { email: "mahlawanalm@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 5, pdps: 0 },
   "mahlanguv@nkangaladm.gov.za": { email: "mahlanguv@nkangaladm.gov.za", kpis: 15, kpas: 5, jscs: 5, pdps: 2 },
   "mahlanguw@nkangaladm.gov.za": { email: "mahlanguw@nkangaladm.gov.za", kpis: 16, kpas: 5, jscs: 5, pdps: 0 },
@@ -64,7 +64,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "mametjae@nkangaladm.gov.za": { email: "mametjae@nkangaladm.gov.za", kpis: 28, kpas: 5, jscs: 5, pdps: 2 },
   "mangenart@nkangaladm.gov.za": { email: "mangenart@nkangaladm.gov.za", kpis: 26, kpas: 6, jscs: 5, pdps: 0 },
   "mangwegete@nkangaladm.gov.za": { email: "mangwegete@nkangaladm.gov.za", kpis: 30, kpas: 5, jscs: 5, pdps: 0 },
-  "mankopanamm@nkangaladm.gov.za": { email: "mankopanamm@nkangaladm.gov.za", kpis: 27, kpas: 6, jscs: 5, pdps: 3 },
+  "mankopanamm@nkangaladm.gov.za": { email: "mankopanamm@nkangaladm.gov.za", kpis: 24, kpas: 6, jscs: 5, pdps: 0 },
   "maphalalanp@nkangaladm.gov.za": { email: "maphalalanp@nkangaladm.gov.za", kpis: 19, kpas: 6, jscs: 5, pdps: 1 },
   "maphangant@nkangaladm.gov.za": { email: "maphangant@nkangaladm.gov.za", kpis: 32, kpas: 5, jscs: 5, pdps: 0 },
   "maphotovl@nkangaladm.gov.za": { email: "maphotovl@nkangaladm.gov.za", kpis: 16, kpas: 5, jscs: 5, pdps: 0 },
@@ -112,11 +112,11 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "msizaas@nkangala.gov.za": { email: "msizaas@nkangala.gov.za", kpis: 42, kpas: 6, jscs: 5, pdps: 0 },
   "msokilt@nkangaladm.gov.za": { email: "msokilt@nkangaladm.gov.za", kpis: 21, kpas: 5, jscs: 5, pdps: 0 },
   "motebupp@nkangaladm.gov.za": { email: "motebupp@nkangaladm.gov.za", kpis: 12, kpas: 7, jscs: 5, pdps: 0 },
-  "mthimunyepm@nkangaladm.gov.za": { email: "mthimunyepm@nkangaladm.gov.za", kpis: 28, kpas: 6, jscs: 5, pdps: 2 },
+  "mthimunyepm@nkangaladm.gov.za": { email: "mthimunyepm@nkangaladm.gov.za", kpis: 23, kpas: 6, jscs: 5, pdps: 0 },
   "mtshalinb@nkangaladm.gov.za": { email: "mtshalinb@nkangaladm.gov.za", kpis: 22, kpas: 5, jscs: 5, pdps: 0 },
   "mtswenins@nkangaladm.gov.za": { email: "mtswenins@nkangaladm.gov.za", kpis: 17, kpas: 7, jscs: 5, pdps: 0 },
   "mtswenis@nkangaladm.gov.za": { email: "mtswenis@nkangaladm.gov.za", kpis: 34, kpas: 6, jscs: 6, pdps: 2 },
-  "nakapm@nkangaladm.gov.za": { email: "nakapm@nkangaladm.gov.za", kpis: 32, kpas: 6, jscs: 5, pdps: 0 },
+  "nakapm@nkangaladm.gov.za": { email: "nakapm@nkangaladm.gov.za", kpis: 25, kpas: 6, jscs: 5, pdps: 0 },
   "ndhlovug@nkangaladm.gov.za": { email: "ndhlovug@nkangaladm.gov.za", kpis: 14, kpas: 5, jscs: 5, pdps: 0 },
   "ndlovunz@nkangaladm.gov.za": { email: "ndlovunz@nkangaladm.gov.za", kpis: 13, kpas: 5, jscs: 5, pdps: 5 },
   "ndlovutf@nkangaladm.gov.za": { email: "ndlovutf@nkangaladm.gov.za", kpis: 11, kpas: 6, jscs: 5, pdps: 1 },
@@ -194,7 +194,18 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "mahlakwanalm@nkangaladm.gov.za": { email: "mahlakwanalm@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 5, pdps: 0 },
   "nhlaphomj@nkangaladm.gov.za": { email: "nhlaphomj@nkangaladm.gov.za", kpis: 46, kpas: 5, jscs: 6, pdps: 0 },
   "sibanyonimj@nkangaladm.gov.za": { email: "sibanyonimj@nkangaladm.gov.za", kpis: 25, kpas: 6, jscs: 5, pdps: 0 },
-  "msizaas@nkangaladm.gov.za": { email: "msizaas@nkangaladm.gov.za", kpis: 42, kpas: 6, jscs: 5, pdps: 0 }
+  "msizaas@nkangaladm.gov.za": { email: "msizaas@nkangaladm.gov.za", kpis: 42, kpas: 6, jscs: 5, pdps: 0 },
+  // Disaster Management Control Team (Control Room Operators & Disaster Management Officer)
+  "myenispl@nkangaladm.gov.za": { email: "myenispl@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "nhlabathise@nkangaladm.gov.za": { email: "nhlabathise@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "selobamc@nkangaladm.gov.za": { email: "selobamc@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "sibekops@nkangaladm.gov.za": { email: "sibekops@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "vallaa@nkangaladm.gov.za": { email: "vallaa@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "khumalomd@nkangaladm.gov.za": { email: "khumalomd@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "maditsipc@nkangaladm.gov.za": { email: "maditsipc@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "mashiloanedt@nkangaladm.gov.za": { email: "mashiloanedt@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "mpofuhd@nkangaladm.gov.za": { email: "mpofuhd@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  "seleshoatj@nkangaladm.gov.za": { email: "seleshoatj@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 }
 };
 
 export const ALIAS_MAP: Record<string, string> = {

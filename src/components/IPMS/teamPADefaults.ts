@@ -19,17 +19,17 @@ const CDS_CONFIG: DepartmentConfig = {
   teams: [
     {
       id: 1,
-      name: "Alpha Shift - Fire & Rescue Platoon",
-      description: "Primary rapid response, structural firefighting, and emergency rescue",
+      name: "TEAM CONTROL ROOM",
+      description: "Disaster Management Control Room Operations, Emergency Call Taking & Radio Communication",
       defaultRows: [
-        ["1", "Captain Sibusiso Sithole (Shift Commander)", "FF-0101"],
-        ["2", "Kagiso Mokoena (Lead Firefighter & Hazmat Specialist)", "FF-0204"],
-        ["3", "Lindiwe Nkosi (Senior Rescue Pump Operator)", "FF-0309"],
-        ["4", "Pieter van der Merwe (Paramedic & First Responder)", "FF-0415"],
-        ["5", "Bongani Khumalo (Apparatus Driver & Extrication Tech)", "FF-0520"],
-        ["6", "Noluthando Ndlovu (Fire Safety & Prevention Officer)", "FF-0632"],
-        ["7", "Zane Marais (High Angle & Mountain Rescue Tech)", "FF-0740"],
-        ["8", "Sipho Zulu (Wildland Fire Control Specialist)", "FF-0855"]
+        ["1", "HERMAN DUMISANI MPOFU", "P120106", "Team Leader"],
+        ["2", "PONTTSHO CEDRIC MADITSI", "FF-0204", "Team Member"],
+        ["3", "SMANGELE ELIZABETH MIGGELS", "P114346", "Team Member"],
+        ["4", "ANIL VALLA", "P120023", "Team Member"],
+        ["5", "MANTOMBE DORAH KHUMALO", "P118930", "Team Member"],
+        ["6", "PETER SIPHO SIBEKO", "P113786", "Team Member"],
+        ["7", "DORCAS MASHILOANE", "P114339", "Team Member"],
+        ["8", "MMANOKO CATHRINE  SELOBA", "P115222", "Team Member"]
       ]
     },
     {
@@ -124,10 +124,14 @@ const CDS_CONFIG: DepartmentConfig = {
       name: "Disaster Management & Incident Command Support",
       description: "Strategic coordination, emergency communications, and operational logistics",
       defaultRows: [
-        ["1", "Chief Disaster Officer Audrey Mokoena", "FF-1001"],
-        ["2", "Sibusiso Ndlovu (Field Logistics Coordinator)", "FF-1002"],
-        ["3", "Elize Van Eeden (GIS & Emergency Dispatcher)", "FF-1003"],
-        ["4", "Musa Zulu (Public Safety & Relief Officer)", "FF-1004"]
+        ["1", "HERMAN DUMISANI MPOFU", "P120106", "Team Leader"],
+        ["2", "PONTTSHO CEDRIC MADITSI", "FF-0204", "Team Member"],
+        ["3", "SMANGELE ELIZABETH MIGGELS", "P114346", "Team Member"],
+        ["4", "ANIL VALLA", "P120023", "Team Member"],
+        ["5", "MANTOMBE DORAH KHUMALO", "P118930", "Team Member"],
+        ["6", "PETER SIPHO SIBEKO", "P113786", "Team Member"],
+        ["7", "DORCAS MASHILOANE", "P114339", "Team Member"],
+        ["8", "MMANOKO CATHRINE  SELOBA", "P115222", "Team Member"]
       ]
     }
   ]

@@ -297,8 +297,246 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 10. Ms. Lungelo Portia Mpanza (mpanzal@nkangaladm.gov.za) - Reconcile exact 25 official THLM EHP KPIs from signed 2026/2027 PA
+  if (normEmail === 'mpanzal@nkangaladm.gov.za' || normEmail.includes('mpanzal')) {
+    const officialMpanzaKpis = [
+      { kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Attain clean audit opinion by 31 December 2026.', weighting: '2', baseline: '1 (Unqualified with matters)', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG’s Audit Report', q1Locked: true, q1Applicable: false },
+      { kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026.', weighting: '3', baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', weighting: '3', baseline: '2', annualTarget: '4', q1Target: '1 (Q1 assessment)', q2Target: '1 (midyear assessment)', q3Target: '1 (Q3 assessment)', q4Target: '1 (annual assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026.', weighting: '2', baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027.', weighting: '2', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '6', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '# of monthly consolidated municipal Health Services reports submitted to Chief EHP before the 28th of every month.', weighting: '4', baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Monthly reports' },
+      { kpiNo: '7', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '# of weekly itinerary compiled and submitted to CEHP', weighting: '5', baseline: '52', annualTarget: '52', q1Target: '13', q2Target: '13', q3Target: '13', q4Target: '13', poe: 'Weekly programme' },
+      { kpiNo: '8', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '% of Internal Audit Recommendations implemented per quarter.', weighting: '3', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Internal audit quarterly reports' },
+      { kpiNo: '9', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '% of action plans implemented to address Operational Risks identified per quarter.', weighting: '3', baseline: '95%', annualTarget: '98%', q1Target: '98%', q2Target: '98%', q3Target: '98%', q4Target: '98%', poe: 'Operational Risk quarterly reports' },
+      { kpiNo: '10', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '% of action plans implemented to address Fraud and corruption Risks identified per quarter.', weighting: '3', baseline: '94%', annualTarget: '96%', q1Target: '96%', q2Target: '96%', q3Target: '96%', q4Target: '96%', poe: 'Fraud and corruption risk quarterly reports' },
+      { kpiNo: '11', kpa: 'KPA 2: LAW ENFORCEMENT', kpi: '# of spot fines issued in THLM per quarter', weighting: '5', baseline: '12', annualTarget: '12', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '03', poe: 'Spot fine copies only' },
+      { kpiNo: '12', kpa: 'KPA 3: FOOD CONTROL', kpi: 'Number of food handling and preparation facilities inspected for compliance per quarter at THLM by 30 June 2027.', weighting: '5', baseline: '180', annualTarget: '180', q1Target: '45', q2Target: '45', q3Target: '45', q4Target: '45', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '13', kpa: 'KPA 3: FOOD CONTROL', kpi: 'Number of food samples taken per annum', weighting: '5', baseline: '11', annualTarget: '11', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '02', poe: 'Sampling schedule and Lab Sampling sheets (MHS THLM)' },
+      { kpiNo: '14', kpa: 'KPA 4: WATER QUALITY MONITORING', kpi: 'Number of water samples taken per quarter from the THLM Water Reticulation, water sources, boreholes and treatment works to monitor water quality by 30 June 2027.', weighting: '5', baseline: '120', annualTarget: '120', q1Target: '30', q2Target: '30', q3Target: '30', q4Target: '30', poe: 'Water sampling sheets and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '15', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at public and private Old age homes, orphanages, disability center and schools per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '13', annualTarget: '13', q1Target: '03', q2Target: '03', q3Target: '04', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '16', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Childcare centers per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '13', annualTarget: '13', q1Target: '03', q2Target: '03', q3Target: '04', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '17', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at non-food handling premises in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '38', annualTarget: '38', q1Target: '09', q2Target: '10', q3Target: '10', q4Target: '09', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '18', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at funeral undertakers’ premises, cemeteries and crematoria per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '12', annualTarget: '12', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '19', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Public and private hospitals and clinics in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '12', annualTarget: '12', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '20', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at government properties, police stations and post offices in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '20', annualTarget: '20', q1Target: '05', q2Target: '05', q3Target: '05', q4Target: '05', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '21', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Accommodation Establishments, beauty salons and swimming pools in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '06', annualTarget: '06', q1Target: '01', q2Target: '02', q3Target: '02', q4Target: '01', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '22', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Prisons and correctional facilities in THLM per quarter by 30 June 2027.', weighting: '2', baseline: '02', annualTarget: '02', q1Target: '0', q2Target: '01', q3Target: '0', q4Target: '01', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '23', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Chemical handling premises, agricultural premises and Caravan parks in THLM per quarter by 30 June 2027.', weighting: '3', baseline: '08', annualTarget: '08', q1Target: '02', q2Target: '02', q3Target: '02', q4Target: '02', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '24', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of Community based awareness campaigns attended by 30 June 2027.', weighting: '4', baseline: '04', annualTarget: '04', q1Target: '01', q2Target: '01', q3Target: '01', q4Target: '01', poe: 'Attendance registers (MHS THLM)' },
+      { kpiNo: '25', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of municipal Health Services and Environmental Management committees/Stakeholder Forums attended by 30 June 2027 & Number of municipal Health Services education and training sessions conducted at premises by 30 June 2027.', weighting: '6', baseline: '24', annualTarget: '24', q1Target: '06', q2Target: '06', q3Target: '06', q4Target: '06', poe: 'Reports and Attendance registers (MHS THLM)' }
+    ];
+
+    result = officialMpanzaKpis.map((def, idx) => {
+      // Find first matching existing item that genuinely matches this KPI number/description (avoiding the repeated #12-#25 duplicates)
+      const existing = result.find((ex, exIdx) => {
+        const exNo = String(ex.kpiNo || ex['kpi no'] || '').trim().toUpperCase();
+        const exDesc = String(ex.kpi || ex.description || ex['kpi description'] || '').toLowerCase();
+        if (idx < 11 && exIdx === idx) return true;
+        if (exNo === def.kpiNo.toUpperCase() && exIdx < 11) return true;
+        if (idx >= 11 && exDesc.includes(def.kpi.toLowerCase().substring(0, 28))) return true;
+        return false;
+      });
+      const base = existing ? { ...existing } : {};
+      const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      return {
+        ...base,
+        id: base.id || `mpanzal-official-kpi-${idx + 1}`,
+        kpiNo: def.kpiNo,
+        'kpi no': def.kpiNo,
+        kpa: def.kpa,
+        functionalKpa: def.kpa,
+        kpi: def.kpi,
+        indicator: def.kpi,
+        description: def.kpi,
+        'kpi description': def.kpi,
+        weighting: def.weighting,
+        weight: def.weighting,
+        '%wt': def.weighting,
+        baseline: def.baseline,
+        annualTarget: def.annualTarget,
+        'annual target': def.annualTarget,
+        q1Target: def.q1Target,
+        '1st qtr target': def.q1Target,
+        q2Target: def.q2Target,
+        '2nd qtr target': def.q2Target,
+        q3Target: def.q3Target,
+        '3rd qtr target': def.q3Target,
+        q4Target: def.q4Target,
+        '4th qtr target': def.q4Target,
+        poe: allQtrPoe,
+        annualRequiredPoe: def.poe,
+        q1Poe: def.poe,
+        q2Poe: def.poe,
+        midtermPoe: def.poe,
+        q3Poe: def.poe,
+        q4Poe: def.poe,
+        budget: 'OPEX',
+        q1Locked: def.q1Locked ?? false,
+        q1Applicable: def.q1Applicable ?? true
+      };
+    });
+  }
+
+  // 11. Mr. Alfred Shupeng Magampe (magampeas@nkangaladm.gov.za) - Remove KPI 31+ (strictly 30 KPIs), KPI 29 POE = Listings and Attendance Register, replace STLM with THLM in POEs
+  if (normEmail === 'magampeas@nkangaladm.gov.za' || normEmail.includes('magampe')) {
+    result = result.filter((kpi, index) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim().toUpperCase();
+      const numVal = parseInt(ref.replace(/[^0-9]/g, ''), 10);
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+      if (
+        desc.includes('staff vacancy rate') ||
+        desc.includes('vacant posts filled') ||
+        desc.includes('workplace skills plan') ||
+        desc.includes('previously disadvantaged') ||
+        desc.includes('suspended officials') ||
+        desc.includes('active suspensions') ||
+        desc.includes('declared their financial interests')
+      ) {
+        return false;
+      }
+      if (!isNaN(numVal) && numVal >= 31 && ref !== 'M_21') return false;
+      if (index >= 30) return false;
+      return true;
+    }).map((kpi, index) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim();
+      const isKpi29 = ref === '29' || index === 28;
+      const fixStlmToThlm = (str: any) => {
+        if (typeof str !== 'string') return str;
+        return str.replace(/\bSTLM\b/g, 'THLM').replace(/Steve Tshwete Local Municipality/gi, 'Thembisile Hani Local Municipality').replace(/Steve Tshwete/gi, 'Thembisile Hani');
+      };
+      const updated: any = {
+        ...kpi,
+        poe: fixStlmToThlm(kpi.poe),
+        annualRequiredPoe: fixStlmToThlm(kpi.annualRequiredPoe),
+        q1Poe: fixStlmToThlm(kpi.q1Poe),
+        q2Poe: fixStlmToThlm(kpi.q2Poe),
+        midtermPoe: fixStlmToThlm(kpi.midtermPoe),
+        q3Poe: fixStlmToThlm(kpi.q3Poe),
+        q4Poe: fixStlmToThlm(kpi.q4Poe)
+      };
+      if (isKpi29) {
+        const kpi29Poe = 'Listings and Attendance Register';
+        updated.poe = `Q1: ${kpi29Poe}\nQ2: ${kpi29Poe}\nQ3: ${kpi29Poe}\nQ4: ${kpi29Poe}`;
+        updated.annualRequiredPoe = kpi29Poe;
+        updated.q1Poe = kpi29Poe;
+        updated.q2Poe = kpi29Poe;
+        updated.midtermPoe = kpi29Poe;
+        updated.q3Poe = kpi29Poe;
+        updated.q4Poe = kpi29Poe;
+      }
+      return updated;
+    });
+  }
+
+  // 12. Mr. Prince M. Mthimunye (mthimunyepm@nkangaladm.gov.za), Sindiso Moepi (moepis@nkangaladm.gov.za), and Mathapelo Mankopana (mankopanamm@nkangaladm.gov.za)
+  if (
+    normEmail === 'mthimunyepm@nkangaladm.gov.za' ||
+    normEmail.includes('mthimunyepm') ||
+    normEmail === 'moepis@nkangaladm.gov.za' ||
+    normEmail.includes('moepis') ||
+    normEmail === 'mankopanamm@nkangaladm.gov.za' ||
+    normEmail.includes('mankopana')
+  ) {
+    result = result.filter((kpi, index) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim().toUpperCase();
+      const numVal = parseInt(ref.replace(/[^0-9]/g, ''), 10);
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+      if (
+        desc.includes('staff vacancy rate') ||
+        desc.includes('vacant posts filled') ||
+        desc.includes('workplace skills plan') ||
+        desc.includes('previously disadvantaged') ||
+        desc.includes('suspended officials') ||
+        desc.includes('active suspensions') ||
+        desc.includes('declared their financial interests') ||
+        desc.startsWith('achieve target deliverable kpi-')
+      ) {
+        return false;
+      }
+      if (normEmail.includes('mthimunyepm')) {
+        if (!isNaN(numVal) && numVal >= 24 && ref !== 'M_21') return false;
+        if (index >= 23) return false;
+      } else {
+        if (!isNaN(numVal) && numVal >= 25 && ref !== 'M_21') return false;
+        if (index >= 24) return false;
+      }
+      return true;
+    });
+  }
+
+  // 13. Mr. Mark Ephraim Maseko (masekome@nkangaladm.gov.za) - Unlock KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Quarter 1
+  if (normEmail === 'masekome@nkangaladm.gov.za' || normEmail.includes('masekome')) {
+    result = result.map((kpi, index) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+      if (
+        index === 4 ||
+        (ref === '5' && (desc.includes('annual performance evaluation') || desc.includes('29 august'))) ||
+        desc.includes('annual performance evaluation on e-pms')
+      ) {
+        return {
+          ...kpi,
+          q1Applicable: true,
+          q1Locked: false,
+          q1Target: '1 (annual assessment)',
+          '1st qtr target': '1 (annual assessment)',
+          lockedQuarters: (kpi.lockedQuarters || []).filter((q: string) => q.toUpperCase() !== 'Q1')
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 14. Mr. Richard Dumisani Hleza (hlezard@nkangaladm.gov.za) - KPI 2 (Strategic Risks Identified) required POE = "Strategic Risk Report"
+  if (normEmail === 'hlezard@nkangaladm.gov.za' || normEmail.includes('hlezard')) {
+    result = result.map((kpi, index) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+      if (index === 1 || ref === '2' || ref === 'M_15' || desc.includes('strategic risks identified')) {
+        const reqPoe = 'Strategic Risk Report';
+        return {
+          ...kpi,
+          poe: `Q1: ${reqPoe}\nQ2: ${reqPoe}\nQ3: ${reqPoe}\nQ4: ${reqPoe}`,
+          annualRequiredPoe: reqPoe,
+          q1Poe: reqPoe,
+          q2Poe: reqPoe,
+          midtermPoe: reqPoe,
+          q3Poe: reqPoe,
+          q4Poe: reqPoe
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 15. Clean Audit Opinion KPI (M_21 / KPI 1: "Attain clean audit opinion by 31 December 2026") is N/A in Quarter 1 (due Q2: 31 Dec 2026)
+  result = result.map(kpi => {
+    const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+    const q1T = String(kpi.q1Target || kpi['1st qtr target'] || '').trim().toUpperCase();
+    if (desc.includes('clean audit opinion') && (q1T === 'N/A' || q1T === 'NA' || q1T === '')) {
+      const hasQ2Actual = Boolean(kpi.q2Actual && String(kpi.q2Actual).trim() !== '' && String(kpi.q2Actual).trim().toUpperCase() !== 'N/A');
+      return {
+        ...kpi,
+        q1Target: 'N/A',
+        '1st qtr target': 'N/A',
+        q1Locked: true,
+        q1Applicable: false,
+        q1PoeStatus: 'N/A',
+        reviewStatus: hasQ2Actual ? kpi.reviewStatus : 'N/A',
+        reviewApprovalStatus: hasQ2Actual ? kpi.reviewApprovalStatus : ''
+      };
+    }
+    return kpi;
+  });
+
   return result;
 }
+
+export function applyOfficialUserKpiFixes(inputKpis: any[], userEmail: string): any[] {
+  return applyOfficialKpiRules(userEmail || '', Array.isArray(inputKpis) ? inputKpis : []);
+}
+
 
 
 

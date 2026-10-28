@@ -1070,10 +1070,12 @@ export function DraftingSuiteTeam({
   const handlePullFilteredTeamPA = async () => {
     setPullingFilteredTeamPA(true);
     try {
-      const emailToUse = getEmailScope(currentUser?.email || (documentIdSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
+      const emailToUse = getEmailScope(currentUser?.email || (documentIdSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : documentIdSuffix === 'cds' ? 'myenispl@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
       const candidateEmails = documentIdSuffix === 'pms_team'
         ? Array.from(new Set(['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', emailToUse]))
-        : [emailToUse];
+        : documentIdSuffix === 'cds'
+          ? Array.from(new Set([emailToUse, 'myenispl@nkangaladm.gov.za', 'mpofuhd@nkangaladm.gov.za', 'maditsipc@nkangaladm.gov.za', 'nhlabathise@nkangaladm.gov.za', 'vallaa@nkangaladm.gov.za', 'khumalomd@nkangaladm.gov.za', 'sibekops@nkangaladm.gov.za', 'mashiloanedt@nkangaladm.gov.za', 'selobamc@nkangaladm.gov.za']))
+          : [emailToUse];
 
       for (const candidateEmail of candidateEmails) {
         const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(candidateEmail)}&t=${Date.now()}`);
@@ -1897,15 +1899,28 @@ export function DraftingSuiteTeam({
         }
       }
 
-      if ((!data || !data.html) && documentIdSuffix === 'pms_team' && teamIdx === 0) {
-        const candidateUserScopes = [
-          'pms_team_shared',
-          'zulune@nkangaladm.gov.za',
-          'nsibandenp@nkangaladm.gov.za'
-        ];
+      if ((!data || !data.html) && (documentIdSuffix === 'pms_team' || documentIdSuffix === 'cds') && (teamIdx === 0 || teamIdx === 9)) {
+        const candidateUserScopes = documentIdSuffix === 'pms_team'
+          ? [
+              'pms_team_shared',
+              'zulune@nkangaladm.gov.za',
+              'nsibandenp@nkangaladm.gov.za'
+            ]
+          : [
+              'myenispl@nkangaladm.gov.za',
+              'mpofuhd@nkangaladm.gov.za',
+              'maditsipc@nkangaladm.gov.za',
+              'nhlabathise@nkangaladm.gov.za',
+              'vallaa@nkangaladm.gov.za',
+              'khumalomd@nkangaladm.gov.za',
+              'sibekops@nkangaladm.gov.za',
+              'mashiloanedt@nkangaladm.gov.za',
+              'selobamc@nkangaladm.gov.za'
+            ];
+        const fallbackDocId = documentIdSuffix === 'cds' ? `draft_doc_cds_team_1_${activeTenantId}` : docId;
         for (const uScope of candidateUserScopes) {
           try {
-            const zuluRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(uScope)}&documentId=${docId}&force=true&t=${Date.now()}`);
+            const zuluRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(uScope)}&documentId=${fallbackDocId}&force=true&t=${Date.now()}`);
             if (zuluRes.ok) {
               const uData = await zuluRes.json();
               if (uData && uData.html) {

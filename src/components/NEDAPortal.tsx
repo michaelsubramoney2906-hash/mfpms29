@@ -25,6 +25,7 @@ import { KPAIPMS } from './IPMS/KPA_IPMS';
 import { PersonalDevelopmentPlan } from './IPMS/PersonalDevelopmentPlan';
 import { PerformanceAgreements } from './IPMS/PerformanceAgreements';
 import { CoreCompetencies } from './IPMS/CoreCompetencies';
+import { JobSpecificCompetencies } from './IPMS/JobSpecificCompetencies';
 import { EvaluationIPMS } from './IPMS/Evaluation_IPMS';
 import { ManagerReviewIPMS } from './IPMS/ManagerReview_IPMS';
 import { InternalAuditReviewIPMS } from './IPMS/InternalAuditReview_IPMS';
@@ -45,7 +46,7 @@ type SubModuleId =
   | 'annual_report' | 'annual_perf_report' | 'idp' | 'sdbip' | 'fred2'
   // Individual PMS
   | 'ipms_kpi_capture' | 'ipms_kpa_capture' | 'pdp' | 'performance_plan' 
-  | 'core_competencies' | 'performance_agreement' | 'self_evaluation' 
+  | 'core_competencies' | 'job_specific_competencies' | 'performance_agreement' | 'self_evaluation' 
   | 'managers_approval' | 'internal_audit' | 'portfolio_of_evidence'
   // Financial & SCM
   | 'budget_tracking' | 'scm_performance' | 'audit_risk'
@@ -368,6 +369,7 @@ export function NEDAPortal({ user, onLogout, onImpersonate }: NEDAPortalProps) {
         { id: 'pdp', name: 'Personal Development Plan (PDP)', desc: 'Identify skill gaps and coordinate staff development frameworks.', icon: <TrendingUp className="w-4 h-4" /> },
         { id: 'performance_plan', name: 'Performance Plan', desc: 'Configure target performance scorecards and metrics.', icon: <Calendar className="w-4 h-4" /> },
         { id: 'core_competencies', name: 'Core Competencies', desc: 'Assess core management and corporate leadership capabilities.', icon: <ShieldCheck className="w-4 h-4" /> },
+        { id: 'job_specific_competencies', name: 'Job Specific Competencies (JSC)', desc: 'Capture and evaluate Job Specific Competencies (JSC) and weightings.', icon: <CheckSquare className="w-4 h-4" /> },
         { id: 'performance_agreement', name: 'Performance Agreement', desc: 'Review and sign official performance agreement contracts.', icon: <FileSignature className="w-4 h-4" /> },
         { id: 'self_evaluation', name: 'Self Evaluation', desc: 'Submit employee quarterly review performance ratings and narratives.', icon: <Plus className="w-4 h-4" /> },
         { id: 'managers_approval', name: 'Manager’s Approval', desc: 'Review, moderate, and approve subordinate performance assessments.', icon: <Check className="w-4 h-4" /> },
@@ -635,6 +637,13 @@ export function NEDAPortal({ user, onLogout, onImpersonate }: NEDAPortalProps) {
                 <div className="animate-fade-in bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                   <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Integrated Core Competencies Module</h3>
                   <CoreCompetencies currentUser={user} activeTenantId={tenantId} />
+                </div>
+              )}
+
+              {activeSub === 'job_specific_competencies' && (
+                <div className="animate-fade-in bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Integrated Job Specific Competencies (JSC) Module</h3>
+                  <JobSpecificCompetencies currentUser={user} activeTenantId={tenantId} />
                 </div>
               )}
 

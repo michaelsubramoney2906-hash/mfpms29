@@ -869,7 +869,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
     const kpiIdsToFilter = targetKpiIds && targetKpiIds.length > 0 
       ? targetKpiIds 
-      : (targetKpiId ? [targetKpiId] : (basePlan?.metadata?.submittedKpiIds && Array.isArray(basePlan.metadata.submittedKpiIds) && basePlan.metadata.submittedKpiIds.length > 0 ? basePlan.metadata.submittedKpiIds : null));
+      : (targetKpiId ? [targetKpiId] : null);
     setFilterSubmittedKpiIds(kpiIdsToFilter);
     setShowAllKpis(false);
 
@@ -921,9 +921,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             ).map((it: any) => it.id);
           }
           
-          const effectiveKpiFilter = kpiIdsToFilter || (fullPlan.metadata?.submittedKpiIds && Array.isArray(fullPlan.metadata.submittedKpiIds) && fullPlan.metadata.submittedKpiIds.length > 0 ? fullPlan.metadata.submittedKpiIds : null);
-          if (effectiveKpiFilter && effectiveKpiFilter.length > 0) {
-            const pendingFilterKpis = effectiveKpiFilter.filter((fId: any) => {
+          if (kpiIdsToFilter && kpiIdsToFilter.length > 0) {
+            const pendingFilterKpis = kpiIdsToFilter.filter((fId: any) => {
               const it = fullPlan.items?.find((i: any) => matchesKpiIdentifier(i, fId));
               return isItemActionable(it);
             });
@@ -933,9 +932,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                 return it?.id || fId;
               });
               setFilterSubmittedKpiIds(pendingFilterKpis);
-            } else if (!targetKpiId && (!targetKpiIds || targetKpiIds.length === 0)) {
+            } else {
               setFilterSubmittedKpiIds(null);
             }
+          } else {
+            setFilterSubmittedKpiIds(null);
           }
           if (targetKpiId) {
             const it = fullPlan.items?.find((i: any) => matchesKpiIdentifier(i, targetKpiId));
@@ -1317,6 +1318,20 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
 
       payload.items = allItems.map((item: any) => {
+        const isQ1Na =
+          String(item.q1Target || '').trim().toUpperCase() === 'N/A' ||
+          String(item.kpi || item.description || '').toLowerCase().includes('clean audit opinion');
+        if (isQ1Na && (!item.q1Actual || String(item.q1Actual).trim() === '' || String(item.q1Actual).trim().toUpperCase() === 'N/A')) {
+          return {
+            ...item,
+            q1Target: 'N/A',
+            q1Locked: true,
+            reviewStatus: 'N/A',
+            reviewApprovalStatus: '',
+            resubmittedAt: '',
+            q1PoeStatus: 'N/A'
+          };
+        }
         const isMatch = !isTargeted || targetIds.some(tId => matchesKpiIdentifier(item, tId));
         if (isMatch) {
           const selfScore = getSelfScore(item);
@@ -1328,6 +1343,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             reviewStatus: 'Approved',
             reviewApprovalStatus: 'Approved',
             resubmittedAt: '',
+            resubmissionUnlocked: false,
             // Update quarterly PoE verification stamps to Approved
             q1PoeStatus: item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected' ? 'Approved' : (item.q1PoeStatus || 'Approved'),
             q2PoeStatus: item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected' ? 'Approved' : (item.q2PoeStatus || 'Approved'),
@@ -1339,6 +1355,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       });
 
       if (!payload.metadata) payload.metadata = {};
+      payload.metadata._authoritativePoeUpdate = true;
 
       // Remove approved KPIs from metadata.submittedKpiIds so they no longer appear as awaiting review
       if (payload.metadata.submittedKpiIds && Array.isArray(payload.metadata.submittedKpiIds)) {
@@ -1475,6 +1492,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             reviewStatus: 'Revision Required',
             reviewApprovalStatus: 'Rejected',
             resubmittedAt: '',
+            resubmissionUnlocked: true,
             q1PoeStatus: 'Revision Required',
             q2PoeStatus: 'Revision Required',
             q3PoeStatus: 'Revision Required',
@@ -1486,6 +1504,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       if (!payload.metadata) payload.metadata = {};
       payload.metadata.reviewStatus = 'Revision Required';
+      payload.metadata._authoritativePoeUpdate = true;
 
       // Remove rejected KPIs from metadata.submittedKpiIds so they no longer appear as awaiting initial review
       if (payload.metadata.submittedKpiIds && Array.isArray(payload.metadata.submittedKpiIds)) {
@@ -2075,11 +2094,18 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                   </thead>
                   <tbody>
                     {teamPlans.map((tp, idx) => {
-                      const isApproved = tp.plan.metadata?.reviewStatus === 'Reviewed' || tp.plan.metadata?.reviewStatus === 'Approved' || (Array.isArray(tp.plan?.items) && tp.plan.items.length > 0 && tp.plan.items.every((it: any) => it.reviewStatus === 'Approved' || it.reviewApprovalStatus === 'Approved'));
+                      const applicableItems = Array.isArray(tp.plan?.items)
+                        ? tp.plan.items.filter((it: any) => String(it?.q1Target || '').trim().toUpperCase() !== 'N/A' && it?.reviewStatus !== 'N/A')
+                        : [];
+                      const isApproved =
+                        tp.plan.metadata?.reviewStatus === 'Reviewed' ||
+                        tp.plan.metadata?.reviewStatus === 'Approved' ||
+                        (applicableItems.length > 0 && applicableItems.every((it: any) => it.reviewStatus === 'Approved' || it.reviewApprovalStatus === 'Approved'));
                       let submittedKpisCount = 0;
                       if (Array.isArray(tp.plan?.items)) {
                         tp.plan.items.forEach((it: any) => {
-                          if ((it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted') && it.reviewApprovalStatus !== 'Approved' && isGenuinelySubmittedKpi(it)) {
+                          const isQ1Na = String(it?.q1Target || '').trim().toUpperCase() === 'N/A' || it?.reviewStatus === 'N/A';
+                          if (!isQ1Na && (it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Submitted for Review' || it.reviewStatus === 'Submitted') && it.reviewApprovalStatus !== 'Approved' && isGenuinelySubmittedKpi(it)) {
                             submittedKpisCount++;
                           }
                         });

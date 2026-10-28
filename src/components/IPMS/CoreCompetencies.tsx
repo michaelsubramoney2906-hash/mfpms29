@@ -101,6 +101,55 @@ export function matchOfficialCoreRole(user?: {
   const jobLower = jobFunction.toLowerCase();
   const deptLower = department.toLowerCase();
 
+  // Rule 0: NEDA Specific Officials (JP Mangani, KC Chauke, Lydia Sehlako, Ntsoaki Ngomane)
+  if (emailPrefix === 'manganijp' || emailRaw.includes('manganijp')) {
+    return {
+      fullName: 'Johan P. Mangani',
+      email: user?.email || 'manganijp@neda.gov.za',
+      jobFunction: 'Acting Chief Executive Officer',
+      department: 'Office of the Chief Executive Officer',
+      refCode: 'NEDA-ACEO-01',
+      roleKey: 'mm',
+      roleName: 'Municipal Managers Core Competencies'
+    };
+  }
+
+  if (emailPrefix === 'chaukekc' || emailRaw.includes('chaukekc')) {
+    return {
+      fullName: 'Kulani Collen Chauke',
+      email: user?.email || 'chaukekc@neda.gov.za',
+      jobFunction: 'Chief Financial Officer (CFO)',
+      department: 'Finance',
+      refCode: 'NEDA-CFO-01',
+      roleKey: 'cfo',
+      roleName: 'CFOs Core Competencies'
+    };
+  }
+
+  if (emailPrefix === 'sehlakols' || emailRaw.includes('sehlakols')) {
+    return {
+      fullName: 'Lydia Sadi Sehlako',
+      email: user?.email || 'sehlakols@neda.gov.za',
+      jobFunction: 'Divisional Manager: Supply Chain Management',
+      department: 'Finance',
+      refCode: 'NEDA-SCM-01',
+      roleKey: 'standard',
+      roleName: 'Standard Core Competencies'
+    };
+  }
+
+  if (emailPrefix === 'ngomanennc' || emailRaw.includes('ngomanennc')) {
+    return {
+      fullName: 'Ntsoaki Nomonde Charmaine Ngomane',
+      email: user?.email || 'ngomanennc@neda.gov.za',
+      jobFunction: 'Company Secretary',
+      department: 'Office of the Chief Executive Officer',
+      refCode: 'NEDA-CSEC-01',
+      roleKey: 'standard',
+      roleName: 'Standard Core Competencies'
+    };
+  }
+
   // Rule 1: Municipal Manager -> mahlanguml@nkangaladm.gov.za
   if (
     emailRaw === 'mahlanguml@nkangaladm.gov.za' ||
@@ -108,6 +157,7 @@ export function matchOfficialCoreRole(user?: {
     emailRaw.startsWith('mm@') ||
     emailRaw.includes('municipal.manager') ||
     jobLower.includes('municipal manager') ||
+    jobLower.includes('chief executive officer') ||
     jobLower.includes('accounting officer') ||
     (deptLower.includes('office of the municipal manager') && (jobLower.includes('manager') || jobLower.includes('executive') || jobLower.includes('accounting')))
   ) {

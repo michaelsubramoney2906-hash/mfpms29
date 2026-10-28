@@ -757,22 +757,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
             item.q4PoeStatus === 'Revision Required';
 
           if (updatedDocs.length > 0 && hadRevisionRequired) {
-            wasRevisionCleared = true;
-            nextItem.reviewStatus = 'Submitted for Approval';
-            nextItem.reviewApprovalStatus = '';
-            nextItem.resubmittedAt = nowIso;
-            if (nextItem.q1PoeStatus === 'Revision Required' || nextItem.q1PoeStatus === 'Rejected' || quarterField === 'q1PoeDocs') {
-              nextItem.q1PoeStatus = 'Pending Verification';
-            }
-            if (nextItem.q2PoeStatus === 'Revision Required' || nextItem.q2PoeStatus === 'Rejected' || quarterField === 'q2PoeDocs') {
-              nextItem.q2PoeStatus = 'Pending Verification';
-            }
-            if (nextItem.q3PoeStatus === 'Revision Required' || nextItem.q3PoeStatus === 'Rejected' || quarterField === 'q3PoeDocs') {
-              nextItem.q3PoeStatus = 'Pending Verification';
-            }
-            if (nextItem.q4PoeStatus === 'Revision Required' || nextItem.q4PoeStatus === 'Rejected' || quarterField === 'q4PoeDocs') {
-              nextItem.q4PoeStatus = 'Pending Verification';
-            }
+            // Keep the KPI unlocked in Revision Required / Draft so the employee can finish editing actuals, scores, or uploading additional files before clicking Submit/Resubmit
+            nextItem.resubmissionUnlocked = true;
           }
 
           return {
@@ -784,16 +770,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
         return item;
       });
 
-      const prevSubmittedIds = Array.isArray(prev.metadata?.submittedKpiIds) ? prev.metadata.submittedKpiIds : [];
       const updatedPayload = {
         ...prev,
         metadata: {
           ...(prev.metadata || {}),
-          _authoritativePoeUpdate: true,
-          ...(wasRevisionCleared ? {
-            reviewStatus: 'Submitted for Approval',
-            submittedKpiIds: Array.from(new Set([...prevSubmittedIds, kpiId]))
-          } : {})
+          _authoritativePoeUpdate: true
         },
         items: updatedItems
       };
@@ -1126,8 +1107,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
             reviewStatus: submitForReview ? 'Submitted for Approval' : (item.reviewStatus || 'Draft'),
             ...(submitForReview ? {
               reviewApprovalStatus: '',
+              resubmissionUnlocked: false,
               resubmittedAt: new Date().toISOString(),
-              q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected') ? 'Pending Verification' : item.q1PoeStatus,
+              q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected' || item.q1PoeStatus === 'Draft' || !item.q1PoeStatus) ? 'Pending Verification' : item.q1PoeStatus,
               q2PoeStatus: (item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected') ? 'Pending Verification' : item.q2PoeStatus,
               q3PoeStatus: (item.q3PoeStatus === 'Revision Required' || item.q3PoeStatus === 'Rejected') ? 'Pending Verification' : item.q3PoeStatus,
               q4PoeStatus: (item.q4PoeStatus === 'Revision Required' || item.q4PoeStatus === 'Rejected') ? 'Pending Verification' : item.q4PoeStatus
@@ -1259,19 +1241,38 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
         ...pplanData.metadata,
         reviewStatus: 'Draft',
         submittedKpiIds: [],
-        lastSubmittedKpiId: undefined
+        lastSubmittedKpiId: undefined,
+        _replacePlan: false,
+        _allowItemDeletion: false,
+        _authoritativePoeUpdate: true,
+        _employeeRedoUnlock: true
       };
 
-      const updatedItems = pplanData.items.map(item => ({
-        ...item,
-        reviewStatus: 'Draft',
-        q1PoeStatus: 'Draft',
-        q2PoeStatus: 'Draft',
-        q3PoeStatus: 'Draft',
-        q4PoeStatus: 'Draft',
-        annualPoeStatus: 'Draft',
-        midtermPoeStatus: 'Draft'
-      }));
+      const updatedItems = pplanData.items.map(item => {
+        const desc = String(item.kpi || item.description || '').toLowerCase();
+        const isQ1NaCleanAudit = desc.includes('clean audit opinion') && String(item.q1Target || '').trim().toUpperCase() === 'N/A';
+        if (isQ1NaCleanAudit) {
+          return {
+            ...item,
+            reviewStatus: 'N/A',
+            reviewApprovalStatus: '',
+            q1PoeStatus: 'N/A'
+          };
+        }
+        return {
+          ...item,
+          reviewStatus: 'Draft',
+          reviewApprovalStatus: '',
+          resubmittedAt: '',
+          resubmissionUnlocked: true,
+          q1PoeStatus: 'Draft',
+          q2PoeStatus: 'Draft',
+          q3PoeStatus: 'Draft',
+          q4PoeStatus: 'Draft',
+          annualPoeStatus: 'Draft',
+          midtermPoeStatus: 'Draft'
+        };
+      });
 
       const payload = {
         metadata,
@@ -1313,7 +1314,11 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
       const metadata = { 
         ...pplanData.metadata,
         reviewStatus: remainingSubmitted.length > 0 ? pplanData.metadata?.reviewStatus : 'Draft',
-        submittedKpiIds: remainingSubmitted
+        submittedKpiIds: remainingSubmitted,
+        _replacePlan: false,
+        _allowItemDeletion: false,
+        _authoritativePoeUpdate: true,
+        _employeeRedoUnlock: true
       };
 
       const targetItem = pplanData.items.find(i => i.id === kpiId);
@@ -1323,6 +1328,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           return {
             ...item,
             reviewStatus: 'Draft',
+            reviewApprovalStatus: '',
+            resubmittedAt: '',
+            resubmissionUnlocked: true,
             q1PoeStatus: 'Draft',
             q2PoeStatus: 'Draft',
             q3PoeStatus: 'Draft',
@@ -1478,8 +1486,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           reviewStatus: nextStatus,
           ...(shouldSubmitItem ? {
             reviewApprovalStatus: '',
+            resubmissionUnlocked: false,
             resubmittedAt: new Date().toISOString(),
-            q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected') ? 'Pending Verification' : item.q1PoeStatus,
+            q1PoeStatus: (item.q1PoeStatus === 'Revision Required' || item.q1PoeStatus === 'Rejected' || item.q1PoeStatus === 'Draft' || !item.q1PoeStatus) ? 'Pending Verification' : item.q1PoeStatus,
             q2PoeStatus: (item.q2PoeStatus === 'Revision Required' || item.q2PoeStatus === 'Rejected') ? 'Pending Verification' : item.q2PoeStatus,
             q3PoeStatus: (item.q3PoeStatus === 'Revision Required' || item.q3PoeStatus === 'Rejected') ? 'Pending Verification' : item.q3PoeStatus,
             q4PoeStatus: (item.q4PoeStatus === 'Revision Required' || item.q4PoeStatus === 'Rejected') ? 'Pending Verification' : item.q4PoeStatus
@@ -1911,7 +1920,17 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                   (kpi.midtermActual && String(kpi.midtermActual).trim() !== '' && String(kpi.midtermActual).trim().toUpperCase() !== 'N/A') ||
                   (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A')
                 );
-                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && (
+                const isRejectedOrRevision =
+                  kpi.reviewStatus === 'Revision Required' ||
+                  kpi.reviewStatus === 'Rejected' ||
+                  kpi.reviewApprovalStatus === 'Rejected' ||
+                  kpi.q1PoeStatus === 'Revision Required' ||
+                  kpi.q1PoeStatus === 'Rejected' ||
+                  kpi.q2PoeStatus === 'Revision Required' ||
+                  kpi.q3PoeStatus === 'Revision Required' ||
+                  kpi.q4PoeStatus === 'Revision Required' ||
+                  Boolean(kpi.resubmissionUnlocked);
+                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && !isRejectedOrRevision && (
                   kpi.reviewStatus === 'Submitted for Approval' || 
                   kpi.reviewStatus === 'Reviewed' || 
                   kpi.reviewStatus === 'Approved'
@@ -1954,9 +1973,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                           ⚡ Submitted to Manager
                         </span>
                       )}
-                      {(kpi.reviewStatus === 'Revision Required' || kpi.q1PoeStatus === 'Revision Required' || kpi.q2PoeStatus === 'Revision Required' || kpi.q3PoeStatus === 'Revision Required' || kpi.q4PoeStatus === 'Revision Required') && (
+                      {(kpi.reviewStatus === 'Revision Required' || kpi.reviewStatus === 'Rejected' || kpi.reviewApprovalStatus === 'Rejected' || kpi.q1PoeStatus === 'Revision Required' || kpi.q1PoeStatus === 'Rejected' || kpi.q2PoeStatus === 'Revision Required' || kpi.q3PoeStatus === 'Revision Required' || kpi.q4PoeStatus === 'Revision Required') && (
                         <span className="bg-rose-600 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-pulse">
-                          ⚠️ Revision Requested
+                          ⚠️ Revision Requested (Unlocked for Resubmission)
                         </span>
                       )}
                       {(kpi.reviewStatus === 'Reviewed' || kpi.reviewStatus === 'Approved') && (
@@ -1967,7 +1986,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {!isReadOnly && kpiIsReadOnly && (
+                      {!isReadOnly && (kpiIsReadOnly || kpi.reviewStatus === 'Submitted for Approval' || kpi.reviewStatus === 'Approved' || kpi.reviewStatus === 'Reviewed') && (
                         <button
                           type="button"
                           onClick={() => handleRedoKpi(kpi.id)}
@@ -1988,10 +2007,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                               ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                               : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer'
                           }`}
-                          title={kpiIsReadOnly ? "Already submitted or approved" : "Submit ONLY this single KPI and its attached PoE files for Manager approval"}
+                          title={kpiIsReadOnly ? "Click 'Unlock / Redo' first to amend and resubmit" : "Submit ONLY this single KPI and its attached PoE files for Manager approval"}
                         >
                           <Send className="w-3 h-3 text-emerald-600" />
-                          <span>{kpiIsReadOnly ? 'Already Submitted' : `Submit Single KPI #${kpi.kpiNo || idx + 1}`}</span>
+                          <span>{kpiIsReadOnly ? 'Already Submitted' : (isRejectedOrRevision ? `Resubmit KPI #${kpi.kpiNo || idx + 1}` : `Submit Single KPI #${kpi.kpiNo || idx + 1}`)}</span>
                         </button>
                       )}
 
@@ -2311,9 +2330,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                               rows={2}
                               value={kpi.q1Comment || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Comment', e.target.value)}
-                              disabled={kpiIsReadOnly || isEffectiveQ1Locked || isQ1TimeLocked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
-                              placeholder={calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
-                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? 'opacity-60' : ''}`}
+                              disabled={kpiIsReadOnly || isEffectiveQ1Locked || isQ1TimeLocked || (!isRejectedOrRevision && calculateVariance(kpi.q1Target, kpi.q1Actual) === '0')}
+                              placeholder={(!isRejectedOrRevision && calculateVariance(kpi.q1Target, kpi.q1Actual) === '0') ? "No variance - locked for comments" : "Provide variance explanation commentary..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${(!isRejectedOrRevision && calculateVariance(kpi.q1Target, kpi.q1Actual) === '0') ? 'opacity-60' : ''}`}
                             />
                           </div>
 
@@ -2323,9 +2342,9 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                               rows={2}
                               value={kpi.q1Corrective || ''}
                               onChange={(e) => updateItem(kpi.id, 'q1Corrective', e.target.value)}
-                              disabled={kpiIsReadOnly || isEffectiveQ1Locked || isQ1TimeLocked || calculateVariance(kpi.q1Target, kpi.q1Actual) === '0'}
-                              placeholder={calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
-                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${calculateVariance(kpi.q1Target, kpi.q1Actual) === '0' ? 'opacity-60' : ''}`}
+                              disabled={kpiIsReadOnly || isEffectiveQ1Locked || isQ1TimeLocked || (!isRejectedOrRevision && calculateVariance(kpi.q1Target, kpi.q1Actual) === '0')}
+                              placeholder={(!isRejectedOrRevision && calculateVariance(kpi.q1Target, kpi.q1Actual) === '0') ? "No variance - locked for corrective measures" : "Provide corrective action details..."}
+                              className={`w-full px-3 py-1.5 bg-white border border-slate-250 focus:border-emerald-600 rounded-lg text-xs font-medium text-stone-900 outline-none disabled:bg-slate-50 disabled:text-slate-400 ${(!isRejectedOrRevision && calculateVariance(kpi.q1Target, kpi.q1Actual) === '0') ? 'opacity-60' : ''}`}
                             />
                           </div>
                         </div>
