@@ -966,18 +966,67 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   };
 
   const RenderCompetenciesTable = () => {
-    if (!pulledCompetencyRows || pulledCompetencyRows.length === 0) return null;
+    const effectiveRows = (pulledCompetencyRows && pulledCompetencyRows.length > 0)
+      ? pulledCompetencyRows
+      : (pulledCfoCompetencyRows && pulledCfoCompetencyRows.length > 0)
+        ? pulledCfoCompetencyRows
+        : null;
 
-    // Do not render standard competencies table for CFO or PED templates if they have specific rows populated
-    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
+    if (!effectiveRows || effectiveRows.length === 0) return null;
+
+    // Do not render standard competencies table for PED templates if they have specific rows populated
     const isPedTemplate = templateName.toLowerCase().includes('ped');
-    if (isCfoTemplate && pulledCfoCompetencyRows && pulledCfoCompetencyRows.length > 0) return null;
-    if (isPedTemplate && pulledPedCompetencyRows && pulledPedCompetencyRows.length > 0) return null;
+    if (isPedTemplate && pulledPedCompetencyRows && pulledPedCompetencyRows.length > 0 && effectiveRows !== pulledPedCompetencyRows) return null;
+
+    const isWeightingGridFormat = effectiveRows.some((row: any) =>
+      (row.components !== undefined || row.definition !== undefined || row.weighting !== undefined) &&
+      !row.basic && !row.competent
+    );
+
+    if (isWeightingGridFormat) {
+      const totalWeight = effectiveRows.reduce((acc: number, r: any) => acc + (parseFloat(String(r.weighting ?? r.weight ?? 0)) || 0), 0);
+      return (
+        <div className="space-y-4 mt-6 break-inside-avoid">
+          <div className="flex items-center justify-between">
+            <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
+              Adopted Core Competencies Weighting Grid (Point 6.6) — {employeeName || currentUser?.fullName || currentUser?.email}
+            </h5>
+            <span className="text-[8.5px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">
+              Total Weight: {totalWeight || 100}%
+            </span>
+          </div>
+          <div className="border rounded overflow-hidden" style={{ borderColor }}>
+            <table className="w-full text-left text-[9px] border-collapse bg-white">
+              <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
+                <tr>
+                  <th className="p-1.5 border-b border-r w-1/4" style={{ borderColor }}>Competency</th>
+                  <th className="p-1.5 border-b border-r w-1/4" style={{ borderColor }}>Components</th>
+                  <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                  <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {effectiveRows.map((row: any, i: number) => (
+                  <tr key={row.id || i} className="border-b last:border-b-0" style={{ borderColor }}>
+                    <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || row.title || row.name || 'Core Competency'}</td>
+                    <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
+                    <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>
+                      {typeof row.definition === 'string' ? row.definition : (row.definition?.mainText || row.description || '-')}
+                    </td>
+                    <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting ?? row.weight ?? '20'}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-4 mt-6 break-inside-avoid">
         <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
-          Adopted Core Competencies Table
+          Adopted Core Competencies Table (Point 6.6) — {employeeName || currentUser?.fullName || currentUser?.email}
         </h5>
         <div className="border rounded overflow-hidden" style={{ borderColor }}>
           <table className="w-full text-left text-[9px] border-collapse bg-white">
@@ -991,8 +1040,8 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               </tr>
             </thead>
             <tbody>
-              {pulledCompetencyRows.map((row, i) => (
-                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
+              {effectiveRows.map((row: any, i: number) => (
+                <tr key={row.id || i} className="border-b last:border-b-0" style={{ borderColor }}>
                   <td className="p-1.5 border-r font-bold align-top" style={{ borderColor }}>{row.title || row.competency || row.name || 'Core Competency'}</td>
                   <td className="p-1.5 border-r align-top" style={{ borderColor }}>{row.basic || '-'}</td>
                   <td className="p-1.5 border-r align-top" style={{ borderColor }}>{row.competent || '-'}</td>
@@ -1008,41 +1057,8 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   };
 
   const RenderCfoCompetenciesTable = () => {
-    if (!pulledCfoCompetencyRows || pulledCfoCompetencyRows.length === 0) return null;
-    
-    // Only render for CFO template
-    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
-    if (!isCfoTemplate) return null;
-
-    return (
-      <div className="space-y-4 mt-6 break-inside-avoid">
-        <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
-          Adopted CFO Core Competencies Table
-        </h5>
-        <div className="border rounded overflow-hidden" style={{ borderColor }}>
-          <table className="w-full text-left text-[9px] border-collapse bg-white">
-            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
-              <tr>
-                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency</th>
-                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Components</th>
-                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
-                <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pulledCfoCompetencyRows.map((row, i) => (
-                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
-                  <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || 'Core Competency'}</td>
-                  <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
-                  <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>{row.definition || '-'}</td>
-                  <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting || '0'}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    // Handled directly inside RenderCompetenciesTable to avoid duplicate or skipped tables
+    return null;
   };
 
   const RenderPedCompetenciesTable = () => {
@@ -1332,21 +1348,27 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullAllCompetencies = async () => {
     setPullingCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
+      const emailLower = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(emailLower)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        const emailLower = (currentUser?.email || '').toLowerCase().trim();
         const isCdsGm = emailLower.includes('lengwatetm_gm_cds') || emailLower.includes('lengwatertm_gm_cds') || emailLower === 'mahlangupt@nkangaladm.gov.za';
-        const rowsToUse = isCdsGm
-          ? ((data?.communityServicesItems && data.communityServicesItems.length > 0)
-              ? data.communityServicesItems
-              : (data?.directorItems && data.directorItems.length > 0)
-                ? data.directorItems
-                : (data?.items || []))
-          : (data?.items || []);
+        const isMmOrAceo = emailLower.includes('manganijp') || emailLower.includes('mahlanguml');
+        const isCfo = emailLower.includes('chaukekc') || emailLower.includes('standeral') || emailLower.includes('mkharia');
+        const rowsToUse = isMmOrAceo
+          ? ((data?.mmItems && data.mmItems.length > 0) ? data.mmItems : (data?.items || []))
+          : isCfo
+            ? ((data?.cfoItems && data.cfoItems.length > 0) ? data.cfoItems : (data?.items || []))
+            : isCdsGm
+              ? ((data?.communityServicesItems && data.communityServicesItems.length > 0)
+                  ? data.communityServicesItems
+                  : (data?.directorItems && data.directorItems.length > 0)
+                    ? data.directorItems
+                    : (data?.items || []))
+              : (data?.items && data.items.length > 0 ? data.items : (data?.mmItems || data?.cfoItems || []));
         if (Array.isArray(rowsToUse) && rowsToUse.length > 0) {
           setPulledCompetencyRows(rowsToUse);
-          triggerNotification(`Successfully pulled all ${rowsToUse.length} Core Competencies!`, "success");
+          triggerNotification(`Successfully pulled all ${rowsToUse.length} Core Competencies for ${currentUser?.fullName || emailLower}!`, "success");
         } else {
           setPulledCompetencyRows([]);
           triggerNotification("No Competency rows found for this profile.", "error");
@@ -2774,7 +2796,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setLoading(true);
     try {
       const activeEmail = (currentUser?.email || '').toLowerCase().trim();
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}&force=true&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         const docState = data.html || data;
@@ -4984,7 +5006,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             {/* Rest of Agreement Chapters */}
             <div className="space-y-8" style={{ breakBefore: 'page' }}>
               {dynamicSections.map((sec, i) => {
-                const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
+                const isSec4 = sec.heading.toLowerCase().includes('4.4') || sec.heading.toLowerCase().includes('performance plan') || sec.heading.trim().startsWith('4.');
+                const isSection6 = !isSec4 && (
+                  sec.id === 'section6' ||
+                  sec.heading.trim().startsWith('6') ||
+                  sec.heading.toLowerCase().includes('6.') ||
+                  sec.heading.toLowerCase().includes('evaluating performance') ||
+                  sec.heading.toLowerCase().includes('core competenc')
+                );
+                const sectionBodyText = sec.content1 || (sec as any).content || '';
                 return (
                   <div key={sec.id} className="space-y-4">
                     {i > 0 && (
@@ -5000,12 +5030,12 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                       </h4>
                       <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em]">
                         {isMandlaMahlangu && (sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15."))
-                          ? (sec.content1 || '').replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
-                          : sec.content1}
+                          ? sectionBodyText.replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
+                          : sectionBodyText}
                       </div>
                       <RenderCustomTables sectionId={sec.id} />
                       {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[11px] min-h-[1.5em] mt-2">{sec.content2}</div>}
-                      {(sec.heading.toLowerCase().includes('4.4') || sec.heading.toLowerCase().includes('performance plan') || sec.heading.trim().startsWith('4.')) && (
+                      {isSec4 && (
                         <>
                           <RenderKhuboniJscTableBelow4_4 />
                           {pulledPplanItems === null && pulledFilteredPplanItems === null && (
@@ -5025,6 +5055,24 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   </div>
                 );
               })}
+              {/* Fallback: if dynamicSections had no Section 6, still render pushed Core Competencies below Point 6.6 */}
+              {!dynamicSections.some(sec => {
+                const isSec4 = sec.heading.toLowerCase().includes('4.4') || sec.heading.toLowerCase().includes('performance plan') || sec.heading.trim().startsWith('4.');
+                return !isSec4 && (
+                  sec.id === 'section6' ||
+                  sec.heading.trim().startsWith('6') ||
+                  sec.heading.toLowerCase().includes('6.') ||
+                  sec.heading.toLowerCase().includes('evaluating performance') ||
+                  sec.heading.toLowerCase().includes('core competenc')
+                );
+              }) && (
+                <div className="space-y-3 pt-4">
+                  <RenderCompetenciesTable />
+                  <RenderCfoCompetenciesTable />
+                  <RenderPedCompetenciesTable />
+                  <RenderCorpCompetenciesTable />
+                </div>
+              )}
             </div>
 
             {/* Visual Page Break for Web Preview */}

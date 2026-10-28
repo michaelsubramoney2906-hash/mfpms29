@@ -948,18 +948,68 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   };
 
   const RenderCompetenciesTable = () => {
-    if (!pulledCompetencyRows || pulledCompetencyRows.length === 0) return null;
+    const effectiveRows = (pulledCompetencyRows && pulledCompetencyRows.length > 0)
+      ? pulledCompetencyRows
+      : (pulledCfoCompetencyRows && pulledCfoCompetencyRows.length > 0)
+        ? pulledCfoCompetencyRows
+        : null;
 
-    // Do not render standard competencies table for CFO or PED templates if they have specific rows populated
-    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
+    if (!effectiveRows || effectiveRows.length === 0) return null;
+
+    // Do not render standard competencies table for PED templates if they have specific rows populated
     const isPedTemplate = templateName.toLowerCase().includes('ped');
-    if (isCfoTemplate && pulledCfoCompetencyRows && pulledCfoCompetencyRows.length > 0) return null;
-    if (isPedTemplate && pulledPedCompetencyRows && pulledPedCompetencyRows.length > 0) return null;
+    if (isPedTemplate && pulledPedCompetencyRows && pulledPedCompetencyRows.length > 0 && effectiveRows !== pulledPedCompetencyRows) return null;
+    if (pulledMmCompetencyRows && pulledMmCompetencyRows.length > 0 && effectiveRows === pulledCompetencyRows) return null;
+
+    const isWeightingGridFormat = effectiveRows.some((row: any) =>
+      (row.components !== undefined || row.definition !== undefined || row.weighting !== undefined) &&
+      !row.basic && !row.competent
+    );
+
+    if (isWeightingGridFormat) {
+      const totalWeight = effectiveRows.reduce((acc: number, r: any) => acc + (parseFloat(String(r.weighting ?? r.weight ?? 0)) || 0), 0);
+      return (
+        <div className="space-y-4 mt-6 break-inside-avoid">
+          <div className="flex items-center justify-between">
+            <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
+              Adopted Core Competencies Weighting Grid (Point 6.6) — {employeeName || currentUser?.fullName || currentUser?.email}
+            </h5>
+            <span className="text-[8.5px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">
+              Total Weight: {totalWeight || 100}%
+            </span>
+          </div>
+          <div className="border rounded overflow-hidden" style={{ borderColor }}>
+            <table className="w-full text-left text-[9px] border-collapse bg-white">
+              <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
+                <tr>
+                  <th className="p-1.5 border-b border-r w-1/4" style={{ borderColor }}>Competency</th>
+                  <th className="p-1.5 border-b border-r w-1/4" style={{ borderColor }}>Components</th>
+                  <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
+                  <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {effectiveRows.map((row: any, i: number) => (
+                  <tr key={row.id || i} className="border-b last:border-b-0" style={{ borderColor }}>
+                    <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || row.title || row.name || 'Core Competency'}</td>
+                    <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
+                    <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>
+                      {typeof row.definition === 'string' ? row.definition : (row.definition?.mainText || row.description || '-')}
+                    </td>
+                    <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting ?? row.weight ?? '20'}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-4 mt-6 break-inside-avoid">
         <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
-          Adopted Core Competencies Table
+          Adopted Core Competencies Table (Point 6.6) — {employeeName || currentUser?.fullName || currentUser?.email}
         </h5>
         <div className="border rounded overflow-hidden" style={{ borderColor }}>
           <table className="w-full text-left text-[9px] border-collapse bg-white">
@@ -973,8 +1023,8 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
               </tr>
             </thead>
             <tbody>
-              {pulledCompetencyRows.map((row, i) => (
-                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
+              {effectiveRows.map((row: any, i: number) => (
+                <tr key={row.id || i} className="border-b last:border-b-0" style={{ borderColor }}>
                   <td className="p-1.5 border-r font-bold align-top" style={{ borderColor }}>{row.title || row.competency || row.name || 'Core Competency'}</td>
                   <td className="p-1.5 border-r align-top" style={{ borderColor }}>{row.basic || '-'}</td>
                   <td className="p-1.5 border-r align-top" style={{ borderColor }}>{row.competent || '-'}</td>
@@ -990,41 +1040,7 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   };
 
   const RenderCfoCompetenciesTable = () => {
-    if (!pulledCfoCompetencyRows || pulledCfoCompetencyRows.length === 0) return null;
-    
-    // Only render for CFO template
-    const isCfoTemplate = templateName.toLowerCase().includes('cfo');
-    if (!isCfoTemplate) return null;
-
-    return (
-      <div className="space-y-4 mt-6 break-inside-avoid">
-        <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
-          Adopted CFO Core Competencies Table
-        </h5>
-        <div className="border rounded overflow-hidden" style={{ borderColor }}>
-          <table className="w-full text-left text-[9px] border-collapse bg-white">
-            <thead className="bg-slate-50 uppercase text-[8px] font-black tracking-widest text-slate-500">
-              <tr>
-                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency</th>
-                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Components</th>
-                <th className="p-1.5 border-b border-r" style={{ borderColor }}>Competency Definition</th>
-                <th className="p-1.5 border-b text-center w-24 font-bold" style={{ borderColor }}>Weighting % (100%)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pulledCfoCompetencyRows.map((row, i) => (
-                <tr key={i} className="border-b last:border-b-0" style={{ borderColor }}>
-                  <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || 'Core Competency'}</td>
-                  <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
-                  <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>{row.definition || '-'}</td>
-                  <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting || '0'}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   const RenderPedCompetenciesTable = () => {
@@ -1101,11 +1117,15 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
 
   const RenderMmCompetenciesTable = () => {
     if (!pulledMmCompetencyRows || pulledMmCompetencyRows.length === 0) return null;
+    const isNedaAceo = (currentUser?.email || '').toLowerCase().includes('manganijp') || (activeTenantId || '').toLowerCase().includes('neda');
+    const headingLabel = isNedaAceo
+      ? `Adopted Acting Chief Executive Officer (NEDA) Core Competencies Table — ${employeeName || 'Johan P. Mangani'}`
+      : 'Adopted Municipal Managers Core Competencies Table';
 
     return (
       <div className="space-y-4 mt-6 break-inside-avoid">
         <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
-          Adopted Municipal Managers Core Competencies Table
+          {headingLabel}
         </h5>
         <div className="border rounded overflow-hidden" style={{ borderColor }}>
           <table className="w-full text-left text-[9px] border-collapse bg-white">
@@ -1338,12 +1358,20 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   const handlePullAllCompetencies = async () => {
     setPullingCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${currentUser.email}&t=${Date.now()}`);
+      const emailLower = (currentUser?.email || '').toLowerCase().trim();
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(emailLower)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.items)) {
-          setPulledCompetencyRows(data.items);
-          triggerNotification(`Successfully pulled all ${data.items.length} Competencies!`, "success");
+        const isMmOrAceo = emailLower.includes('manganijp') || emailLower.includes('mahlanguml');
+        const isCfo = emailLower.includes('chaukekc') || emailLower.includes('standeral') || emailLower.includes('mkharia');
+        const rowsToUse = isMmOrAceo
+          ? ((data?.mmItems && data.mmItems.length > 0) ? data.mmItems : (data?.items || []))
+          : isCfo
+            ? ((data?.cfoItems && data.cfoItems.length > 0) ? data.cfoItems : (data?.items || []))
+            : (data?.items && data.items.length > 0 ? data.items : (data?.mmItems || data?.cfoItems || []));
+        if (Array.isArray(rowsToUse) && rowsToUse.length > 0) {
+          setPulledCompetencyRows(rowsToUse);
+          triggerNotification(`Successfully pulled all ${rowsToUse.length} Competencies for ${currentUser?.fullName || emailLower}!`, "success");
         } else {
           setPulledCompetencyRows([]);
           triggerNotification("No Competency rows found for this profile.", "error");

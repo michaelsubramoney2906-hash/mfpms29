@@ -105,48 +105,48 @@ export function matchOfficialCoreRole(user?: {
   if (emailPrefix === 'manganijp' || emailRaw.includes('manganijp')) {
     return {
       fullName: 'Johan P. Mangani',
-      email: user?.email || 'manganijp@neda.gov.za',
-      jobFunction: 'Acting Chief Executive Officer',
-      department: 'Office of the Chief Executive Officer',
+      email: user?.email || 'manganijp@nkangaladm.gov.za',
+      jobFunction: 'Acting Chief Executive Officer (NEDA)',
+      department: 'Office of the Chief Executive Officer (NEDA)',
       refCode: 'NEDA-ACEO-01',
       roleKey: 'mm',
-      roleName: 'Municipal Managers Core Competencies'
+      roleName: 'Acting Chief Executive Officer (NEDA) Core Competencies'
     };
   }
 
   if (emailPrefix === 'chaukekc' || emailRaw.includes('chaukekc')) {
     return {
       fullName: 'Kulani Collen Chauke',
-      email: user?.email || 'chaukekc@neda.gov.za',
-      jobFunction: 'Chief Financial Officer (CFO)',
-      department: 'Finance',
+      email: user?.email || 'chaukekc@nkangaladm.gov.za',
+      jobFunction: 'Chief Financial Officer (NEDA)',
+      department: 'Finance (NEDA)',
       refCode: 'NEDA-CFO-01',
       roleKey: 'cfo',
-      roleName: 'CFOs Core Competencies'
+      roleName: 'Chief Financial Officer (NEDA) Core Competencies'
     };
   }
 
   if (emailPrefix === 'sehlakols' || emailRaw.includes('sehlakols')) {
     return {
       fullName: 'Lydia Sadi Sehlako',
-      email: user?.email || 'sehlakols@neda.gov.za',
-      jobFunction: 'Divisional Manager: Supply Chain Management',
-      department: 'Finance',
+      email: user?.email || 'sehlakols@nkangaladm.gov.za',
+      jobFunction: 'Divisional Manager: Supply Chain Management (NEDA)',
+      department: 'Finance (NEDA)',
       refCode: 'NEDA-SCM-01',
       roleKey: 'standard',
-      roleName: 'Standard Core Competencies'
+      roleName: 'NEDA SCM Core Competencies'
     };
   }
 
   if (emailPrefix === 'ngomanennc' || emailRaw.includes('ngomanennc')) {
     return {
       fullName: 'Ntsoaki Nomonde Charmaine Ngomane',
-      email: user?.email || 'ngomanennc@neda.gov.za',
-      jobFunction: 'Company Secretary',
-      department: 'Office of the Chief Executive Officer',
+      email: user?.email || 'ngomanennc@nkangaladm.gov.za',
+      jobFunction: 'Company Secretary (NEDA)',
+      department: 'Office of the Chief Executive Officer (NEDA)',
       refCode: 'NEDA-CSEC-01',
       roleKey: 'standard',
-      roleName: 'Standard Core Competencies'
+      roleName: 'NEDA Company Secretary Core Competencies'
     };
   }
 
@@ -345,12 +345,10 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
   // Active Tab state: defaulted to user's matched role
   const [activeTab, setActiveTab] = useState<CoreCompetencyScope | 'grid'>(assignedOfficial.roleKey);
 
-  // Enforce strict role isolation: If user is not an administrator, activeTab is ALWAYS locked to their role
+  // Always switch activeTab to the impersonated/active user's roleKey when user changes
   useEffect(() => {
-    if (!isGlobalOrPmsAdmin) {
-      setActiveTab(assignedOfficial.roleKey);
-    }
-  }, [assignedOfficial.roleKey, isGlobalOrPmsAdmin]);
+    setActiveTab(assignedOfficial.roleKey);
+  }, [assignedOfficial.roleKey, currentUser?.email]);
 
   // Pulling state indicators
   const [isPullingFredCommunity, setIsPullingFredCommunity] = useState<boolean>(false);
@@ -770,14 +768,17 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     setPushingToPA(true);
     setImportMessage(null);
     setPushSuccessInfo(null);
+    const targetUserEmail = (currentUser?.email || assignedOfficial.email || 'default').toLowerCase().trim();
+    const targetDisplayName = `${assignedOfficial.fullName} (${targetUserEmail})`;
     try {
       await handleSave();
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies/push-to-pa?userId=${currentUser?.email || 'default'}&target=standard`, {
+      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies/push-to-pa?userId=${encodeURIComponent(targetUserEmail)}&target=standard`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userId: currentUser?.email || 'default',
+          userId: targetUserEmail,
           target: 'standard',
+          pushedRows: rows,
           items: rows, 
           communityServicesItems: communityRows,
           technicalServicesItems: technicalRows,
@@ -790,9 +791,9 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
       });
       if (!res.ok) throw new Error("Server rejected PA push");
       setSyncStatus('saved');
-      setPushSuccessInfo("Successfully pushed standard core competencies to Performance Agreement Drafting Suite!");
+      setPushSuccessInfo(`Successfully pushed all ${rows.length} Core Competencies directly into ${targetDisplayName}'s Performance Agreement (Point 6.6)!`);
       setImportMessage({
-        text: '✓ Successfully pushed Standard Core Competencies to Performance Agreement Drafting Suite!',
+        text: `✓ Successfully pushed all ${rows.length} Core Competencies directly into ${targetDisplayName}'s Performance Agreement below Point 6.6!`,
         type: 'success'
       });
     } catch (err: any) {
@@ -816,15 +817,18 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     setPushingToPA(true);
     setImportMessage(null);
     setPushSuccessInfo(null);
+    const targetUserEmail = (currentUser?.email || assignedOfficial.email || 'default').toLowerCase().trim();
+    const targetDisplayName = `${assignedOfficial.fullName} (${targetUserEmail} — ${assignedOfficial.jobFunction})`;
 
     try {
       await handleSave();
-      const pushRes = await fetch(`/api/tenant/${activeTenantId}/core-competencies/push-to-pa?userId=${currentUser?.email || 'default'}&target=${roleKey}`, {
+      const pushRes = await fetch(`/api/tenant/${activeTenantId}/core-competencies/push-to-pa?userId=${encodeURIComponent(targetUserEmail)}&target=${roleKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          userId: currentUser?.email || 'default',
+          userId: targetUserEmail,
           target: roleKey,
+          pushedRows: itemsList,
           items: rows, 
           communityServicesItems: communityRows,
           technicalServicesItems: technicalRows,
@@ -836,12 +840,12 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
         })
       });
 
-      if (!pushRes.ok) throw new Error(`Push to Performance Agreement (${roleName}) rejected by server.`);
+      if (!pushRes.ok) throw new Error(`Push to Performance Agreement (${targetDisplayName}) rejected by server.`);
 
       setSyncStatus('saved');
-      setPushSuccessInfo(`Successfully pushed all ${itemsList.length} ${roleName} Core Competencies into the Performance Agreement below Point 6.6!`);
+      setPushSuccessInfo(`Successfully pushed all ${itemsList.length} Core Competencies directly into ${targetDisplayName}'s Performance Agreement below Point 6.6!`);
       setImportMessage({
-        text: `✓ Successfully pushed all ${itemsList.length} ${roleName} Core Competencies into the Performance Agreement below Point 6.6!`,
+        text: `✓ Successfully pushed all ${itemsList.length} Core Competencies directly into ${targetDisplayName}'s Performance Agreement below Point 6.6!`,
         type: 'success'
       });
     } catch (err: any) {
@@ -996,30 +1000,94 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     setSyncStatus('cached');
   };
 
-  // Adding Rows
+  // Adding Rows with immediate cloud persistence
+  const persistUpdatedCompetencies = async (overrides: Partial<{
+    items: CompetencyRow[];
+    communityServicesItems: CFOCompetencyRow[];
+    technicalServicesItems: CFOCompetencyRow[];
+    cfoItems: CFOCompetencyRow[];
+    mmItems: CFOCompetencyRow[];
+    pedItems: CFOCompetencyRow[];
+    corporateServicesItems: CFOCompetencyRow[];
+  }>) => {
+    if (!activeTenantId) return;
+    try {
+      const targetUserEmail = (currentUser?.email || assignedOfficial.email || 'default').toLowerCase().trim();
+      await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(targetUserEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: targetUserEmail,
+          items: overrides.items ?? rows,
+          communityServicesItems: overrides.communityServicesItems ?? communityRows,
+          technicalServicesItems: overrides.technicalServicesItems ?? technicalRows,
+          directorItems: overrides.communityServicesItems ?? communityRows,
+          cfoItems: overrides.cfoItems ?? cfoRows,
+          mmItems: overrides.mmItems ?? mmRows,
+          pedItems: overrides.pedItems ?? pedRows,
+          corporateServicesItems: overrides.corporateServicesItems ?? corpRows,
+          isCleared: false
+        })
+      });
+      setSyncStatus('saved');
+    } catch (err) {
+      console.error("Failed to auto-persist new competency row:", err);
+    }
+  };
+
   const handleAddStandardRow = () => {
     const newId = `row-${Date.now()}`;
-    setRows(prev => [...prev, { id: newId, competency: '', basic: '', competent: '', advanced: '', superior: '' }]);
+    const newRow: CompetencyRow = { id: newId, competency: '', basic: '', competent: '', advanced: '', superior: '' };
+    const nextRows = [...rows, newRow];
+    setRows(nextRows);
     setSyncStatus('cached');
+    setImportMessage({
+      text: `✓ Added new Core Competency row (#${nextRows.length}) for ${assignedOfficial.fullName}. Enter competency details below.`,
+      type: 'success'
+    });
+    persistUpdatedCompetencies({ items: nextRows });
   };
 
   const handleAddRoleRow = (scope: CoreCompetencyScope) => {
     const newId = `${scope}-row-${Date.now()}`;
     const newRow: CFOCompetencyRow = { id: newId, competency: '', components: '', definition: '', weighting: '0' };
-    if (scope === 'community_services') setCommunityRows(prev => [...prev, newRow]);
-    else if (scope === 'technical_services') setTechnicalRows(prev => [...prev, newRow]);
-    else if (scope === 'cfo') setCfoRows(prev => [...prev, newRow]);
-    else if (scope === 'mm') setMmRows(prev => [...prev, newRow]);
-    else if (scope === 'ped') setPedRows(prev => [...prev, newRow]);
-    else if (scope === 'corp') setCorpRows(prev => [...prev, newRow]);
+    if (scope === 'community_services') {
+      const next = [...communityRows, newRow];
+      setCommunityRows(next);
+      persistUpdatedCompetencies({ communityServicesItems: next });
+    } else if (scope === 'technical_services') {
+      const next = [...technicalRows, newRow];
+      setTechnicalRows(next);
+      persistUpdatedCompetencies({ technicalServicesItems: next });
+    } else if (scope === 'cfo') {
+      const next = [...cfoRows, newRow];
+      setCfoRows(next);
+      persistUpdatedCompetencies({ cfoItems: next });
+    } else if (scope === 'mm') {
+      const next = [...mmRows, newRow];
+      setMmRows(next);
+      persistUpdatedCompetencies({ mmItems: next });
+    } else if (scope === 'ped') {
+      const next = [...pedRows, newRow];
+      setPedRows(next);
+      persistUpdatedCompetencies({ pedItems: next });
+    } else if (scope === 'corp') {
+      const next = [...corpRows, newRow];
+      setCorpRows(next);
+      persistUpdatedCompetencies({ corporateServicesItems: next });
+    }
     setSyncStatus('cached');
+    setImportMessage({
+      text: `✓ Added new Core Competency row for ${assignedOfficial.fullName}. Enter competency, components, definition, and weighting below.`,
+      type: 'success'
+    });
   };
 
   const handleAddRowClick = () => {
     if (activeTab === 'standard') {
       handleAddStandardRow();
     } else if (activeTab === 'grid') {
-      // no-op
+      handleAddRoleRow(assignedOfficial.roleKey === 'standard' ? 'mm' : assignedOfficial.roleKey);
     } else {
       handleAddRoleRow(activeTab);
     }
@@ -1178,30 +1246,42 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
           onPush: () => handlePushRoleToDraftingSuite('technical_services', 'Technical Service', technicalRows),
           onPullFred: () => handlePullFredExtraction('technical_services_competencies_engine', 'Technical_Services_Core_Competencies', 'Technical Service', setTechnicalRows, setIsPullingFredTechnical)
         };
-      case 'cfo':
+      case 'cfo': {
+        const isNedaCfo = assignedOfficial.refCode === 'NEDA-CFO-01' || (currentUser?.email || '').toLowerCase().includes('chaukekc') || (activeTenantId || '').toLowerCase().includes('neda');
+        const cfoRoleLabel = isNedaCfo ? `${assignedOfficial.fullName} (NEDA CFO)` : 'CFO';
+        const cfoTitle = isNedaCfo
+          ? `${assignedOfficial.fullName} (${assignedOfficial.email}) — Chief Financial Officer (NEDA) Competency Weighting Grid`
+          : 'Chief Financial Officer (CFO) Competency Weighting Grid';
         return { 
           scope: 'cfo' as const, 
-          roleName: 'CFO', 
-          title: 'Chief Financial Officer (CFO) Competency Weighting Grid', 
+          roleName: cfoRoleLabel, 
+          title: cfoTitle, 
           rows: cfoRows, 
           totalWeight: totalCfoWeight,
           color: 'blue',
           isPulling: isPullingFredCfo,
-          onPush: () => handlePushRoleToDraftingSuite('cfo', 'CFO', cfoRows),
-          onPullFred: () => handlePullFredExtraction('cfo_competencies_engine', 'CFO_Core_Competencies', 'CFO', setCfoRows, setIsPullingFredCfo)
+          onPush: () => handlePushRoleToDraftingSuite('cfo', cfoRoleLabel, cfoRows),
+          onPullFred: () => handlePullFredExtraction('cfo_competencies_engine', 'CFO_Core_Competencies', cfoRoleLabel, setCfoRows, setIsPullingFredCfo)
         };
-      case 'mm':
+      }
+      case 'mm': {
+        const isNedaAceo = assignedOfficial.refCode === 'NEDA-ACEO-01' || (currentUser?.email || '').toLowerCase().includes('manganijp') || (activeTenantId || '').toLowerCase().includes('neda');
+        const mmRoleLabel = isNedaAceo ? `${assignedOfficial.fullName} (NEDA Acting CEO)` : 'Municipal Manager';
+        const mmTitle = isNedaAceo
+          ? `${assignedOfficial.fullName} (${assignedOfficial.email}) — Acting Chief Executive Officer (NEDA) Competency Weighting Grid`
+          : 'Municipal Manager (MM) Competency Weighting Grid';
         return { 
           scope: 'mm' as const, 
-          roleName: 'Municipal Manager', 
-          title: 'Municipal Manager (MM) Competency Weighting Grid', 
+          roleName: mmRoleLabel, 
+          title: mmTitle, 
           rows: mmRows, 
           totalWeight: totalMmWeight,
           color: 'emerald',
           isPulling: isPullingFredMm,
-          onPush: () => handlePushRoleToDraftingSuite('mm', 'Municipal Manager', mmRows),
-          onPullFred: () => handlePullFredExtraction('mm_competencies_engine', 'MM_Core_Competencies', 'Municipal Manager', setMmRows, setIsPullingFredMm)
+          onPush: () => handlePushRoleToDraftingSuite('mm', mmRoleLabel, mmRows),
+          onPullFred: () => handlePullFredExtraction('mm_competencies_engine', 'MM_Core_Competencies', mmRoleLabel, setMmRows, setIsPullingFredMm)
         };
+      }
       case 'ped':
         return { 
           scope: 'ped' as const, 
@@ -1232,6 +1312,7 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
   };
 
   const activeRole = getActiveRoleDetails();
+  const isNedaPortal = (activeTenantId || '').toLowerCase().includes('neda') || assignedOfficial.refCode.startsWith('NEDA-');
 
   // Define tab navigation list based on Role Isolation:
   // Non-admin users strictly see ONLY their assigned competency tab!
@@ -1254,16 +1335,16 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     },
     {
       id: 'cfo' as const,
-      label: 'CFOs Core Competencies',
-      badge: 'CFO',
+      label: isNedaPortal ? 'NEDA CFO Core Competencies (K.C. Chauke)' : 'CFOs Core Competencies',
+      badge: isNedaPortal ? 'NEDA CFO' : 'CFO',
       activeColor: 'bg-blue-600 text-white',
       badgeActiveColor: 'bg-blue-800 text-blue-100',
       badgeInactiveColor: 'bg-slate-200 text-slate-700'
     },
     {
       id: 'mm' as const,
-      label: 'Municipal Managers Core Competencies',
-      badge: 'MM',
+      label: isNedaPortal ? 'NEDA Acting CEO Core Competencies (J.P. Mangani)' : 'Municipal Managers Core Competencies',
+      badge: isNedaPortal ? 'NEDA ACEO' : 'MM',
       activeColor: 'bg-emerald-700 text-white',
       badgeActiveColor: 'bg-emerald-900 text-emerald-100',
       badgeInactiveColor: 'bg-slate-200 text-slate-700'
@@ -1286,8 +1367,8 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     },
     {
       id: 'standard' as const,
-      label: 'Standard Core Competencies',
-      badge: 'STANDARD',
+      label: isNedaPortal ? `${assignedOfficial.fullName} Core Competencies` : 'Standard Core Competencies',
+      badge: isNedaPortal ? 'NEDA OFFICIAL' : 'STANDARD',
       activeColor: 'bg-slate-800 text-white font-black',
       badgeActiveColor: 'bg-slate-900 text-slate-200',
       badgeInactiveColor: 'bg-slate-200 text-slate-700'
@@ -1690,6 +1771,16 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
                 )}
 
                 <button
+                  type="button"
+                  onClick={() => handleAddRoleRow(activeRole.scope)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition cursor-pointer shadow-sm"
+                  title="Add a new Core Competency row to this table"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Core Competency</span>
+                </button>
+
+                <button
                   id={`btn-push-entire-table-${activeRole.scope}-competencies`}
                   type="button"
                   onClick={activeRole.onPush}
@@ -1702,10 +1793,10 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
                     activeRole.color === 'amber' ? 'bg-amber-600 hover:bg-amber-700' :
                     'bg-pink-600 hover:bg-pink-700'
                   }`}
-                  title={`Push entire ${activeRole.roleName} table directly into Performance Agreement Drafting Suite`}
+                  title={`Push entire ${activeRole.roleName} table directly into ${assignedOfficial.fullName} (${assignedOfficial.email})'s Performance Agreement`}
                 >
                   {pushingToPA ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                  <span>Push Entire Table to Performance Agreement</span>
+                  <span>Push Entire Table to {assignedOfficial.fullName}'s Performance Agreement</span>
                 </button>
               </div>
             </div>

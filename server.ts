@@ -1482,15 +1482,15 @@ export async function syncNedaPerformanceAgreements() {
         };
       });
 
+      const nedaMuniName = 'Nkangala Economic Development Agency (NEDA)';
       const kpaPayloadStr = JSON.stringify({
-        kpas: pkg.kpas,
-        customKpaTable: pkg.customKpaTable
+        kpas: pkg.kpas
       });
 
       const coreCompPayloadStr = JSON.stringify({
-        items: pkg.coreCompetencyCategory === 'items' ? pkg.coreCompetencies : [],
-        mmItems: pkg.coreCompetencyCategory === 'mmItems' ? pkg.coreCompetencies : [],
-        cfoItems: pkg.coreCompetencyCategory === 'cfoItems' ? pkg.coreCompetencies : [],
+        items: pkg.competencyType === 'jsc' ? pkg.coreCompetencies : [],
+        mmItems: pkg.competencyType === 'mm' ? pkg.coreCompetencies : [],
+        cfoItems: pkg.competencyType === 'cfo' ? pkg.coreCompetencies : [],
         directorItems: [],
         communityServicesItems: [],
         technicalServicesItems: [],
@@ -1511,18 +1511,18 @@ export async function syncNedaPerformanceAgreements() {
         metadata: {
           name: pkg.fullName,
           employeeName: pkg.fullName,
-          position: pkg.jobTitle,
-          jobTitle: pkg.jobTitle,
+          position: pkg.jobFunction,
+          jobTitle: pkg.jobFunction,
           department: pkg.department,
           directorate: pkg.directorate,
-          manager: pkg.manager,
-          reportTo: pkg.reportTo,
-          managerEmail: pkg.managerEmail,
+          manager: pkg.supervisorName,
+          reportTo: pkg.supervisorTitle,
+          managerEmail: pkg.supervisorEmail,
           financialYear: pkg.financialYear,
           period: pkg.period,
-          municipality: pkg.municipality,
-          employerName: pkg.employerName,
-          employerTitle: pkg.employerTitle,
+          municipality: nedaMuniName,
+          employerName: pkg.supervisorName,
+          employerTitle: pkg.supervisorTitle,
           level: pkg.level,
           updatedAt: nowIso
         },
@@ -1532,44 +1532,98 @@ export async function syncNedaPerformanceAgreements() {
       const pplanPayloadStr = JSON.stringify(pplanPayloadObj);
       const kpisPayloadStr = JSON.stringify({ kpis: mergedKpis });
 
-      const draftDocObj = {
-        html: {
-          id: `draft_doc_neda_${pkg.primaryEmail.toLowerCase()}`,
-          employeeName: pkg.fullName,
-          employeeTitle: pkg.jobTitle,
-          department: pkg.department,
-          directorate: pkg.directorate,
-          level: pkg.level,
-          employerName: pkg.employerName,
-          employerTitle: pkg.employerTitle,
-          financialYear: pkg.financialYear,
-          period: pkg.period,
-          municipalityName: pkg.municipality,
-          pdfUrl: pkg.pdfAssetUrl,
-          coverPage: `PERFORMANCE AGREEMENT ${pkg.financialYear}\n\nENTERED INTO BY AND BETWEEN:\n${pkg.municipality}\nRepresented by ${pkg.employerName} (${pkg.employerTitle})\n\nAND\n\n${pkg.fullName}\n(${pkg.jobTitle})`,
-          pulledPplanItems: mergedKpis,
-          pulledCompetencyRows: pkg.jscs.map(j => ({
-            id: j.id,
-            jscNo: j.jscNo,
-            competency: j.competency,
-            weight: String(j.weight),
-            proficiency: `Level ${j.level}`,
-            level: j.level,
-            description: j.definition,
-            definition: j.definition
-          })),
-          pulledPdpItems: pkg.pdps,
-          customKpaTable: pkg.customKpaTable,
-          disclosures: pkg.disclosures,
-          metadata: pplanPayloadObj.metadata
+      const nedaDefaultSections = [
+        {
+          id: 'section1',
+          title: 'Section 1',
+          heading: '1. Purpose of this Agreement',
+          content1: `This Performance Agreement is entered into between ${nedaMuniName} (represented by ${pkg.supervisorName}, ${pkg.supervisorTitle}) and ${pkg.fullName} (${pkg.jobFunction}) for the ${pkg.financialYear} financial year.`,
+          content2: ''
         },
+        {
+          id: 'section2',
+          title: 'Section 2',
+          heading: '2. Commencement and Validity',
+          content1: `This Agreement commences on 01 July 2026 and remains valid until 30 June 2027 (${pkg.period}).`,
+          content2: ''
+        },
+        {
+          id: 'section4',
+          title: 'Section 4',
+          heading: '4.4 Performance Plan & Job Specific Competencies (JSC)',
+          content1: `The Employee shall achieve the Key Performance Areas (KPAs), Key Performance Indicators (KPIs), and Job Specific Competencies (JSCs) set out in this Agreement.`,
+          content2: ''
+        },
+        {
+          id: 'section6',
+          title: 'Section 6',
+          heading: '6. Evaluating Performance & Core Competencies (Point 6.6)',
+          content1: `The Employee's assessment is weighted 80% on Key Performance Areas (KPAs) and 20% on Core Competencies (Point 6.6).`,
+          content2: ''
+        },
+        {
+          id: 'section8',
+          title: 'Section 8',
+          heading: '8. Schedule for Performance Reviews',
+          content1: `Quarterly performance reviews shall be conducted at the end of Q1, Q2 (Mid-Year), Q3, and Q4 (Annual).`,
+          content2: ''
+        }
+      ];
+
+      const mappedJscRows = pkg.jscs.map(j => ({
+        id: j.id,
+        jscNo: j.jscNo,
+        competency: j.competency,
+        weight: String(j.weight),
+        weighting: String(j.weight),
+        proficiency: `Level ${j.level}`,
+        level: j.level,
+        description: j.definition,
+        definition: j.definition
+      }));
+
+      const draftDocInner = {
+        id: `draft_doc_neda_${pkg.primaryEmail.toLowerCase()}`,
+        name: `${pkg.fullName} — NEDA Performance Agreement (${pkg.financialYear})`,
+        employeeName: pkg.fullName,
+        employeePosition: pkg.jobFunction,
+        employeeTitle: pkg.jobFunction,
+        department: pkg.department,
+        directorate: pkg.directorate,
+        level: pkg.level,
+        employerName: pkg.supervisorName,
+        employerTitle: pkg.supervisorTitle,
+        supervisorName: pkg.supervisorName,
+        supervisorPosition: pkg.supervisorTitle,
+        financialYear: pkg.financialYear,
+        period: pkg.period,
+        municipalityName: nedaMuniName,
+        pdfUrl: pkg.pdfAssetUrl,
+        coverPage: `PERFORMANCE AGREEMENT ${pkg.financialYear}\n\nENTERED INTO BY AND BETWEEN:\n${nedaMuniName}\nRepresented by ${pkg.supervisorName} (${pkg.supervisorTitle})\n\nAND\n\n${pkg.fullName}\n(${pkg.jobFunction})`,
+        dynamicSections: nedaDefaultSections,
         pulledPplanItems: mergedKpis,
-        pulledCompetencyRows: pkg.jscs,
+        pulledCompetencyRows: pkg.coreCompetencies,
+        pulledMmCompetencyRows: pkg.competencyType === 'mm' ? pkg.coreCompetencies : null,
+        pulledCfoCompetencyRows: pkg.competencyType === 'cfo' ? pkg.coreCompetencies : null,
+        pulledKhuboniJscRows: mappedJscRows,
+        pulledPdpItems: pkg.pdps,
+        disclosures: pkg.disclosures,
+        metadata: pplanPayloadObj.metadata
+      };
+
+      const draftDocObj = {
+        html: draftDocInner,
+        pulledPplanItems: mergedKpis,
+        pulledCompetencyRows: pkg.coreCompetencies,
+        pulledMmCompetencyRows: pkg.competencyType === 'mm' ? pkg.coreCompetencies : null,
+        pulledCfoCompetencyRows: pkg.competencyType === 'cfo' ? pkg.coreCompetencies : null,
+        pulledKhuboniJscRows: mappedJscRows,
         pulledPdpItems: pkg.pdps,
         pdfUrl: pkg.pdfAssetUrl,
         metadata: pplanPayloadObj.metadata
       };
       const draftDocPayloadStr = JSON.stringify(draftDocObj);
+      const paTemplatesPayloadStr = JSON.stringify({ templates: [draftDocInner] });
 
       const progressPayloadStr = JSON.stringify({
         completedSteps: ['kpa', 'kpi', 'jsc', 'pdp', 'pplan', 'pa'],
@@ -1651,6 +1705,16 @@ export async function syncNedaPerformanceAgreements() {
               created_at: nowIso
             },
             {
+              id: `pa_templates_${tId}_${em}`,
+              tenant_id: tId,
+              sender_id: 'neda_pa_sync',
+              sender_email: em,
+              sender_name: pkg.fullName,
+              content: paTemplatesPayloadStr,
+              message_type: 'pa_templates',
+              created_at: nowIso
+            },
+            {
               id: `ipms_progress_${tId}_${safeUserKey}`,
               tenant_id: tId,
               sender_id: 'neda_pa_sync',
@@ -1678,17 +1742,18 @@ export async function syncNedaPerformanceAgreements() {
 }
 
 export async function resolveTenantId(reqTenantId: string, userEmail?: string): Promise<string> {
+  const cleanRoute = (reqTenantId || '').toLowerCase().trim();
   const cleanEmail = (userEmail || '').toLowerCase().trim();
-  if (cleanEmail.endsWith('@neda.gov.za') || cleanEmail.includes('neda.gov.za')) {
-    return 'tenant-neda';
+  if (cleanRoute === 'neda' || cleanRoute === 'tenant-neda' || cleanRoute === 'neda_auto') {
+    return cleanRoute;
+  }
+  if (cleanEmail.endsWith('@neda.gov.za') || cleanEmail.includes('neda.gov.za') || Boolean(findNedaPackageByEmailOrName(cleanEmail))) {
+    return cleanRoute || 'neda';
   }
   if (cleanEmail.endsWith('@nkangaladm.gov.za') || cleanEmail.includes('nkangaladm.gov.za')) {
     return 'tenant-229';
   }
-  if (reqTenantId === 'tenant-neda' || reqTenantId === 'neda_auto') {
-    return 'tenant-neda';
-  }
-  if (reqTenantId === 'tenant-229' || reqTenantId === 'nkangala_auto') {
+  if (cleanRoute === 'tenant-229' || cleanRoute === 'nkangala_auto') {
     return 'tenant-229';
   }
   return reqTenantId || 'global';
@@ -11894,25 +11959,38 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
+      const nedaPkg = findNedaPackageByEmailOrName(userId);
+      const isNedaContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaPkg;
 
       let data = null;
       if (userId && userId !== 'default') {
-        const aliasUsers = getKhumaloNkosiAliases(userId);
-        for (const aUser of aliasUsers) {
-          const userDocId = `pa_templates_${tenantId}_${aUser}`;
-          const userRes = await supabase
-            .from('messages')
-            .select('content')
-            .eq('id', userDocId)
-            .maybeSingle();
-          if (userRes.data && userRes.data.content) {
-            data = userRes.data;
-            break;
+        const aliasUsers = Array.from(new Set([
+          ...getKhumaloNkosiAliases(userId),
+          ...(nedaPkg ? [nedaPkg.primaryEmail, ...(nedaPkg.aliases || [])].map(e => e.toLowerCase()) : [])
+        ]));
+        const candidateTenants = isNedaContext
+          ? Array.from(new Set([tenantId, 'neda', 'tenant-neda', 'neda_auto', 'tenant-229']))
+          : [tenantId];
+
+        for (const tId of candidateTenants) {
+          for (const aUser of aliasUsers) {
+            const userDocId = `pa_templates_${tId}_${aUser}`;
+            const userRes = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', userDocId)
+              .maybeSingle();
+            if (userRes.data && userRes.data.content) {
+              data = userRes.data;
+              break;
+            }
           }
+          if (data) break;
         }
       }
 
-      if (!data) {
+      // NEVER fall back to global Nkangala Municipal Manager template for NEDA users or NEDA tenant
+      if (!data && !isNedaContext) {
         const documentId = `pa_templates_${tenantId}`;
         const globalRes = await supabase
           .from('messages')
@@ -11933,6 +12011,63 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         } catch (parseErr) {
           console.error("Error parsing pa-templates JSON:", parseErr);
         }
+      }
+
+      if (nedaPkg) {
+        const nedaMuniName = 'Nkangala Economic Development Agency (NEDA)';
+        const jscMapped = nedaPkg.jscs.map(j => ({
+          id: j.id,
+          jscNo: j.jscNo,
+          competency: j.competency,
+          weight: String(j.weight),
+          proficiency: `Level ${j.level}`,
+          level: j.level,
+          description: j.definition,
+          definition: j.definition
+        }));
+        const defaultNedaTemplate = {
+          id: `template-neda-${nedaPkg.userId}`,
+          name: `${nedaPkg.fullName} — ${nedaPkg.jobFunction} (NEDA Official PA)`,
+          employeeName: nedaPkg.fullName,
+          employeeTitle: nedaPkg.jobFunction,
+          department: nedaPkg.department,
+          directorate: nedaPkg.directorate,
+          level: nedaPkg.level,
+          employerName: nedaPkg.supervisorName,
+          employerTitle: nedaPkg.supervisorTitle,
+          financialYear: nedaPkg.financialYear,
+          period: nedaPkg.period,
+          municipalityName: nedaMuniName,
+          pdfUrl: nedaPkg.pdfAssetUrl,
+          headingCover: 'NEDA EXECUTIVE PERFORMANCE AGREEMENT COVER',
+          headingPurpose: '1. Strategic Mandate & Purpose',
+          headingValidity: '2. Contract Durational Alignment',
+          headingReporting: '3. Institutional Hierarchy & Reporting',
+          headingKpaTable: '4. Key Performance Areas (KPAs) & Performance Plan',
+          headingJscTable: '5. Job Specific Competencies (JSC)',
+          headingEvaluation: '6. Evaluating Performance & Core Competencies (Point 6.6)',
+          coverPage: `PERFORMANCE AGREEMENT ${nedaPkg.financialYear}\n\nENTERED INTO BY AND BETWEEN:\n${nedaMuniName}\nRepresented by ${nedaPkg.supervisorName} (${nedaPkg.supervisorTitle})\n\nAND\n\n${nedaPkg.fullName}\n(${nedaPkg.jobFunction})`,
+          pulledPplanItems: nedaPkg.kpis,
+          pulledKhuboniJscRows: jscMapped,
+          pulledCompetencyRows: nedaPkg.coreCompetencies,
+          pulledMmCompetencyRows: nedaPkg.competencyType === 'mm' ? nedaPkg.coreCompetencies : [],
+          pulledCfoCompetencyRows: nedaPkg.competencyType === 'cfo' ? nedaPkg.coreCompetencies : [],
+          pulledPdpItems: nedaPkg.pdps,
+          disclosures: nedaPkg.disclosures,
+          metadata: {
+            employeeName: nedaPkg.fullName,
+            employeeTitle: nedaPkg.jobFunction,
+            department: nedaPkg.department,
+            directorate: nedaPkg.directorate,
+            level: nedaPkg.level,
+            employerName: nedaPkg.supervisorName,
+            employerTitle: nedaPkg.supervisorTitle,
+            financialYear: nedaPkg.financialYear,
+            period: nedaPkg.period,
+            municipality: nedaMuniName
+          }
+        };
+        return res.json({ templates: [defaultNedaTemplate] });
       }
 
       if (userId.includes('shabangusm') || userId.includes('shabangugm')) {
@@ -12008,19 +12143,34 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : ['default'];
+      const nedaPkg = findNedaPackageByEmailOrName(userId);
+      const aliasUsers = (userId && userId !== 'default')
+        ? Array.from(new Set([
+            ...getKhumaloNkosiAliases(userId),
+            ...(nedaPkg ? [nedaPkg.primaryEmail, ...(nedaPkg.aliases || [])].map(e => e.toLowerCase()) : [])
+          ]))
+        : ['default'];
+      const targetTenants = (tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaPkg)
+        ? Array.from(new Set([tenantId, 'neda', 'tenant-neda', 'neda_auto']))
+        : [tenantId];
+
       const payload = { templates };
       const nowIso = new Date().toISOString();
-      const upsertRows = aliasUsers.map(u => ({
-        id: (u && u !== 'default') ? `pa_templates_${tenantId}_${u}` : `pa_templates_${tenantId}`,
-        tenant_id: tenantId,
-        sender_id: 'pa_templates_manager',
-        sender_email: u !== 'default' ? u : 'ipms@system.local',
-        sender_name: 'PA Templates Manager',
-        content: JSON.stringify(payload),
-        message_type: 'pa_templates',
-        created_at: nowIso
-      }));
+      const upsertRows: any[] = [];
+      for (const tId of targetTenants) {
+        for (const u of aliasUsers) {
+          upsertRows.push({
+            id: (u && u !== 'default') ? `pa_templates_${tId}_${u}` : `pa_templates_${tId}`,
+            tenant_id: tId,
+            sender_id: 'pa_templates_manager',
+            sender_email: u !== 'default' ? u : 'ipms@system.local',
+            sender_name: 'PA Templates Manager',
+            content: JSON.stringify(payload),
+            message_type: 'pa_templates',
+            created_at: nowIso
+          });
+        }
+      }
       const { error } = await supabase
         .from('messages')
         .upsert(upsertRows, { onConflict: 'id' });
@@ -13354,6 +13504,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   async function resolveTenantId(routeTenantId: string, userId?: string): Promise<string> {
     const cleanRoute = (routeTenantId || '').toLowerCase().trim();
     const cleanUser = (userId || '').toLowerCase().trim();
+    if (
+      cleanRoute === 'neda' ||
+      cleanRoute === 'tenant-neda' ||
+      cleanRoute === 'neda_auto' ||
+      cleanUser.includes('@neda.gov.za') ||
+      Boolean(findNedaPackageByEmailOrName(cleanUser))
+    ) {
+      return cleanRoute === 'tenant-neda' || cleanRoute === 'neda_auto' ? cleanRoute : 'neda';
+    }
     if (
       cleanRoute === 'tenant-229' ||
       cleanRoute === 'nkangala_auto' ||
@@ -14716,12 +14875,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       if (nedaCorePkg) {
         return res.json({
-          items: nedaCorePkg.coreCompetencyCategory === 'items' ? nedaCorePkg.coreCompetencies : [],
+          items: nedaCorePkg.competencyType === 'jsc' ? nedaCorePkg.coreCompetencies : [],
           directorItems: [],
           communityServicesItems: [],
           technicalServicesItems: [],
-          cfoItems: nedaCorePkg.coreCompetencyCategory === 'cfoItems' ? nedaCorePkg.coreCompetencies : [],
-          mmItems: nedaCorePkg.coreCompetencyCategory === 'mmItems' ? nedaCorePkg.coreCompetencies : [],
+          cfoItems: nedaCorePkg.competencyType === 'cfo' ? nedaCorePkg.coreCompetencies : [],
+          mmItems: nedaCorePkg.competencyType === 'mm' ? nedaCorePkg.coreCompetencies : [],
           pedItems: [],
           corporateServicesItems: [],
           isCleared: false
@@ -14737,38 +14896,63 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
   app.post("/api/tenant/:tenantId/core-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : (req.body.userId ? String(req.body.userId).toLowerCase().trim() : 'default');
     const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems, isCleared } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const targetUsers = [userId];
-      for (const u of targetUsers) {
-        const uDocId = `core_competencies_${tenantId}_${u}`;
-        const { error } = await supabase
-          .from('messages')
-          .upsert({ 
+      const nedaPkg = findNedaPackageByEmailOrName(userId);
+      const isNedaContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaPkg;
+
+      const targetUsers = (userId && userId !== 'default')
+        ? Array.from(new Set([
+            userId,
+            ...getKhumaloNkosiAliases(userId),
+            ...(nedaPkg ? [nedaPkg.primaryEmail, ...(nedaPkg.aliases || [])].map(e => e.toLowerCase()) : [])
+          ]))
+        : ['default'];
+
+      const targetTenants = isNedaContext
+        ? Array.from(new Set([tenantId, 'neda', 'tenant-neda', 'neda_auto', 'tenant-229']))
+        : [tenantId];
+
+      const nowIso = new Date().toISOString();
+      const upsertRows: any[] = [];
+      for (const tId of targetTenants) {
+        for (const u of targetUsers) {
+          // Never write to global tenant-229 when in NEDA context
+          if (tId === 'tenant-229' && u === 'default' && isNedaContext) continue;
+          const uDocId = `core_competencies_${tId}_${u}`;
+          upsertRows.push({
             id: uDocId,
-            tenant_id: tenantId,
+            tenant_id: tId,
             sender_id: 'core_competencies_editor',
-            sender_email: 'core_competencies@system.local',
+            sender_email: u !== 'default' ? u : 'core_competencies@system.local',
             sender_name: 'Core Competencies Editor',
-            content: JSON.stringify({ 
-              items: items || [], 
-              directorItems: communityServicesItems || directorItems || [], 
+            content: JSON.stringify({
+              items: items || [],
+              directorItems: communityServicesItems || directorItems || [],
               communityServicesItems: communityServicesItems || directorItems || [],
               technicalServicesItems: technicalServicesItems || [],
-              cfoItems: cfoItems || [], 
-              mmItems: mmItems || [], 
-              pedItems: pedItems || [], 
+              cfoItems: cfoItems || [],
+              mmItems: mmItems || [],
+              pedItems: pedItems || [],
               corporateServicesItems: corporateServicesItems || [],
               isCleared: !!isCleared
             }),
             message_type: 'core_competencies_list',
-            created_at: new Date().toISOString()
+            created_at: nowIso
           });
+        }
+      }
+
+      if (upsertRows.length > 0) {
+        const { error } = await supabase
+          .from('messages')
+          .upsert(upsertRows, { onConflict: 'id' });
         if (error) throw error;
       }
+
       res.json({ success: true });
     } catch (err: any) {
       console.error("core-competencies save exception:", err);
@@ -14779,69 +14963,350 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   // Push Core Competencies to Performance Agreement Drafting Suite
   app.post("/api/tenant/:tenantId/core-competencies/push-to-pa", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const userId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : (req.body.userId || 'default');
-    const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems } = req.body;
+    const rawUserId = req.query.userId ? String(req.query.userId) : (req.body.userId ? String(req.body.userId) : 'default');
+    const userId = rawUserId.toLowerCase().trim();
+    const targetRole = String(req.query.target || req.body.target || '').toLowerCase().trim();
+    const { items, directorItems, communityServicesItems, technicalServicesItems, cfoItems, mmItems, pedItems, corporateServicesItems, pushedRows: explicitPushedRows } = req.body;
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const docId = `core_competencies_${tenantId}_${userId}`;
-      await supabase
-        .from('messages')
-        .upsert({
-          id: docId,
-          tenant_id: tenantId,
-          sender_id: 'core_competencies_push_to_pa',
-          sender_email: 'core_competencies@system.local',
-          sender_name: 'Core Competencies Push Engine',
-          content: JSON.stringify({ 
-            items: items || [], 
-            directorItems: communityServicesItems || directorItems || [], 
-            communityServicesItems: communityServicesItems || directorItems || [],
-            technicalServicesItems: technicalServicesItems || [],
-            cfoItems: cfoItems || [], 
-            mmItems: mmItems || [], 
-            pedItems: pedItems || [], 
-            corporateServicesItems: corporateServicesItems || [] 
-          }),
-          message_type: 'core_competencies_list',
-          created_at: new Date().toISOString()
-        });
+      const nedaPkg = findNedaPackageByEmailOrName(userId);
+      const isNedaContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaPkg;
 
-      // Also persist to pa_drafting_suite document if present
-      const paDocId = `pa_draft_${tenantId}_${userId}`;
-      const { data: paData } = await supabase
-        .from('messages')
-        .select('content')
-        .eq('id', paDocId)
-        .maybeSingle();
+      const targetUsers = (userId && userId !== 'default')
+        ? Array.from(new Set([
+            userId,
+            ...getKhumaloNkosiAliases(userId),
+            ...(nedaPkg ? [nedaPkg.primaryEmail, ...(nedaPkg.aliases || [])].map(e => e.toLowerCase()) : [])
+          ]))
+        : ['default'];
 
-      let currentPa: any = {};
-      if (paData && paData.content) {
-        try { currentPa = JSON.parse(paData.content); } catch (e) {}
+      const targetTenants = isNedaContext
+        ? Array.from(new Set([tenantId, 'neda', 'tenant-neda', 'neda_auto', 'tenant-229']))
+        : [tenantId];
+
+      // Determine the exact competency rows being pushed for this user
+      let activeCompetencyRows: any[] = [];
+      if (Array.isArray(explicitPushedRows) && explicitPushedRows.length > 0) {
+        activeCompetencyRows = explicitPushedRows;
+      } else if (targetRole === 'mm' && Array.isArray(mmItems) && mmItems.length > 0) {
+        activeCompetencyRows = mmItems;
+      } else if (targetRole === 'cfo' && Array.isArray(cfoItems) && cfoItems.length > 0) {
+        activeCompetencyRows = cfoItems;
+      } else if (targetRole === 'ped' && Array.isArray(pedItems) && pedItems.length > 0) {
+        activeCompetencyRows = pedItems;
+      } else if (targetRole === 'corp' && Array.isArray(corporateServicesItems) && corporateServicesItems.length > 0) {
+        activeCompetencyRows = corporateServicesItems;
+      } else if ((targetRole === 'community_services' || targetRole === 'directors') && Array.isArray(communityServicesItems) && communityServicesItems.length > 0) {
+        activeCompetencyRows = communityServicesItems;
+      } else if (targetRole === 'technical_services' && Array.isArray(technicalServicesItems) && technicalServicesItems.length > 0) {
+        activeCompetencyRows = technicalServicesItems;
+      } else if (Array.isArray(items) && items.length > 0) {
+        activeCompetencyRows = items;
+      } else if (nedaPkg && Array.isArray(nedaPkg.coreCompetencies)) {
+        activeCompetencyRows = nedaPkg.coreCompetencies;
       }
-      currentPa.coreCompetencies = items || currentPa.coreCompetencies;
-      currentPa.directorCompetencies = communityServicesItems || directorItems || currentPa.directorCompetencies;
-      currentPa.communityServicesCompetencies = communityServicesItems || currentPa.communityServicesCompetencies;
-      currentPa.technicalServicesCompetencies = technicalServicesItems || currentPa.technicalServicesCompetencies;
-      currentPa.cfoCompetencies = cfoItems || currentPa.cfoCompetencies;
-      currentPa.mmCompetencies = mmItems || currentPa.mmCompetencies;
-      currentPa.pedCompetencies = pedItems || currentPa.pedCompetencies;
-      currentPa.corporateServicesCompetencies = corporateServicesItems || currentPa.corporateServicesCompetencies;
 
-      await supabase
-        .from('messages')
-        .upsert({
-          id: paDocId,
-          tenant_id: tenantId,
-          sender_id: 'core_competencies_push_to_pa',
-          sender_email: 'core_competencies@system.local',
-          sender_name: 'Core Competencies Push Engine',
-          content: JSON.stringify(currentPa),
-          message_type: 'pa_drafting_document',
-          created_at: new Date().toISOString()
-        });
+      const nowIso = new Date().toISOString();
+      const upsertBatch: any[] = [];
 
-      res.json({ success: true, message: "Successfully pushed competencies to Performance Agreement Drafting Suite!" });
+      for (const tId of targetTenants) {
+        for (const u of targetUsers) {
+          // CRITICAL GUARD: NEVER allow NEDA pushes or user-scoped pushes to touch global tenant-229 (Nkangala Municipal Manager)
+          if (tId === 'tenant-229' && (u === 'default' || !u)) continue;
+
+          // 1. Save to core_competencies_${tId}_${u}
+          const ccDocId = `core_competencies_${tId}_${u}`;
+          upsertBatch.push({
+            id: ccDocId,
+            tenant_id: tId,
+            sender_id: 'core_competencies_push_to_pa',
+            sender_email: u !== 'default' ? u : 'core_competencies@system.local',
+            sender_name: 'Core Competencies Push Engine',
+            content: JSON.stringify({
+              items: items || activeCompetencyRows || [],
+              directorItems: communityServicesItems || directorItems || [],
+              communityServicesItems: communityServicesItems || directorItems || [],
+              technicalServicesItems: technicalServicesItems || [],
+              cfoItems: cfoItems || [],
+              mmItems: mmItems || [],
+              pedItems: pedItems || [],
+              corporateServicesItems: corporateServicesItems || []
+            }),
+            message_type: 'core_competencies_list',
+            created_at: nowIso
+          });
+
+          // 2. Save to pa_draft_${tId}_${u}
+          const paDocId = `pa_draft_${tId}_${u}`;
+          const { data: paData } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', paDocId)
+            .maybeSingle();
+
+          let currentPa: any = {};
+          if (paData && paData.content) {
+            try { currentPa = JSON.parse(paData.content); } catch (e) {}
+          }
+          currentPa.coreCompetencies = activeCompetencyRows.length > 0 ? activeCompetencyRows : (items || currentPa.coreCompetencies);
+          currentPa.directorCompetencies = communityServicesItems || directorItems || currentPa.directorCompetencies;
+          currentPa.communityServicesCompetencies = communityServicesItems || currentPa.communityServicesCompetencies;
+          currentPa.technicalServicesCompetencies = technicalServicesItems || currentPa.technicalServicesCompetencies;
+          currentPa.cfoCompetencies = cfoItems || currentPa.cfoCompetencies;
+          currentPa.mmCompetencies = mmItems || currentPa.mmCompetencies;
+          currentPa.pedCompetencies = pedItems || currentPa.pedCompetencies;
+          currentPa.corporateServicesCompetencies = corporateServicesItems || currentPa.corporateServicesCompetencies;
+
+          upsertBatch.push({
+            id: paDocId,
+            tenant_id: tId,
+            sender_id: 'core_competencies_push_to_pa',
+            sender_email: u !== 'default' ? u : 'core_competencies@system.local',
+            sender_name: 'Core Competencies Push Engine',
+            content: JSON.stringify(currentPa),
+            message_type: 'pa_drafting_document',
+            created_at: nowIso
+          });
+
+          // 3. Update the actual Performance Agreement document read by PADraftingSuite (`draft_doc_${tId}_${u}`)
+          const draftDocId = (u && u !== 'default') ? `draft_doc_${tId}_${u}`.toLowerCase() : `draft_doc_${tId}`.toLowerCase();
+          const { data: existingDraftData } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', draftDocId)
+            .maybeSingle();
+
+          let draftState: any = {};
+          if (existingDraftData && existingDraftData.content) {
+            try {
+              const parsed = typeof existingDraftData.content === 'string' ? JSON.parse(existingDraftData.content) : existingDraftData.content;
+              draftState = (parsed && typeof parsed.html === 'object' && parsed.html !== null) ? { ...parsed.html } : { ...parsed };
+            } catch (e) {}
+          }
+
+          // If draftState is empty or accidentally polluted by Nkangala Municipal Manager for a NEDA user, seed from nedaPkg
+          if (nedaPkg && (!draftState.employeeName || String(draftState.employeeName).toLowerCase().includes('mahlangu') || !draftState.employeeTitle)) {
+            const nedaMuniName = 'Nkangala Economic Development Agency (NEDA)';
+            const jscMapped = nedaPkg.jscs.map(j => ({
+              id: j.id,
+              jscNo: j.jscNo,
+              competency: j.competency,
+              weight: String(j.weight),
+              proficiency: `Level ${j.level}`,
+              level: j.level,
+              description: j.definition,
+              definition: j.definition
+            }));
+            draftState = {
+              ...draftState,
+              id: draftDocId,
+              templateName: `${nedaPkg.fullName} — ${nedaPkg.jobFunction} (NEDA Official PA)`,
+              employeeName: nedaPkg.fullName,
+              employeePosition: nedaPkg.jobFunction,
+              employeeTitle: nedaPkg.jobFunction,
+              department: nedaPkg.department,
+              directorate: nedaPkg.directorate,
+              level: nedaPkg.level,
+              employerName: nedaPkg.supervisorName,
+              employerTitle: nedaPkg.supervisorTitle,
+              supervisorName: nedaPkg.supervisorName,
+              supervisorPosition: nedaPkg.supervisorTitle,
+              financialYear: nedaPkg.financialYear,
+              period: nedaPkg.period,
+              municipalityName: nedaMuniName,
+              pdfUrl: nedaPkg.pdfAssetUrl,
+              coverPage: `PERFORMANCE AGREEMENT ${nedaPkg.financialYear}\n\nENTERED INTO BY AND BETWEEN:\n${nedaMuniName}\nRepresented by ${nedaPkg.supervisorName} (${nedaPkg.supervisorTitle})\n\nAND\n\n${nedaPkg.fullName}\n(${nedaPkg.jobFunction})`,
+              pulledPplanItems: draftState.pulledPplanItems || nedaPkg.kpis,
+              pulledKhuboniJscRows: draftState.pulledKhuboniJscRows || jscMapped,
+              pulledPdpItems: draftState.pulledPdpItems || nedaPkg.pdps,
+              disclosures: draftState.disclosures || nedaPkg.disclosures,
+              dynamicSections: Array.isArray(draftState.dynamicSections) && draftState.dynamicSections.length > 0 ? draftState.dynamicSections : [
+                {
+                  id: 'section1',
+                  heading: '1. Strategic Mandate & Purpose of the Performance Agreement',
+                  content: `The purpose of this Performance Agreement is to set out the performance expectations, Key Performance Areas (KPAs), Key Performance Indicators (KPIs), Core Competencies, and Personal Development Plan for ${nedaPkg.fullName} (${nedaPkg.jobFunction}) at ${nedaMuniName} for the ${nedaPkg.financialYear} financial year.`
+                },
+                {
+                  id: 'section2',
+                  heading: '2. Commencement and Duration',
+                  content: `This Performance Agreement commences on 01 July 2026 and shall remain in force until 30 June 2027 (${nedaPkg.period}).`
+                },
+                {
+                  id: 'section4',
+                  heading: '4.4 Performance Plan & Job Specific Competencies (JSC)',
+                  content: `The employee shall be assessed against the Key Performance Areas (KPAs), Key Performance Indicators (KPIs) weighted at 80%, and Job Specific Competencies (JSC) / Core Competencies weighted at 20%.`
+                },
+                {
+                  id: 'section6',
+                  heading: '6. Evaluating Performance & Core Competencies (Point 6.6)',
+                  content: `Point 6.6: The Core Competencies and Competency Weighting Grid adopted for ${nedaPkg.fullName} (${nedaPkg.jobFunction}) are detailed in the table below.`
+                },
+                {
+                  id: 'section7',
+                  heading: '7. Personal Development Plan (PDP)',
+                  content: `The Personal Development Plan (PDP) addressing identified skills gaps and training interventions for ${nedaPkg.fullName} is annexed below.`
+                }
+              ],
+              metadata: {
+                employeeName: nedaPkg.fullName,
+                employeeTitle: nedaPkg.jobFunction,
+                department: nedaPkg.department,
+                directorate: nedaPkg.directorate,
+                level: nedaPkg.level,
+                employerName: nedaPkg.supervisorName,
+                employerTitle: nedaPkg.supervisorTitle,
+                financialYear: nedaPkg.financialYear,
+                period: nedaPkg.period,
+                municipality: nedaMuniName
+              }
+            };
+          }
+
+          // Ensure Section 6 exists in dynamicSections so Point 6.6 renders the table
+          if (Array.isArray(draftState.dynamicSections)) {
+            const hasSec6 = draftState.dynamicSections.some((s: any) =>
+              s && (s.id === 'section6' || String(s.heading || '').trim().startsWith('6.') || String(s.heading || '').toLowerCase().includes('evaluating performance'))
+            );
+            if (!hasSec6) {
+              draftState.dynamicSections.push({
+                id: 'section6',
+                heading: '6. Evaluating Performance & Core Competencies (Point 6.6)',
+                content: 'Point 6.6: Core Competencies Weighting Grid adopted for this Performance Agreement:'
+              });
+            }
+          }
+
+          draftState.pulledCompetencyRows = activeCompetencyRows;
+          if (targetRole === 'mm' || (nedaPkg && nedaPkg.competencyType === 'mm')) {
+            draftState.pulledMmCompetencyRows = activeCompetencyRows;
+          }
+          if (targetRole === 'cfo' || (nedaPkg && nedaPkg.competencyType === 'cfo')) {
+            draftState.pulledCfoCompetencyRows = activeCompetencyRows;
+          }
+          if (targetRole === 'ped') {
+            draftState.pulledPedCompetencyRows = activeCompetencyRows;
+          }
+          if (targetRole === 'corp' || (nedaPkg && nedaPkg.competencyType === 'jsc')) {
+            draftState.pulledCorpCompetencyRows = activeCompetencyRows;
+          }
+
+          const updatedDraftPayload = JSON.stringify({
+            html: draftState,
+            pulledPplanItems: draftState.pulledPplanItems || (nedaPkg ? nedaPkg.kpis : []),
+            pulledKhuboniJscRows: draftState.pulledKhuboniJscRows || [],
+            pulledCompetencyRows: activeCompetencyRows,
+            pulledMmCompetencyRows: draftState.pulledMmCompetencyRows || [],
+            pulledCfoCompetencyRows: draftState.pulledCfoCompetencyRows || [],
+            pulledPdpItems: draftState.pulledPdpItems || (nedaPkg ? nedaPkg.pdps : []),
+            pdfUrl: draftState.pdfUrl || (nedaPkg ? nedaPkg.pdfAssetUrl : undefined),
+            metadata: draftState.metadata
+          });
+
+          draftDocCache.set(draftDocId, { raw: updatedDraftPayload, timestamp: Date.now() });
+
+          upsertBatch.push({
+            id: draftDocId,
+            tenant_id: tId,
+            sender_id: 'core_competencies_push_to_pa',
+            sender_email: u !== 'default' ? u : 'core_competencies@system.local',
+            sender_name: 'Core Competencies Push Engine',
+            content: updatedDraftPayload,
+            message_type: 'drafting_suite_doc',
+            created_at: nowIso
+          });
+
+          // 4. Also update `pa_templates_${tId}_${u}` so PATemplates.tsx reflects the pushed Core Competencies immediately
+          if (u && u !== 'default') {
+            const tplDocId = `pa_templates_${tId}_${u}`;
+            const { data: existingTplData } = await supabase
+              .from('messages')
+              .select('content')
+              .eq('id', tplDocId)
+              .maybeSingle();
+
+            let templatesList: any[] = [];
+            if (existingTplData && existingTplData.content) {
+              try {
+                const parsedTpl = typeof existingTplData.content === 'string' ? JSON.parse(existingTplData.content) : existingTplData.content;
+                if (parsedTpl && Array.isArray(parsedTpl.templates)) {
+                  templatesList = parsedTpl.templates;
+                }
+              } catch (e) {}
+            }
+
+            if (templatesList.length === 0 && nedaPkg) {
+              const nedaMuniName = 'Nkangala Economic Development Agency (NEDA)';
+              templatesList = [{
+                id: `template-neda-${nedaPkg.userId}`,
+                name: `${nedaPkg.fullName} — ${nedaPkg.jobFunction} (NEDA Official PA)`,
+                employeeName: nedaPkg.fullName,
+                employeeTitle: nedaPkg.jobFunction,
+                department: nedaPkg.department,
+                directorate: nedaPkg.directorate,
+                level: nedaPkg.level,
+                employerName: nedaPkg.supervisorName,
+                employerTitle: nedaPkg.supervisorTitle,
+                financialYear: nedaPkg.financialYear,
+                period: nedaPkg.period,
+                municipalityName: nedaMuniName,
+                pdfUrl: nedaPkg.pdfAssetUrl,
+                headingCover: 'NEDA EXECUTIVE PERFORMANCE AGREEMENT COVER',
+                headingPurpose: '1. Strategic Mandate & Purpose',
+                headingValidity: '2. Contract Durational Alignment',
+                headingReporting: '3. Institutional Hierarchy & Reporting',
+                headingKpaTable: '4. Key Performance Areas (KPAs) & Performance Plan',
+                headingJscTable: '5. Job Specific Competencies (JSC)',
+                headingEvaluation: '6. Evaluating Performance & Core Competencies (Point 6.6)',
+                coverPage: draftState.coverPage,
+                pulledPplanItems: nedaPkg.kpis,
+                pulledKhuboniJscRows: draftState.pulledKhuboniJscRows,
+                pulledCompetencyRows: activeCompetencyRows,
+                pulledMmCompetencyRows: draftState.pulledMmCompetencyRows,
+                pulledCfoCompetencyRows: draftState.pulledCfoCompetencyRows,
+                pulledPdpItems: nedaPkg.pdps,
+                disclosures: nedaPkg.disclosures,
+                metadata: draftState.metadata
+              }];
+            } else if (templatesList.length > 0) {
+              templatesList = templatesList.map((tpl: any) => ({
+                ...tpl,
+                pulledCompetencyRows: activeCompetencyRows,
+                pulledMmCompetencyRows: draftState.pulledMmCompetencyRows || tpl.pulledMmCompetencyRows,
+                pulledCfoCompetencyRows: draftState.pulledCfoCompetencyRows || tpl.pulledCfoCompetencyRows
+              }));
+            }
+
+            if (templatesList.length > 0) {
+              upsertBatch.push({
+                id: tplDocId,
+                tenant_id: tId,
+                sender_id: 'core_competencies_push_to_pa',
+                sender_email: u,
+                sender_name: 'Core Competencies Push Engine',
+                content: JSON.stringify({ templates: templatesList }),
+                message_type: 'pa_templates',
+                created_at: nowIso
+              });
+            }
+          }
+        }
+      }
+
+      if (upsertBatch.length > 0) {
+        const deduped = Array.from(new Map(upsertBatch.map(r => [r.id, r])).values());
+        const { error: batchErr } = await supabase
+          .from('messages')
+          .upsert(deduped, { onConflict: 'id' });
+        if (batchErr) throw batchErr;
+      }
+
+      res.json({
+        success: true,
+        targetUser: nedaPkg ? `${nedaPkg.fullName} (${nedaPkg.primaryEmail})` : userId,
+        count: activeCompetencyRows.length,
+        message: `Successfully pushed ${activeCompetencyRows.length} Core Competencies to ${nedaPkg ? `${nedaPkg.fullName} (${nedaPkg.jobFunction})` : userId}'s Performance Agreement!`
+      });
     } catch (err: any) {
       console.error("push-to-pa exception:", err);
       res.status(500).json({ error: err.message });
@@ -19764,8 +20229,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         data = draftBatchRes.data[0];
       }
 
-      // Fallback to global draft if user-specific draft doesn't exist
-      if ((!data || !data.content) && userId && userId !== 'default') {
+      // Fallback to global draft ONLY if NOT in NEDA context and user is NOT a NEDA official
+      const nedaDraftPkg = findNedaPackageByEmailOrName(userId);
+      const isNedaDraftContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaDraftPkg;
+
+      if ((!data || !data.content) && userId && userId !== 'default' && !isNedaDraftContext) {
         const globalId = reqDocumentId 
           ? reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId).toLowerCase() 
           : `draft_doc_${tenantId}`;
@@ -19786,10 +20254,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (data && data.content) {
         try {
           const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-          const hasValidHtml = (typeof parsed?.html === 'string' && parsed.html.trim().length > 0) ||
-                               (typeof parsed?.html === 'object' && parsed?.html !== null && Object.keys(parsed.html).length > 0);
-          const hasValidItems = Array.isArray(parsed?.pulledPplanItems) && parsed.pulledPplanItems.length > 0;
-          const hasValidMeta = parsed?.metadata && Object.keys(parsed.metadata).length > 0;
+          const innerHtml = (parsed && typeof parsed.html === 'object' && parsed.html !== null) ? parsed.html : parsed;
+          // Guard against Nkangala Municipal Manager (Mandla Mahlangu) bleeding into a NEDA official's PA
+          const isPollutedByNkangalaMM = Boolean(
+            nedaDraftPkg &&
+            innerHtml &&
+            typeof innerHtml === 'object' &&
+            String(innerHtml.employeeName || innerHtml.metadata?.employeeName || '').toLowerCase().includes('mahlangu')
+          );
+
+          const hasValidHtml = !isPollutedByNkangalaMM && (
+            (typeof parsed?.html === 'string' && parsed.html.trim().length > 0) ||
+            (typeof parsed?.html === 'object' && parsed?.html !== null && Object.keys(parsed.html).length > 0)
+          );
+          const hasValidItems = !isPollutedByNkangalaMM && Array.isArray(parsed?.pulledPplanItems) && parsed.pulledPplanItems.length > 0;
+          const hasValidMeta = !isPollutedByNkangalaMM && parsed?.metadata && Object.keys(parsed.metadata).length > 0;
 
           if (parsed && (hasValidHtml || hasValidItems || hasValidMeta)) {
             const rawStr = typeof data.content === 'string' ? data.content : JSON.stringify(parsed);
@@ -19854,50 +20333,93 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return res.json({ html: defaultShabanguDraftDoc });
       }
 
-      const nedaDraftPkg = findNedaPackageByEmailOrName(userId);
       if (nedaDraftPkg) {
+        const nedaMuniName = 'Nkangala Economic Development Agency (NEDA)';
+        const jscMapped = nedaDraftPkg.jscs.map(j => ({
+          id: j.id,
+          jscNo: j.jscNo,
+          competency: j.competency,
+          weight: String(j.weight),
+          proficiency: `Level ${j.level}`,
+          level: j.level,
+          description: j.definition,
+          definition: j.definition
+        }));
         const nedaDraftDoc = {
           id: `draft_doc_neda_${nedaDraftPkg.primaryEmail.toLowerCase()}`,
+          templateName: `${nedaDraftPkg.fullName} — ${nedaDraftPkg.jobFunction} (NEDA Official PA)`,
           employeeName: nedaDraftPkg.fullName,
-          employeeTitle: nedaDraftPkg.jobTitle,
+          employeePosition: nedaDraftPkg.jobFunction,
+          employeeTitle: nedaDraftPkg.jobFunction,
           department: nedaDraftPkg.department,
           directorate: nedaDraftPkg.directorate,
           level: nedaDraftPkg.level,
-          employerName: nedaDraftPkg.employerName,
-          employerTitle: nedaDraftPkg.employerTitle,
+          employerName: nedaDraftPkg.supervisorName,
+          employerTitle: nedaDraftPkg.supervisorTitle,
+          supervisorName: nedaDraftPkg.supervisorName,
+          supervisorPosition: nedaDraftPkg.supervisorTitle,
           financialYear: nedaDraftPkg.financialYear,
           period: nedaDraftPkg.period,
-          municipalityName: nedaDraftPkg.municipality,
+          municipalityName: nedaMuniName,
           pdfUrl: nedaDraftPkg.pdfAssetUrl,
-          coverPage: `PERFORMANCE AGREEMENT ${nedaDraftPkg.financialYear}\n\nENTERED INTO BY AND BETWEEN:\n${nedaDraftPkg.municipality}\nRepresented by ${nedaDraftPkg.employerName} (${nedaDraftPkg.employerTitle})\n\nAND\n\n${nedaDraftPkg.fullName}\n(${nedaDraftPkg.jobTitle})`,
+          coverPage: `PERFORMANCE AGREEMENT ${nedaDraftPkg.financialYear}\n\nENTERED INTO BY AND BETWEEN:\n${nedaMuniName}\nRepresented by ${nedaDraftPkg.supervisorName} (${nedaDraftPkg.supervisorTitle})\n\nAND\n\n${nedaDraftPkg.fullName}\n(${nedaDraftPkg.jobFunction})`,
+          dynamicSections: [
+            {
+              id: 'section1',
+              heading: '1. Strategic Mandate & Purpose of the Performance Agreement',
+              content: `The purpose of this Performance Agreement is to set out the performance expectations, Key Performance Areas (KPAs), Key Performance Indicators (KPIs), Core Competencies, and Personal Development Plan for ${nedaDraftPkg.fullName} (${nedaDraftPkg.jobFunction}) at ${nedaMuniName} for the ${nedaDraftPkg.financialYear} financial year.`
+            },
+            {
+              id: 'section2',
+              heading: '2. Commencement and Duration',
+              content: `This Performance Agreement commences on 01 July 2026 and shall remain in force until 30 June 2027 (${nedaDraftPkg.period}).`
+            },
+            {
+              id: 'section4',
+              heading: '4.4 Performance Plan & Job Specific Competencies (JSC)',
+              content: `The employee shall be assessed against the Key Performance Areas (KPAs), Key Performance Indicators (KPIs) weighted at 80%, and Job Specific Competencies (JSC) / Core Competencies weighted at 20%.`
+            },
+            {
+              id: 'section6',
+              heading: '6. Evaluating Performance & Core Competencies (Point 6.6)',
+              content: `Point 6.6: The Core Competencies and Competency Weighting Grid adopted for ${nedaDraftPkg.fullName} (${nedaDraftPkg.jobFunction}) are detailed in the table below.`
+            },
+            {
+              id: 'section7',
+              heading: '7. Personal Development Plan (PDP)',
+              content: `The Personal Development Plan (PDP) addressing identified skills gaps and training interventions for ${nedaDraftPkg.fullName} is annexed below.`
+            }
+          ],
           pulledPplanItems: nedaDraftPkg.kpis,
-          pulledCompetencyRows: nedaDraftPkg.jscs.map(j => ({
-            id: j.id,
-            jscNo: j.jscNo,
-            competency: j.competency,
-            weight: String(j.weight),
-            proficiency: `Level ${j.level}`,
-            level: j.level,
-            description: j.definition,
-            definition: j.definition
-          })),
+          pulledKhuboniJscRows: jscMapped,
+          pulledCompetencyRows: nedaDraftPkg.coreCompetencies,
+          pulledMmCompetencyRows: nedaDraftPkg.competencyType === 'mm' ? nedaDraftPkg.coreCompetencies : [],
+          pulledCfoCompetencyRows: nedaDraftPkg.competencyType === 'cfo' ? nedaDraftPkg.coreCompetencies : [],
           pulledPdpItems: nedaDraftPkg.pdps,
-          customKpaTable: nedaDraftPkg.customKpaTable,
           disclosures: nedaDraftPkg.disclosures,
           metadata: {
             employeeName: nedaDraftPkg.fullName,
-            employeeTitle: nedaDraftPkg.jobTitle,
+            employeeTitle: nedaDraftPkg.jobFunction,
             department: nedaDraftPkg.department,
             directorate: nedaDraftPkg.directorate,
             level: nedaDraftPkg.level,
-            employerName: nedaDraftPkg.employerName,
-            employerTitle: nedaDraftPkg.employerTitle,
+            employerName: nedaDraftPkg.supervisorName,
+            employerTitle: nedaDraftPkg.supervisorTitle,
             financialYear: nedaDraftPkg.financialYear,
             period: nedaDraftPkg.period,
-            municipality: nedaDraftPkg.municipality
+            municipality: nedaMuniName
           }
         };
-        return res.json({ html: nedaDraftDoc, pulledPplanItems: nedaDraftPkg.kpis, pulledCompetencyRows: nedaDraftPkg.jscs, pulledPdpItems: nedaDraftPkg.pdps, pdfUrl: nedaDraftPkg.pdfAssetUrl });
+        return res.json({
+          html: nedaDraftDoc,
+          pulledPplanItems: nedaDraftPkg.kpis,
+          pulledKhuboniJscRows: jscMapped,
+          pulledCompetencyRows: nedaDraftPkg.coreCompetencies,
+          pulledMmCompetencyRows: nedaDraftPkg.competencyType === 'mm' ? nedaDraftPkg.coreCompetencies : [],
+          pulledCfoCompetencyRows: nedaDraftPkg.competencyType === 'cfo' ? nedaDraftPkg.coreCompetencies : [],
+          pulledPdpItems: nedaDraftPkg.pdps,
+          pdfUrl: nedaDraftPkg.pdfAssetUrl
+        });
       }
 
       return res.json({ html: "" });
