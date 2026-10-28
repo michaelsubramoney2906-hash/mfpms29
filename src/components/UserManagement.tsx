@@ -1107,6 +1107,28 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                 </button>
                 <button
                   type="button"
+                  onClick={() => {
+                    window.open('/api/admin/audit-export/nkangala', '_blank');
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#00D65B] hover:bg-[#00c252] text-slate-950 font-bold rounded-xl text-sm transition-all shadow-sm cursor-pointer"
+                  title="Export 30-Day Audit Report for all @nkangaladm.gov.za users to Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-slate-950" />
+                  <span>Export Nkangala 30D Audit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open('/api/admin/audit-export/neda', '_blank');
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-sm transition-all shadow-sm cursor-pointer"
+                  title="Export 30-Day Audit Report for all @neda.gov.za users to Excel (.xlsx)"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-white" />
+                  <span>Export NEDA 30D Audit</span>
+                </button>
+                <button
+                  type="button"
                   onClick={async () => {
                     setIsLoading(true);
                     await fetchUsers();

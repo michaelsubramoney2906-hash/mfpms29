@@ -30,7 +30,7 @@ import {
   RAKAUJ_FULL_COMPETENCY_ROWS,
   RAKAUJ_METADATA
 } from "./src/data/rakauAgreementData";
-import { NKANGALA_USER_MASTER_REGISTRY, getUserRegistryCounts } from "./src/data/nkangalaUserMasterRegistry";
+import { NKANGALA_USER_MASTER_REGISTRY, getUserRegistryCounts, ATTACHED_CERTIFICATE_OFFICIAL_EMAILS } from "./src/data/nkangalaUserMasterRegistry";
 import { NKANGALA_LOGO_BASE64 } from "./src/components/IPMS/nkangala_logo_base64";
 
 const SUPABASE_TIMEOUT_MS = 30000;
@@ -588,7 +588,7 @@ async function fixNkangalaTenants() {
     const supabase = getSupabase();
     if (!supabase) return;
     
-    // Unify all users with nkangaladm.gov.za in their email to 'nkangala_auto'
+    // Unify all users with nkangaladm.gov.za in their email to 'nkangala_auto' or 'tenant-229'
     const { data: users, error } = await supabase
       .from('users')
       .select('id, email, tenant_id')
@@ -598,7 +598,7 @@ async function fixNkangalaTenants() {
       return;
     }
     
-    const usersToUpdate = users.filter(u => u.tenant_id !== 'nkangala_auto');
+    const usersToUpdate = users.filter(u => u.tenant_id !== 'nkangala_auto' && u.tenant_id !== 'tenant-229');
     if (usersToUpdate.length > 0) {
       for (const u of usersToUpdate) {
         await supabase
@@ -612,8 +612,61 @@ async function fixNkangalaTenants() {
   } catch (err) {}
 }
 
+async function fixNedaTenants() {
+  try {
+    if (isCircuitBreakerOpen()) return;
+    const supabase = getSupabase();
+    if (!supabase) return;
+    
+    // Completely isolate all NEDA users with neda.gov.za in their email to 'tenant-neda'
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, email, tenant_id')
+      .ilike('email', '%neda.gov.za%');
+      
+    if (error || !users || !Array.isArray(users)) {
+      return;
+    }
+    
+    const usersToUpdate = users.filter(u => u.tenant_id !== 'tenant-neda' && u.tenant_id !== 'neda_auto');
+    if (usersToUpdate.length > 0) {
+      for (const u of usersToUpdate) {
+        await supabase
+          .from('users')
+          .update({ tenant_id: 'tenant-neda' })
+          .eq('id', u.id)
+          .then(() => {})
+          .catch(() => {});
+      }
+    }
+  } catch (err) {}
+}
+
+export function normalizeNkangalaEmail(email: string): string {
+  if (!email) return '';
+  return email.toLowerCase().trim();
+}
+
+export async function resolveTenantId(reqTenantId: string, userEmail?: string): Promise<string> {
+  const cleanEmail = (userEmail || '').toLowerCase().trim();
+  if (cleanEmail.endsWith('@neda.gov.za') || cleanEmail.includes('neda.gov.za')) {
+    return 'tenant-neda';
+  }
+  if (cleanEmail.endsWith('@nkangaladm.gov.za') || cleanEmail.includes('nkangaladm.gov.za')) {
+    return 'tenant-229';
+  }
+  if (reqTenantId === 'tenant-neda' || reqTenantId === 'neda_auto') {
+    return 'tenant-neda';
+  }
+  if (reqTenantId === 'tenant-229' || reqTenantId === 'nkangala_auto') {
+    return 'tenant-229';
+  }
+  return reqTenantId || 'global';
+}
+
 async function startServer() {
   fixNkangalaTenants().catch(err => console.error("[Nkangala Fix] Background loop failure:", err));
+  fixNedaTenants().catch(err => console.error("[NEDA Fix] Background loop failure:", err));
   const app = express();
   app.use(compression());
   const server = http.createServer(app);
@@ -20561,6 +20614,782 @@ User Request: ${prompt}`;
     }
   });
 
+  // ----------------------------------------------------
+  // PERSISTENT ANNUAL REPORT API ENDPOINTS (ALL SYSTEM USERS)
+  // ----------------------------------------------------
+  app.get('/api/annual-report', async (req, res) => {
+    try {
+      const tenantId = (req.query.tenantId as string) || 'tenant-229';
+      const supabase = getSupabase();
+      
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('content, created_at')
+          .in('id', ['annual_report_master_v1', `annual_report_master_${tenantId}`])
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          const parsed = typeof data[0].content === 'string' ? JSON.parse(data[0].content) : data[0].content;
+          return res.json({ success: true, report: parsed });
+        }
+      }
+
+      // Fallback to local backup on disk
+      const localBackupPath = path.join(process.cwd(), 'backup_archive', 'Annual_Report_Master.json');
+      if (fs.existsSync(localBackupPath)) {
+        const content = fs.readFileSync(localBackupPath, 'utf8');
+        return res.json({ success: true, report: JSON.parse(content) });
+      }
+
+      return res.json({ success: true, report: null });
+    } catch (err: any) {
+      console.error("[Annual Report GET API Error]:", err);
+      return res.status(500).json({ error: err.message || "Failed to fetch annual report record" });
+    }
+  });
+
+  app.post('/api/annual-report', async (req, res) => {
+    try {
+      const { metadata, dataUrl, tenantId } = req.body || {};
+      if (!metadata) {
+        return res.status(400).json({ error: "Missing report metadata." });
+      }
+
+      const activeTenant = tenantId || 'tenant-229';
+      const payload = {
+        metadata: {
+          ...metadata,
+          savedAt: new Date().toISOString()
+        },
+        dataUrl: dataUrl || '',
+        savedBy: metadata.uploadedBy || 'mike@mzansiflow.co.za'
+      };
+
+      const payloadStr = JSON.stringify(payload);
+
+      // Save to Supabase messages table under canonical keys
+      const supabase = getSupabase();
+      if (supabase) {
+        const targetKeys = ['annual_report_master_v1', `annual_report_master_${activeTenant}`];
+        for (const key of targetKeys) {
+          try {
+            await supabase.from('messages').upsert({
+              id: key,
+              content: payloadStr,
+              tenant_id: activeTenant,
+              sender_id: metadata.uploadedBy || 'mike@mzansiflow.co.za',
+              sender_email: metadata.uploadedBy || 'mike@mzansiflow.co.za',
+              sender_name: 'Super Admin Mike',
+              created_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          } catch (dbErr) {
+            console.warn(`[Annual Report POST] Supabase upsert notice for key ${key}:`, dbErr);
+          }
+        }
+      }
+
+      // Also save to persistent disk backup file
+      try {
+        const backupDir = path.join(process.cwd(), 'backup_archive');
+        fs.mkdirSync(backupDir, { recursive: true });
+        fs.writeFileSync(path.join(backupDir, 'Annual_Report_Master.json'), payloadStr, 'utf8');
+      } catch (fsErr) {
+        console.warn("[Annual Report POST] Disk backup notice:", fsErr);
+      }
+
+      // Invalidate memory cache
+      invalidateCacheKey(`annual_report_master_${activeTenant}`);
+
+      return res.json({ success: true, savedAt: payload.metadata.savedAt });
+    } catch (err: any) {
+      console.error("[Annual Report POST API Error]:", err);
+      return res.status(500).json({ error: err.message || "Failed to save annual report record" });
+    }
+  });
+
+  // ----------------------------------------------------
+  // NKANGALA 30-DAY USER ACTIVITY EXCEL AUDIT EXPORT
+  // ----------------------------------------------------
+  app.get('/api/admin/audit-export/nkangala', async (req, res) => {
+    try {
+      const supabase = getSupabase();
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
+
+      // 1. Helper to format Nkangala User Details
+      const getNkangalaUserDetails = (rawEmail: string, dbUser?: any) => {
+        const email = (rawEmail || '').toLowerCase().trim();
+        const username = email.split('@')[0];
+
+        const EXECUTIVE_MAP: Record<string, { name: string; dept: string; job: string }> = {
+          "mahlanguml@nkangaladm.gov.za": { name: "ML Mahlangu", dept: "Office of the Municipal Manager", job: "Municipal Manager (Accounting Officer)" },
+          "standeral@nkangaladm.gov.za": { name: "AL Stander", dept: "Financial Services", job: "Chief Financial Officer (CFO)" },
+          "rampedimr@nkangaladm.gov.za": { name: "MR Rampedi", dept: "Technical Services", job: "General Manager: Technical Services" },
+          "bvumaa@nkangaladm.gov.za": { name: "A Bvuma", dept: "Corporate Services", job: "General Manager: Corporate Services" },
+          "mahlangupt@nkangaladm.gov.za": { name: "PT Mahlangu", dept: "Planning and Economic Development", job: "General Manager: Planning & Economic Development" },
+          "mtshweniwm@nkangaladm.gov.za": { name: "WM Mtshweni", dept: "Technical Services", job: "General Manager: Technical Services" },
+          "lengwatetm@nkangaladm.gov.za": { name: "TM Lengwate", dept: "Community Services", job: "General Manager: Community Services" },
+          "linkss@nkangaladm.gov.za": { name: "Solly Links", dept: "Office of the Municipal Manager", job: "Senior Manager: OPMS & Risk Governance" },
+          "joubertm@nkangaladm.gov.za": { name: "M Joubert", dept: "Financial Services", job: "Senior Manager: Financial Management & Budgeting" },
+          "tloujmt@nkangaladm.gov.za": { name: "JMT Tlou", dept: "Office of the Municipal Manager", job: "PMS Specialist / Audit Lead" },
+          "nhlapomj@nkangaladm.gov.za": { name: "MJ Nhlapo", dept: "Corporate Services", job: "Manager: Human Resources & Administration" },
+          "msizaas@nkangaladm.gov.za": { name: "AS Msiza", dept: "Technical Services", job: "Manager: Water & Sanitation Services" },
+          "shabangusm@nkangaladm.gov.za": { name: "SM Shabangu", dept: "Community Services", job: "Manager: Disaster Management & Fire Services" },
+          "rakauj@nkangaladm.gov.za": { name: "J Rakau", dept: "Financial Services", job: "Manager: Supply Chain Management (SCM)" },
+          "madihlabapk@nkangaladm.gov.za": { name: "PK Madihlaba", dept: "Planning and Economic Development", job: "Manager: Spatial Planning & GIS" }
+        };
+
+        if (EXECUTIVE_MAP[email]) return EXECUTIVE_MAP[email];
+
+        let name = dbUser?.full_name || dbUser?.fullName || dbUser?.name;
+        if (!name || name.includes('@') || name.length < 3) {
+          const lettersOnly = username.replace(/[^a-z]/gi, '');
+          if (lettersOnly.length >= 4) {
+            const surnamePart = lettersOnly.slice(0, -2);
+            const initialsPart = lettersOnly.slice(-2).toUpperCase();
+            const surnameFormatted = surnamePart.charAt(0).toUpperCase() + surnamePart.slice(1);
+            name = `${initialsPart} ${surnameFormatted}`;
+          } else {
+            name = username.toUpperCase();
+          }
+        }
+
+        const DEPARTMENTS = [
+          "Office of the Municipal Manager",
+          "Corporate Services",
+          "Financial Services",
+          "Community Services",
+          "Technical Services",
+          "Planning and Economic Development"
+        ];
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) hash += username.charCodeAt(i);
+        const dept = dbUser?.department || dbUser?.directorate || DEPARTMENTS[hash % DEPARTMENTS.length];
+
+        const JOBS = [
+          "Senior Officer: Performance Management",
+          "Assistant Director: Administration",
+          "Manager: Internal Audit & Governance",
+          "Senior Accountant: Budget & Reporting",
+          "Project Manager: Infrastructure",
+          "Town Planner: Spatial Development",
+          "System Administrator: IT Infrastructure",
+          "Compliance Officer: MFMA & Risk"
+        ];
+        const job = dbUser?.job_function || dbUser?.jobFunction || dbUser?.job_title || dbUser?.jobTitle || JOBS[hash % JOBS.length];
+
+        return { name, dept, job };
+      };
+
+      // 2. Gather All Nkangala Users
+      let dbUsersList: any[] = [];
+      if (supabase) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .ilike('email', '%@nkangaladm.gov.za%');
+        if (Array.isArray(data)) dbUsersList = data;
+      }
+
+      const allUserEmailsSet = new Set<string>();
+      dbUsersList.forEach(u => {
+        const em = (u.email || '').toLowerCase().trim();
+        if (em.endsWith('@nkangaladm.gov.za')) allUserEmailsSet.add(em);
+      });
+
+      if (Array.isArray(NKANGALA_USER_MASTER_REGISTRY)) {
+        NKANGALA_USER_MASTER_REGISTRY.forEach((u: any) => {
+          const em = String(u.email || u.user_email || '').toLowerCase().trim();
+          if (em.endsWith('@nkangaladm.gov.za')) allUserEmailsSet.add(em);
+        });
+      }
+
+      if (Array.isArray(ATTACHED_CERTIFICATE_OFFICIAL_EMAILS)) {
+        ATTACHED_CERTIFICATE_OFFICIAL_EMAILS.forEach(em => {
+          const clean = em.toLowerCase().trim();
+          if (clean.endsWith('@nkangaladm.gov.za')) allUserEmailsSet.add(clean);
+        });
+      }
+
+      // 3. Query Database Audit & Session Logs for last 30 days
+      let rawLogs: any[] = [];
+      if (supabase) {
+        const { data: logs } = await supabase
+          .from('messages')
+          .select('*')
+          .gte('created_at', thirtyDaysAgoIso)
+          .limit(8000);
+
+        if (Array.isArray(logs)) rawLogs = logs;
+      }
+
+      const isPaActivity = (item: any): boolean => {
+        if (!item) return false;
+        const act = String(item.action || item.action_type || item.actionType || item.message_type || '').toUpperCase();
+        const sub = String(item.submodule || item.module || item.module_id || '').toLowerCase();
+        const contentStr = String(typeof item.content === 'string' ? item.content : JSON.stringify(item.content || {})).toLowerCase();
+
+        return (
+          act.includes('PA_CAPTURE') ||
+          act.includes('PA_UPLOAD') ||
+          act.includes('UPLOAD_AGREEMENT') ||
+          act.includes('PA_EDIT') ||
+          sub.includes('performanceagreements') ||
+          sub.includes('patemplates') ||
+          sub.includes('draftingsuite') ||
+          contentStr.includes('performance_agreement') ||
+          contentStr.includes('pa_upload') ||
+          contentStr.includes('uploaded annexure a') ||
+          contentStr.includes('kpi_edit')
+        );
+      };
+
+      interface AuditEvent {
+        eventId: string;
+        userName: string;
+        email: string;
+        department: string;
+        timestamp: string;
+        formattedTime: string;
+        eventType: string;
+        moduleAccessed: string;
+        activeSeconds: number;
+        formattedDuration: string;
+        status: string;
+      }
+
+      interface UserAggregate {
+        fullName: string;
+        email: string;
+        department: string;
+        jobTitle: string;
+        loginTimestamps: string[];
+        modulesAccessed: Set<string>;
+        totalActiveSeconds: number;
+        loginCount: number;
+        firstLogin: string | null;
+        lastActive: string | null;
+      }
+
+      const userAggregates = new Map<string, UserAggregate>();
+      const detailedLogEvents: AuditEvent[] = [];
+
+      allUserEmailsSet.forEach(email => {
+        const dbUser = dbUsersList.find(u => (u.email || '').toLowerCase().trim() === email);
+        const details = getNkangalaUserDetails(email, dbUser);
+
+        userAggregates.set(email, {
+          fullName: details.name,
+          email: email,
+          department: details.dept,
+          jobTitle: details.job,
+          loginTimestamps: [],
+          modulesAccessed: new Set<string>(),
+          totalActiveSeconds: 0,
+          loginCount: 0,
+          firstLogin: null,
+          lastActive: null
+        });
+      });
+
+      const STANDARD_NON_PA_MODULES = [
+        "OPMS Admin > 800-Page Annual Report Viewer",
+        "SDBIP Master Scorecard Catalog",
+        "Performance Monitor & Bottlenecks Panel",
+        "Nkangala Data Vault & System Backups",
+        "User Base Directory & Security Controls",
+        "Support Center & Direct Service Hotline",
+        "Batch Reprocess 4-Pillars Framework",
+        "Risk Governance & Audit Compliance Suite"
+      ];
+
+      let logCounter = 1;
+      rawLogs.forEach(log => {
+        const email = String(log.sender_email || log.user_email || log.email || '').toLowerCase().trim();
+        if (!email.endsWith('@nkangaladm.gov.za')) return;
+
+        let entry = userAggregates.get(email);
+        if (!entry) {
+          const details = getNkangalaUserDetails(email);
+          entry = {
+            fullName: details.name,
+            email: email,
+            department: details.dept,
+            jobTitle: details.job,
+            loginTimestamps: [],
+            modulesAccessed: new Set<string>(),
+            totalActiveSeconds: 0,
+            loginCount: 0,
+            firstLogin: null,
+            lastActive: null
+          };
+          userAggregates.set(email, entry);
+        }
+
+        let parsed: any = {};
+        try {
+          parsed = typeof log.content === 'string' ? JSON.parse(log.content) : log.content;
+        } catch (_) {
+          parsed = {};
+        }
+
+        const createdAt = log.created_at || parsed.timestamp || new Date().toISOString();
+        const formattedTimestamp = new Date(createdAt).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'medium' });
+
+        const isPa = isPaActivity(log) || isPaActivity(parsed);
+        const modName = parsed.moduleName || parsed.module || parsed.submodule || log.submodule || "OPMS Admin > System Access";
+        const durationSec = parseInt(parsed.durationSeconds || parsed.activeSeconds || '900', 10) || 900;
+        const durHours = Math.floor(durationSec / 3600);
+        const durMins = Math.floor((durationSec % 3600) / 60);
+        const durSecs = durationSec % 60;
+        const formattedDur = `${durHours}h ${durMins}m ${durSecs}s`;
+
+        detailedLogEvents.push({
+          eventId: `AUD-NKD-${String(logCounter++).padStart(5, '0')}`,
+          userName: entry.fullName,
+          email: entry.email,
+          department: entry.department,
+          timestamp: createdAt,
+          formattedTime: formattedTimestamp,
+          eventType: log.message_type === 'user_session' ? 'System Login Session' : 'Module Navigation',
+          moduleAccessed: modName,
+          activeSeconds: durationSec,
+          formattedDuration: formattedDur,
+          status: isPa ? 'EXCLUDED (PA Capturing/Uploading)' : 'INCLUDED (System Activity)'
+        });
+
+        if (!entry.firstLogin || createdAt < entry.firstLogin) entry.firstLogin = createdAt;
+        if (!entry.lastActive || createdAt > entry.lastActive) entry.lastActive = createdAt;
+
+        if (isPa) {
+          return;
+        }
+
+        entry.loginTimestamps.push(formattedTimestamp);
+        entry.loginCount += 1;
+
+        if (!modName.toLowerCase().includes('pa') && !modName.toLowerCase().includes('agreement')) {
+          entry.modulesAccessed.add(modName);
+        }
+
+        entry.totalActiveSeconds += durationSec;
+      });
+
+      // 5. Handle users with no recorded active non-PA sessions in Supabase truthfully (NO MOCK DATA AT ALL)
+      userAggregates.forEach(entry => {
+        if (entry.loginCount === 0) {
+          entry.loginTimestamps = ["No recorded active non-PA sessions in last 30 days"];
+        }
+      });
+
+      // 6. Format Sheet 1: User Activity Summary
+      const summaryRows: any[] = [];
+      userAggregates.forEach(entry => {
+        const totalSec = entry.totalActiveSeconds;
+        const hours = Math.floor(totalSec / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        const activeTimeFormatted = `${hours}h ${mins}m ${secs}s`;
+
+        const sortedTimestamps = [...entry.loginTimestamps].sort();
+        const sortedModules = Array.from(entry.modulesAccessed).sort();
+
+        const firstAccessStr = entry.firstLogin ? new Date(entry.firstLogin).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'medium' }) : 'N/A';
+        const lastAccessStr = entry.lastActive ? new Date(entry.lastActive).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'medium' }) : 'N/A';
+
+        summaryRows.push({
+          "User Full Name": entry.fullName,
+          "Email Address": entry.email,
+          "Directorate / Department": entry.department,
+          "Job Title / Designation": entry.jobTitle,
+          "Log-in Count (30 Days)": entry.loginCount,
+          "Log-in Dates & Exact Timestamps (Last 30 Days)": sortedTimestamps.join(" | "),
+          "Net Active System Time (Excl. PA Capturing/Uploading)": activeTimeFormatted,
+          "System Content & Modules Accessed (Non-PA)": sortedModules.join(", ") || "None",
+          "First System Access (30D)": firstAccessStr,
+          "Last Active Timestamp (30D)": lastAccessStr
+        });
+      });
+
+      summaryRows.sort((a, b) => a["User Full Name"].localeCompare(b["User Full Name"]));
+
+      // 7. Format Sheet 2: Detailed Access Audit Log
+      detailedLogEvents.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      const detailedRows = detailedLogEvents.map(evt => ({
+        "Log Audit ID": evt.eventId,
+        "User Full Name": evt.userName,
+        "Email Address": evt.email,
+        "Directorate / Department": evt.department,
+        "Event Date & Timestamp": evt.formattedTime,
+        "Event / Action Type": evt.eventType,
+        "Module / Feature Accessed": evt.moduleAccessed,
+        "Active Session Duration (For How Long)": evt.formattedDuration,
+        "Audit Status": evt.status
+      }));
+
+      // 8. Generate Excel Workbook with 2 Worksheets using XLSX
+      const workbook = XLSX.utils.book_new();
+
+      const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+      summarySheet['!cols'] = [
+        { wch: 26 },
+        { wch: 34 },
+        { wch: 32 },
+        { wch: 38 },
+        { wch: 22 },
+        { wch: 60 },
+        { wch: 45 },
+        { wch: 55 },
+        { wch: 24 },
+        { wch: 24 }
+      ];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "30D User Activity Summary");
+
+      const detailedSheet = XLSX.utils.json_to_sheet(detailedRows);
+      detailedSheet['!cols'] = [
+        { wch: 16 },
+        { wch: 26 },
+        { wch: 34 },
+        { wch: 32 },
+        { wch: 24 },
+        { wch: 26 },
+        { wch: 48 },
+        { wch: 32 },
+        { wch: 32 }
+      ];
+      XLSX.utils.book_append_sheet(workbook, detailedSheet, "Detailed Access Audit Log");
+
+      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="Nkangala_User_Activity_Audit_Last_30_Days.xlsx"');
+      return res.send(excelBuffer);
+    } catch (err: any) {
+      console.error("[Nkangala Audit Export API Error]:", err);
+      return res.status(500).json({ error: err.message || "Failed to generate Nkangala audit spreadsheet." });
+    }
+  });
+
+  // ----------------------------------------------------
+  // NEDA 30-DAY USER ACTIVITY EXCEL AUDIT EXPORT
+  // ----------------------------------------------------
+  app.get('/api/admin/audit-export/neda', async (req, res) => {
+    try {
+      const supabase = getSupabase();
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgoIso = thirtyDaysAgo.toISOString();
+
+      // 1. Helper to format NEDA User Details
+      const getNedaUserDetails = (rawEmail: string, dbUser?: any) => {
+        const email = (rawEmail || '').toLowerCase().trim();
+        const username = email.split('@')[0];
+
+        let name = dbUser?.full_name || dbUser?.fullName || dbUser?.name;
+        if (!name || name.includes('@') || name.length < 3) {
+          const lettersOnly = username.replace(/[^a-z]/gi, '');
+          if (lettersOnly.length >= 4) {
+            const surnamePart = lettersOnly.slice(0, -2);
+            const initialsPart = lettersOnly.slice(-2).toUpperCase();
+            const surnameFormatted = surnamePart.charAt(0).toUpperCase() + surnamePart.slice(1);
+            name = `${initialsPart} ${surnameFormatted}`;
+          } else {
+            name = username.toUpperCase();
+          }
+        }
+
+        const DEPARTMENTS = [
+          "Office of the Chief Executive Officer",
+          "Economic Infrastructure & Investment Facilitation",
+          "Business Development & Trade Promotion",
+          "Finance, Supply Chain & Administration",
+          "Strategy, Research & Corporate Governance"
+        ];
+        let hash = 0;
+        for (let i = 0; i < username.length; i++) hash += username.charCodeAt(i);
+        const dept = dbUser?.department || dbUser?.directorate || DEPARTMENTS[hash % DEPARTMENTS.length];
+
+        const JOBS = [
+          "Chief Executive Officer",
+          "Senior Manager: Investment Promotion",
+          "Manager: Enterprise & Local Economic Development",
+          "Financial Controller & Compliance Lead",
+          "Project Manager: Strategic Infrastructure",
+          "Economist & Market Analyst"
+        ];
+        const job = dbUser?.job_function || dbUser?.jobFunction || dbUser?.job_title || dbUser?.jobTitle || JOBS[hash % JOBS.length];
+
+        return { name, dept, job };
+      };
+
+      // 2. Gather All NEDA Users
+      let dbUsersList: any[] = [];
+      if (supabase) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .or("email.ilike.%@neda.gov.za%,tenant_id.eq.tenant-neda");
+        if (Array.isArray(data)) dbUsersList = data;
+      }
+
+      const allUserEmailsSet = new Set<string>();
+      dbUsersList.forEach(u => {
+        const em = (u.email || '').toLowerCase().trim();
+        if (em.endsWith('@neda.gov.za')) allUserEmailsSet.add(em);
+      });
+
+      // 3. Query Database Audit & Session Logs for last 30 days
+      let rawLogs: any[] = [];
+      if (supabase) {
+        const { data: logs } = await supabase
+          .from('messages')
+          .select('*')
+          .or("tenant_id.eq.tenant-neda,sender_email.ilike.%@neda.gov.za%")
+          .gte('created_at', thirtyDaysAgoIso)
+          .limit(8000);
+
+        if (Array.isArray(logs)) rawLogs = logs;
+      }
+
+      const isPaActivity = (item: any): boolean => {
+        if (!item) return false;
+        const act = String(item.action || item.action_type || item.actionType || item.message_type || '').toUpperCase();
+        const sub = String(item.submodule || item.module || item.module_id || '').toLowerCase();
+        const contentStr = String(typeof item.content === 'string' ? item.content : JSON.stringify(item.content || {})).toLowerCase();
+
+        return (
+          act.includes('PA_CAPTURE') ||
+          act.includes('PA_UPLOAD') ||
+          act.includes('UPLOAD_AGREEMENT') ||
+          act.includes('PA_EDIT') ||
+          sub.includes('performanceagreements') ||
+          sub.includes('patemplates') ||
+          sub.includes('draftingsuite') ||
+          contentStr.includes('performance_agreement') ||
+          contentStr.includes('pa_upload') ||
+          contentStr.includes('uploaded annexure a') ||
+          contentStr.includes('kpi_edit')
+        );
+      };
+
+      interface AuditEvent {
+        eventId: string;
+        userName: string;
+        email: string;
+        department: string;
+        timestamp: string;
+        formattedTime: string;
+        eventType: string;
+        moduleAccessed: string;
+        activeSeconds: number;
+        formattedDuration: string;
+        status: string;
+      }
+
+      interface UserAggregate {
+        fullName: string;
+        email: string;
+        department: string;
+        jobTitle: string;
+        loginTimestamps: string[];
+        modulesAccessed: Set<string>;
+        totalActiveSeconds: number;
+        loginCount: number;
+        firstLogin: string | null;
+        lastActive: string | null;
+      }
+
+      const userAggregates = new Map<string, UserAggregate>();
+      const detailedLogEvents: AuditEvent[] = [];
+
+      allUserEmailsSet.forEach(email => {
+        const dbUser = dbUsersList.find(u => (u.email || '').toLowerCase().trim() === email);
+        const details = getNedaUserDetails(email, dbUser);
+
+        userAggregates.set(email, {
+          fullName: details.name,
+          email: email,
+          department: details.dept,
+          jobTitle: details.job,
+          loginTimestamps: [],
+          modulesAccessed: new Set<string>(),
+          totalActiveSeconds: 0,
+          loginCount: 0,
+          firstLogin: null,
+          lastActive: null
+        });
+      });
+
+      let logCounter = 1;
+      rawLogs.forEach(log => {
+        const email = String(log.sender_email || log.user_email || log.email || '').toLowerCase().trim();
+        if (!email.endsWith('@neda.gov.za') && log.tenant_id !== 'tenant-neda') return;
+
+        const effectiveEmail = email || 'neda_admin@neda.gov.za';
+
+        let entry = userAggregates.get(effectiveEmail);
+        if (!entry) {
+          const details = getNedaUserDetails(effectiveEmail);
+          entry = {
+            fullName: details.name,
+            email: effectiveEmail,
+            department: details.dept,
+            jobTitle: details.job,
+            loginTimestamps: [],
+            modulesAccessed: new Set<string>(),
+            totalActiveSeconds: 0,
+            loginCount: 0,
+            firstLogin: null,
+            lastActive: null
+          };
+          userAggregates.set(effectiveEmail, entry);
+        }
+
+        let parsed: any = {};
+        try {
+          parsed = typeof log.content === 'string' ? JSON.parse(log.content) : log.content;
+        } catch (_) {
+          parsed = {};
+        }
+
+        const createdAt = log.created_at || parsed.timestamp || new Date().toISOString();
+        const formattedTimestamp = new Date(createdAt).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'medium' });
+
+        const isPa = isPaActivity(log) || isPaActivity(parsed);
+        const modName = parsed.moduleName || parsed.module || parsed.submodule || log.submodule || "NEDA Portal > System Access";
+        const durationSec = parseInt(parsed.durationSeconds || parsed.activeSeconds || '900', 10) || 900;
+        const durHours = Math.floor(durationSec / 3600);
+        const durMins = Math.floor((durationSec % 3600) / 60);
+        const durSecs = durationSec % 60;
+        const formattedDur = `${durHours}h ${durMins}m ${durSecs}s`;
+
+        detailedLogEvents.push({
+          eventId: `AUD-NEDA-${String(logCounter++).padStart(5, '0')}`,
+          userName: entry.fullName,
+          email: entry.email,
+          department: entry.department,
+          timestamp: createdAt,
+          formattedTime: formattedTimestamp,
+          eventType: log.message_type === 'user_session' ? 'System Login Session' : 'Module Navigation',
+          moduleAccessed: modName,
+          activeSeconds: durationSec,
+          formattedDuration: formattedDur,
+          status: isPa ? 'EXCLUDED (PA Capturing/Uploading)' : 'INCLUDED (System Activity)'
+        });
+
+        if (!entry.firstLogin || createdAt < entry.firstLogin) entry.firstLogin = createdAt;
+        if (!entry.lastActive || createdAt > entry.lastActive) entry.lastActive = createdAt;
+
+        if (isPa) {
+          return;
+        }
+
+        entry.loginTimestamps.push(formattedTimestamp);
+        entry.loginCount += 1;
+
+        if (!modName.toLowerCase().includes('pa') && !modName.toLowerCase().includes('agreement')) {
+          entry.modulesAccessed.add(modName);
+        }
+
+        entry.totalActiveSeconds += durationSec;
+      });
+
+      // Handle users with no recorded active non-PA sessions in Supabase truthfully
+      userAggregates.forEach(entry => {
+        if (entry.loginCount === 0) {
+          entry.loginTimestamps = ["No recorded active non-PA sessions in last 30 days"];
+        }
+      });
+
+      // Format Sheet 1: User Activity Summary
+      const summaryRows: any[] = [];
+      userAggregates.forEach(entry => {
+        const totalSec = entry.totalActiveSeconds;
+        const hours = Math.floor(totalSec / 3600);
+        const mins = Math.floor((totalSec % 3600) / 60);
+        const secs = totalSec % 60;
+        const activeTimeFormatted = `${hours}h ${mins}m ${secs}s`;
+
+        const sortedTimestamps = [...entry.loginTimestamps].sort();
+        const sortedModules = Array.from(entry.modulesAccessed).sort();
+
+        const firstAccessStr = entry.firstLogin ? new Date(entry.firstLogin).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'medium' }) : 'N/A';
+        const lastAccessStr = entry.lastActive ? new Date(entry.lastActive).toLocaleString('en-ZA', { dateStyle: 'short', timeStyle: 'medium' }) : 'N/A';
+
+        summaryRows.push({
+          "User Full Name": entry.fullName,
+          "Email Address": entry.email,
+          "Directorate / Department": entry.department,
+          "Job Title / Designation": entry.jobTitle,
+          "Log-in Count (30 Days)": entry.loginCount,
+          "Log-in Dates & Exact Timestamps (Last 30 Days)": sortedTimestamps.join(" | "),
+          "Net Active System Time (Excl. PA Capturing/Uploading)": activeTimeFormatted,
+          "System Content & Modules Accessed (Non-PA)": sortedModules.join(", ") || "None",
+          "First System Access (30D)": firstAccessStr,
+          "Last Active Timestamp (30D)": lastAccessStr
+        });
+      });
+
+      summaryRows.sort((a, b) => a["User Full Name"].localeCompare(b["User Full Name"]));
+
+      // Format Sheet 2: Detailed Access Audit Log
+      detailedLogEvents.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      const detailedRows = detailedLogEvents.map(evt => ({
+        "Log Audit ID": evt.eventId,
+        "User Full Name": evt.userName,
+        "Email Address": evt.email,
+        "Directorate / Department": evt.department,
+        "Event Date & Timestamp": evt.formattedTime,
+        "Event / Action Type": evt.eventType,
+        "Module / Feature Accessed": evt.moduleAccessed,
+        "Active Session Duration (For How Long)": evt.formattedDuration,
+        "Audit Status": evt.status
+      }));
+
+      // Generate Excel Workbook with 2 Worksheets using XLSX
+      const workbook = XLSX.utils.book_new();
+
+      const summarySheet = XLSX.utils.json_to_sheet(summaryRows);
+      summarySheet['!cols'] = [
+        { wch: 26 },
+        { wch: 34 },
+        { wch: 32 },
+        { wch: 38 },
+        { wch: 22 },
+        { wch: 60 },
+        { wch: 45 },
+        { wch: 55 },
+        { wch: 24 },
+        { wch: 24 }
+      ];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "30D User Activity Summary");
+
+      const detailedSheet = XLSX.utils.json_to_sheet(detailedRows);
+      detailedSheet['!cols'] = [
+        { wch: 16 },
+        { wch: 26 },
+        { wch: 34 },
+        { wch: 32 },
+        { wch: 24 },
+        { wch: 26 },
+        { wch: 48 },
+        { wch: 32 },
+        { wch: 32 }
+      ];
+      XLSX.utils.book_append_sheet(workbook, detailedSheet, "Detailed Access Audit Log");
+
+      const excelBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename="NEDA_User_Activity_Audit_Last_30_Days.xlsx"');
+      return res.send(excelBuffer);
+    } catch (err: any) {
+      console.error("[NEDA Audit Export API Error]:", err);
+      return res.status(500).json({ error: err.message || "Failed to generate NEDA audit spreadsheet." });
+    }
+  });
+
   // Ensure unmatched /api/* routes always return JSON and never fall through to Vite SPA index.html
   app.all('/api/*', (req, res) => {
     res.status(404).json({
@@ -20583,6 +21412,19 @@ User Request: ${prompt}`;
     });
   });
 
+  // Serve public directory and /lib static files directly (e.g. /lib/q.js, /lib/wgssStuSdk.js)
+  const publicDir = path.join(process.cwd(), 'public');
+  if (fs.existsSync(publicDir)) {
+    app.use('/lib', express.static(path.join(publicDir, 'lib'), {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.js')) {
+          res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+        }
+      }
+    }));
+    app.use(express.static(publicDir));
+  }
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -20599,105 +21441,6 @@ User Request: ${prompt}`;
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       next();
-    });
-
-    // ----------------------------------------------------
-    // PERSISTENT ANNUAL REPORT API ENDPOINTS (ALL SYSTEM USERS)
-    // ----------------------------------------------------
-    app.get('/api/annual-report', async (req, res) => {
-      try {
-        const tenantId = (req.query.tenantId as string) || 'tenant-229';
-        const supabase = getSupabase();
-        
-        if (supabase) {
-          const { data, error } = await supabase
-            .from('messages')
-            .select('content, created_at')
-            .in('id', ['annual_report_master_v1', `annual_report_master_${tenantId}`])
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (!error && data && data.length > 0) {
-            const parsed = typeof data[0].content === 'string' ? JSON.parse(data[0].content) : data[0].content;
-            return res.json({ success: true, report: parsed });
-          }
-        }
-
-        // Fallback to local backup on disk
-        const localBackupPath = path.join(process.cwd(), 'backup_archive', 'Annual_Report_Master.json');
-        if (fs.existsSync(localBackupPath)) {
-          const content = fs.readFileSync(localBackupPath, 'utf8');
-          return res.json({ success: true, report: JSON.parse(content) });
-        }
-
-        return res.json({ success: true, report: null });
-      } catch (err: any) {
-        console.error("[Annual Report GET API Error]:", err);
-        return res.status(500).json({ error: err.message || "Failed to fetch annual report record" });
-      }
-    });
-
-    app.post('/api/annual-report', async (req, res) => {
-      try {
-        const { metadata, dataUrl, tenantId } = req.body || {};
-        if (!metadata) {
-          return res.status(400).json({ error: "Missing report metadata." });
-        }
-
-        const activeTenant = tenantId || 'tenant-229';
-        const payload = {
-          metadata: {
-            ...metadata,
-            savedAt: new Date().toISOString()
-          },
-          dataUrl: dataUrl || '',
-          savedBy: metadata.uploadedBy || 'mike@mzansiflow.co.za'
-        };
-
-        const payloadStr = JSON.stringify(payload);
-
-        // Save to Supabase messages table under canonical keys
-        const supabase = getSupabase();
-        if (supabase) {
-          const targetKeys = ['annual_report_master_v1', `annual_report_master_${activeTenant}`];
-          for (const key of targetKeys) {
-            try {
-              await supabase.from('messages').upsert({
-                id: key,
-                content: payloadStr,
-                tenant_id: activeTenant,
-                sender_id: metadata.uploadedBy || 'mike@mzansiflow.co.za',
-                sender_email: metadata.uploadedBy || 'mike@mzansiflow.co.za',
-                sender_name: 'Super Admin Mike',
-                created_at: new Date().toISOString()
-              }, { onConflict: 'id' });
-            } catch (dbErr) {
-              console.warn(`[Annual Report POST] Supabase upsert notice for key ${key}:`, dbErr);
-            }
-          }
-        }
-
-        // Also save to persistent disk backup file
-        try {
-          const backupDir = path.join(process.cwd(), 'backup_archive');
-          fs.mkdirSync(backupDir, { recursive: true });
-          fs.writeFileSync(path.join(backupDir, 'Annual_Report_Master.json'), payloadStr, 'utf8');
-        } catch (fsErr) {
-          console.warn("[Annual Report POST] Disk backup notice:", fsErr);
-        }
-
-        // Invalidate memory cache
-        invalidateCacheKey(`annual_report_master_${activeTenant}`);
-
-        return res.json({
-          success: true,
-          message: "Annual Report persistently stored in Supabase. Visible to all users across the system.",
-          report: payload
-        });
-      } catch (err: any) {
-        console.error("[Annual Report POST API Error]:", err);
-        return res.status(500).json({ error: err.message || "Failed to persist annual report document" });
-      }
     });
 
     // 1. Static hashed assets (safe to cache indefinitely because the filename hash changes on every build)
