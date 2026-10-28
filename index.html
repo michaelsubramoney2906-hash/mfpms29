@@ -44,8 +44,8 @@
   </head>
   <body>
     <div id="root"></div>
-    <script src="/lib/q.js" charset="UTF-8" defer></script>
-    <script src="/lib/wgssStuSdk.js" charset="UTF-8" defer></script>
+    <script src="/lib/q.js" charset="UTF-8" defer onerror="console.warn('Optional Q.js library could not be loaded from static lib path')"></script>
+    <script src="/lib/wgssStuSdk.js" charset="UTF-8" defer onerror="console.warn('Optional Wacom STU SDK could not be loaded from static lib path')"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -239,6 +239,7 @@ const municipalityNames = [
   "Namakwa District Municipality",
   "Ngaka Modiri Molema District Municipality",
   "Nkangala District Municipality",
+  "Nkangala Economic Development Agency (NEDA)",
   "OR Tambo District Municipality",
   "Overberg District Municipality",
   "Pixley Ka Seme District Municipality",
@@ -268,10 +269,11 @@ const municipalityNames = [
   "Nelson Mandela Bay Metropolitan Municipality"
 ];
 
-export const tenants: Tenant[] = municipalityNames.map((name, index) => ({
-  id: `tenant-${index + 1}`,
-  name: name
-}));
+export const tenants: Tenant[] = municipalityNames.map((name, index) => {
+  if (name === "Nkangala District Municipality") return { id: "tenant-229", name };
+  if (name === "Nkangala Economic Development Agency (NEDA)") return { id: "tenant-neda", name };
+  return { id: `tenant-${index + 1}`, name };
+});
 
 export const modules: Module[] = [
   {
