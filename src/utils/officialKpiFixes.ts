@@ -314,17 +314,17 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       { kpiNo: '12', kpa: 'KPA 3: FOOD CONTROL', kpi: 'Number of food handling and preparation facilities inspected for compliance per quarter at THLM by 30 June 2027.', weighting: '5', baseline: '180', annualTarget: '180', q1Target: '45', q2Target: '45', q3Target: '45', q4Target: '45', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
       { kpiNo: '13', kpa: 'KPA 3: FOOD CONTROL', kpi: 'Number of food samples taken per annum', weighting: '5', baseline: '11', annualTarget: '11', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '02', poe: 'Sampling schedule and Lab Sampling sheets (MHS THLM)' },
       { kpiNo: '14', kpa: 'KPA 4: WATER QUALITY MONITORING', kpi: 'Number of water samples taken per quarter from the THLM Water Reticulation, water sources, boreholes and treatment works to monitor water quality by 30 June 2027.', weighting: '5', baseline: '120', annualTarget: '120', q1Target: '30', q2Target: '30', q3Target: '30', q4Target: '30', poe: 'Water sampling sheets and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '15', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at public and private Old age homes, orphanages, disability center and schools per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '13', annualTarget: '13', q1Target: '03', q2Target: '03', q3Target: '04', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '16', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Childcare centers per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '13', annualTarget: '13', q1Target: '03', q2Target: '03', q3Target: '04', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '17', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at non-food handling premises in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '38', annualTarget: '38', q1Target: '09', q2Target: '10', q3Target: '10', q4Target: '09', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '18', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at funeral undertakers’ premises, cemeteries and crematoria per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '12', annualTarget: '12', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '19', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Public and private hospitals and clinics in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '12', annualTarget: '12', q1Target: '03', q2Target: '03', q3Target: '03', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '20', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at government properties, police stations and post offices in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '20', annualTarget: '20', q1Target: '05', q2Target: '05', q3Target: '05', q4Target: '05', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '21', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Accommodation Establishments, beauty salons and swimming pools in THLM per quarter by 30 June 2027.', weighting: '5', baseline: '06', annualTarget: '06', q1Target: '01', q2Target: '02', q3Target: '02', q4Target: '01', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '22', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Prisons and correctional facilities in THLM per quarter by 30 June 2027.', weighting: '2', baseline: '02', annualTarget: '02', q1Target: '0', q2Target: '01', q3Target: '0', q4Target: '01', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '23', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Chemical handling premises, agricultural premises and Caravan parks in THLM per quarter by 30 June 2027.', weighting: '3', baseline: '08', annualTarget: '08', q1Target: '02', q2Target: '02', q3Target: '02', q4Target: '02', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
-      { kpiNo: '24', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of Community based awareness campaigns attended by 30 June 2027.', weighting: '4', baseline: '04', annualTarget: '04', q1Target: '01', q2Target: '01', q3Target: '01', q4Target: '01', poe: 'Attendance registers (MHS THLM)' },
-      { kpiNo: '25', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of municipal Health Services and Environmental Management committees/Stakeholder Forums attended by 30 June 2027 & Number of municipal Health Services education and training sessions conducted at premises by 30 June 2027.', weighting: '6', baseline: '24', annualTarget: '24', q1Target: '06', q2Target: '06', q3Target: '06', q4Target: '06', poe: 'Reports and Attendance registers (MHS THLM)' }
+      { kpiNo: '15', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Waste Management Facilities, Landfill sites and illegal dumping sites per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '15', annualTarget: '15', q1Target: '03', q2Target: '04', q3Target: '04', q4Target: '04', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '16', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Health Care Waste Generators per quarter in THLM by 30 June 2027.', weighting: '5', baseline: '14', annualTarget: '14', q1Target: '03', q2Target: '04', q3Target: '04', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '17', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Day care/crèches/ECDS in THLM per quarter by 30 June 2027.', weighting: '2', baseline: '43', annualTarget: '36', q1Target: '09', q2Target: '09', q3Target: '09', q4Target: '09', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '18', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at funeral undertakers premises, mortuaries per quarter in THLM by 30 June 2027.', weighting: '4', baseline: '13', annualTarget: '13', q1Target: '03', q2Target: '04', q3Target: '03', q4Target: '03', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '19', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Public Institutions, Old age homes per quarter in THLM by 30 June 2027.', weighting: '4', baseline: '04', annualTarget: '04', q1Target: '01', q2Target: '01', q3Target: '01', q4Target: '01', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '20', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Government and private schools per quarter in THLM by 30 June 2027.', weighting: '3', baseline: '20', annualTarget: '20', q1Target: '05', q2Target: '05', q3Target: '05', q4Target: '05', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '21', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Accommodation facilities, hotels per quarter in THLM by 30 June 2027.', weighting: '4', baseline: '06', annualTarget: '06', q1Target: '02', q2Target: '01', q3Target: '01', q4Target: '02', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '22', kpa: 'KPA 5: HEALTH SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Chemical Safety premises per quarter in THLM by 30 June 2027.', weighting: '3', baseline: '06', annualTarget: '06', q1Target: '02', q2Target: '02', q3Target: '01', q4Target: '01', poe: 'Inspection reports and Listing Spreadsheet (MHS THLM)' },
+      { kpiNo: '23', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of Community based awareness campaigns attended by 30 June 2027.', weighting: '6', baseline: '05', annualTarget: '04', q1Target: '01', q2Target: '01', q3Target: '01', q4Target: '01', poe: 'Attendance registers (MHS THLM)' },
+      { kpiNo: '24', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of municipal Health Services and Environmental Management joint operations per quarter by 30 June 2027.', weighting: '2', baseline: '13', annualTarget: '11', q1Target: '03', q2Target: '02', q3Target: '03', q4Target: '03', poe: 'Reports and Attendance registers (MHS THLM)' },
+      { kpiNo: '25', kpa: 'KPA 6: ENVIRONMENTAL HEALTH EDUCATION AND AWARENESS', kpi: '# of municipal Health Services education and training sessions conducted at premises by 30 June 2027.', weighting: '2', baseline: '20', annualTarget: '14', q1Target: '04', q2Target: '03', q3Target: '04', q4Target: '03', poe: 'Reports and Attendance registers (MHS THLM)' }
     ];
 
     result = officialMpanzaKpis.map((def, idx) => {
@@ -334,7 +334,7 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         const exDesc = String(ex.kpi || ex.description || ex['kpi description'] || '').toLowerCase();
         if (idx < 11 && exIdx === idx) return true;
         if (exNo === def.kpiNo.toUpperCase() && exIdx < 11) return true;
-        if (idx >= 11 && exDesc.includes(def.kpi.toLowerCase().substring(0, 28))) return true;
+        if (idx >= 11 && (exNo === def.kpiNo.toUpperCase() || exDesc.includes(def.kpi.toLowerCase().substring(0, 25)))) return true;
         return false;
       });
       const base = existing ? { ...existing } : {};
@@ -373,7 +373,13 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         q4Poe: def.poe,
         budget: 'OPEX',
         q1Locked: def.q1Locked ?? false,
-        q1Applicable: def.q1Applicable ?? true
+        q1Applicable: def.q1Applicable ?? true,
+        // Carry forward reviewStatus and actuals explicitly
+        reviewStatus: base.reviewStatus || (base.q1Actual || (Array.isArray(base.q1PoeDocs) && base.q1PoeDocs.length > 0) ? 'Submitted for Approval' : undefined),
+        reviewApprovalStatus: base.reviewApprovalStatus,
+        q1PoeStatus: base.q1PoeStatus,
+        q1Actual: base.q1Actual,
+        q1PoeDocs: Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []
       };
     });
   }
@@ -639,6 +645,70 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         };
       }
       return kpi;
+    });
+  }
+
+  // 18. Ms. Lungile Nkosi (nkosiln@nkangaladm.gov.za / nkosilm@nkangaladm.gov.za / nkosil@nkangaladm.gov.za) - Fix KPI 14 from signed 2026/2027 PA
+  if (normEmail === 'nkosiln@nkangaladm.gov.za' || normEmail === 'nkosilm@nkangaladm.gov.za' || normEmail === 'nkosil@nkangaladm.gov.za' || normEmail.includes('nkosiln') || normEmail.includes('nkosilm') || (normEmail.includes('nkosil') && !normEmail.includes('nkosilc'))) {
+    result = result.map((kpi, index) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      if (ref === '14' || ref === 'KPI 14' || ref === 'KPI_14' || index === 13 || desc.includes('external meetings')) {
+        const reqPoe = 'Print out of appointments from outlook or emails';
+        return {
+          ...kpi,
+          kpiNo: '14',
+          'kpi no': '14',
+          kpi: 'Percentage of meetings facilitated for external meetings by 30 June 2026',
+          description: 'Percentage of meetings facilitated for external meetings by 30 June 2026',
+          'kpi description': 'Percentage of meetings facilitated for external meetings by 30 June 2026',
+          indicator: 'Percentage of meetings facilitated for external meetings by 30 June 2026',
+          weighting: '10',
+          weight: '10',
+          '%wt': '10',
+          baseline: 'New',
+          annualTarget: '100%',
+          'annual target': '100%',
+          q1Target: '100%',
+          '1st qtr target': '100%',
+          q2Target: '100%',
+          '2nd qtr target': '100%',
+          q3Target: '100%',
+          '3rd qtr target': '100%',
+          q4Target: '100%',
+          '4th qtr target': '100%',
+          poe: `Q1: ${reqPoe}\nQ2: ${reqPoe}\nQ3: ${reqPoe}\nQ4: ${reqPoe}`,
+          annualRequiredPoe: reqPoe,
+          q1Poe: reqPoe,
+          q2Poe: reqPoe,
+          midtermPoe: reqPoe,
+          q3Poe: reqPoe,
+          q4Poe: reqPoe,
+          budget: 'OPEX',
+          q1Applicable: true,
+          q1Locked: false
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 19. Ms. Dimpho Tlaka (tlakadi@nkangaladm.gov.za / tlakad@nkangaladm.gov.za) - Remove duplicate advertisement KPI (KPI 10/11 duplicate) from signed 2026/2027 PA
+  if (normEmail === 'tlakadi@nkangaladm.gov.za' || normEmail === 'tlakad@nkangaladm.gov.za' || normEmail.includes('tlakad') || normEmail.includes('tlaka')) {
+    const advertSeen = { count: 0 };
+    result = result.filter((kpi) => {
+      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      const isAdvertKpi = desc.includes('advertisement') || desc.includes('advertisment') || desc.includes('adverts') || (ref === '11' && desc.includes('advert'));
+      if (isAdvertKpi) {
+        advertSeen.count++;
+        if (advertSeen.count > 1) {
+          return false; // Remove duplicate entry
+        }
+      }
+      return true;
     });
   }
 

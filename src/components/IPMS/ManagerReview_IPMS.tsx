@@ -634,6 +634,21 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         fenyaneSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Thandiwe Mazwi (mazwit@nkangaladm.gov.za)
+      const mazwiSubordinates = [
+        'mashamaitenm@nkangaladm.gov.za',
+        'phetlav@nkangaladm.gov.za',
+        'nkosis@nkangaladm.gov.za',
+        'lebisij@nkangaladm.gov.za',
+        'fakuded@nkangaladm.gov.za',
+        'mangweget@nkangaladm.gov.za',
+        'masimulat@nkangaladm.gov.za',
+        'mtshalib@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('mazwit') || normCurrent.includes('mazwi') || normCurrent.includes('thandiwe')) {
+        mazwiSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // 1. Fetch all users to determine dynamic relationships for ALL managers who have subordinates
       if (Array.isArray((currentUser as any)?.subordinateEmails)) {
         (currentUser as any).subordinateEmails.forEach((sEmail: string) => {
@@ -801,6 +816,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           ((managerEmail.includes('segamiy') || normCurrent.includes('segami')) && (segamiSubordinates.includes(targetEmail) || pManager.includes('segami'))) ||
           ((managerEmail.includes('tloujmt') || normCurrent.includes('tlou')) && (tlouSubordinates.includes(targetEmail) || pManager.includes('tlou'))) ||
           ((managerEmail.includes('fenyanep') || normCurrent.includes('fenyane')) && (fenyaneSubordinates.includes(targetEmail) || pManager.includes('fenyane'))) ||
+          ((managerEmail.includes('mazwit') || normCurrent.includes('mazwi') || normCurrent.includes('thandiwe')) && (mazwiSubordinates.includes(targetEmail) || pManager.includes('mazwi'))) ||
           (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
           ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||
           ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))

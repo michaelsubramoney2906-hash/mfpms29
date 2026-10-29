@@ -18613,6 +18613,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
               }
               if (best.plan.metadata && Array.isArray(best.plan.items)) {
+                // Ensure items with actuals or POE docs attached preserve Submitted status
+                best.plan.items = best.plan.items.map((it: any) => {
+                  const hasPoeDocs = (Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0) ||
+                                     (Array.isArray(it.q2PoeDocs) && it.q2PoeDocs.length > 0) ||
+                                     (Array.isArray(it.q3PoeDocs) && it.q3PoeDocs.length > 0) ||
+                                     (Array.isArray(it.q4PoeDocs) && it.q4PoeDocs.length > 0) ||
+                                     Boolean(it.poeFileBase64 || it.poeFileName);
+                  const hasActuals = (it.q1Actual && String(it.q1Actual).trim() !== '' && String(it.q1Actual).trim().toUpperCase() !== 'N/A') ||
+                                     (it.q2Actual && String(it.q2Actual).trim() !== '' && String(it.q2Actual).trim().toUpperCase() !== 'N/A') ||
+                                     (it.q3Actual && String(it.q3Actual).trim() !== '' && String(it.q3Actual).trim().toUpperCase() !== 'N/A') ||
+                                     (it.q4Actual && String(it.q4Actual).trim() !== '' && String(it.q4Actual).trim().toUpperCase() !== 'N/A');
+                  if ((hasPoeDocs || hasActuals) && (!it.reviewStatus || it.reviewStatus === 'Draft' || it.reviewStatus === 'In Progress')) {
+                    return { ...it, reviewStatus: 'Submitted for Approval' };
+                  }
+                  return it;
+                });
+
                 const genuinelySubmittedIds = new Set(
                   best.plan.items
                     .filter((it: any) =>
@@ -18623,14 +18640,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                       it.reviewStatus === 'Reviewed' ||
                       it.reviewStatus === 'Revision Required' ||
                       it.reviewStatus === 'Dispatched to Audit' ||
-                      it.reviewStatus === 'Dispatched to Internal Audit'
+                      it.reviewStatus === 'Dispatched to Internal Audit' ||
+                      (Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0) ||
+                      (it.q1Actual && String(it.q1Actual).trim() !== '' && String(it.q1Actual).trim().toUpperCase() !== 'N/A')
                     )
                     .map((it: any) => String(it.id || ''))
                 );
+
                 if (Array.isArray(best.plan.metadata.submittedKpiIds)) {
-                  best.plan.metadata.submittedKpiIds = best.plan.metadata.submittedKpiIds.filter((id: any) =>
-                    genuinelySubmittedIds.has(String(id || ''))
-                  );
+                  best.plan.metadata.submittedKpiIds = Array.from(new Set([
+                    ...best.plan.metadata.submittedKpiIds,
+                    ...Array.from(genuinelySubmittedIds)
+                  ]));
                 }
                 if (
                   (best.plan.metadata.reviewStatus === 'Submitted for Approval' ||
