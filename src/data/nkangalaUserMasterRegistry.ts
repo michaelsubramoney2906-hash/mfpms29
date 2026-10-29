@@ -172,6 +172,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "mahlangupt@nkangaladm.gov.za": { email: "mahlangupt@nkangaladm.gov.za", kpis: 44, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
   "mtshweniwm@nkangaladm.gov.za": { email: "mtshweniwm@nkangaladm.gov.za", kpis: 58, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
   "bvumaa@nkangaladm.gov.za": { email: "bvumaa@nkangaladm.gov.za", kpis: 31, kpas: 7, jscs: 12, coreCompetencies: 5, pdps: 0 },
+  "bvumaa-mgr@nkangaladm.gov.za": { email: "bvumaa-mgr@nkangaladm.gov.za", kpis: 24, kpas: 6, jscs: 5, coreCompetencies: 5, pdps: 1 },
   // Additional official directory municipal staff
   "nsibandenp@nkangaladm.gov.za": { email: "nsibandenp@nkangaladm.gov.za", kpis: 28, kpas: 5, jscs: 6, pdps: 0 },
   "ralephalengjn@nkangaladm.gov.za": { email: "ralephalengjn@nkangaladm.gov.za", kpis: 22, kpas: 6, jscs: 5, pdps: 0 },
@@ -225,6 +226,7 @@ export const CORE_COMPETENCY_USERS = new Set<string>([
   "mtshweniwm@nkangaladm.gov.za",
   "mahlangupt@nkangaladm.gov.za",
   "bvumaa@nkangaladm.gov.za",
+  "bvumaa-mgr@nkangaladm.gov.za",
   "standeral@nkangaladm.gov.za",
   "rampedimr@nkangaladm.gov.za",
   "mahlanguml@nkangaladm.gov.za"
@@ -234,6 +236,7 @@ export const CORE_COMPETENCY_USERNAMES = new Set<string>([
   "mtshweniwm",
   "mahlangupt",
   "bvumaa",
+  "bvumaa-mgr",
   "standeral",
   "rampedimr",
   "mahlanguml"

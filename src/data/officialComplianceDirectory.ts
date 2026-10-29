@@ -904,6 +904,14 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
     status: "Section 57 Verified"
   },
   {
+    fullName: "Alvin Bvuma",
+    jobFunction: "Manager: Planning & Economic Development",
+    department: "Planning & Economic Development (PED)",
+    email: "bvumaa-mgr@nkangaladm.gov.za",
+    refCode: "MGR-NDM-0600",
+    status: "Directory Registered"
+  },
+  {
     fullName: "Fred Shabangu",
     jobFunction: "General Manager: Planning & Economic Development (PED)",
     department: "Planning & Economic Development (PED)",

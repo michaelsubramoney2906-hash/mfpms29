@@ -484,9 +484,18 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
           );
         }
 
+        const isBvumaManagerTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().trim() === 'bvumaa-mgr@nkangaladm.gov.za';
         const isShabanguTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('shabangusm');
         const isManganiOfficial = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('manganijp') || isNedaPortal;
-        if (isManganiOfficial) {
+        if (isBvumaManagerTarget) {
+          setEmployeeName('Alvin Bvuma');
+          setEmployeePosition('Manager: Planning & Economic Development');
+          setSupervisorSignature('Alvin Bvuma');
+          setSupervisorName('Alvin Bvuma');
+          setSupervisorPosition('Acting General Manager: Planning & Economic Development');
+          setSupervisorDate('29 July 2026');
+          matchedSup = null;
+        } else if (isManganiOfficial) {
           const khumalo = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('khumalomt') || (u.fullName || '').toLowerCase().includes('khumalo'));
           setSupervisorSignature(khumalo?.signatureData || "Mr MT Khumalo");
           setSupervisorName(khumalo?.fullName || "Mr MT Khumalo");

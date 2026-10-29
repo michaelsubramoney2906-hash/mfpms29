@@ -1742,6 +1742,503 @@ export async function syncNedaPerformanceAgreements() {
   }
 }
 
+export async function syncBvumaDualPositionProfile() {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const nowIso = new Date().toISOString();
+    const targetEmail = 'bvumaa-mgr@nkangaladm.gov.za';
+    const targetTenants = ['tenant-229', 'nkangala_auto', 'global'];
+
+    // 1. Ensure substantive Manager: PED user exists in Supabase users table
+    await supabase.from('users').upsert({
+      id: 'nk-user-bvumaa-mgr',
+      full_name: 'Alvin Bvuma',
+      email: targetEmail,
+      job_function: 'Manager: Planning & Economic Development',
+      department: 'Planning & Economic Development (PED)',
+      source: 'manual',
+      role: 'Manager',
+      tenant_id: 'tenant-229'
+    }, { onConflict: 'id' });
+
+    // 2. Ensure extra metadata is configured
+    try {
+      const { data: currentMsg } = await supabase.from('messages').select('content').eq('id', 'users_extra_metadata').maybeSingle();
+      let extraMap: Record<string, any> = {};
+      if (currentMsg && currentMsg.content) {
+        try { extraMap = JSON.parse(currentMsg.content); } catch (e) {}
+      }
+      extraMap[targetEmail] = {
+        manager: 'Alvin Bvuma',
+        directorate: 'Planning & Economic Development (PED)',
+        reportTo: 'Acting General Manager: Planning & Economic Development',
+        managerEmail: 'bvumaa@nkangaladm.gov.za',
+        level: '2',
+        department: 'Planning & Economic Development (PED)',
+        jobFunction: 'Manager: Planning & Economic Development',
+        fullName: 'Alvin Bvuma'
+      };
+      extraMap['nk-user-bvumaa-mgr'] = extraMap[targetEmail];
+
+      await supabase.from('messages').upsert({
+        id: 'users_extra_metadata',
+        tenant_id: 'global',
+        sender_id: 'system',
+        sender_email: 'admin@system.local',
+        sender_name: 'System',
+        content: JSON.stringify(extraMap),
+        message_type: 'users_extra',
+        created_at: nowIso
+      }, { onConflict: 'id' });
+    } catch (e) {
+      console.warn("[syncBvumaDualPositionProfile] Extra metadata warning:", e);
+    }
+
+    // 3. Check existing documents for bvumaa-mgr in messages table
+    const checkKeys = [
+      `job_competencies_tenant-229_${targetEmail}`,
+      `core_competencies_tenant-229_${targetEmail}`,
+      `kpas_tenant-229_${targetEmail}`,
+      `pplan_tenant-229_${targetEmail}`,
+      `pdp_tenant-229_${targetEmail}`,
+      `draft_doc_tenant-229_${targetEmail}`,
+      `pa_templates_tenant-229_${targetEmail}`
+    ];
+    const { data: existingRows } = await supabase.from('messages').select('id').in('id', checkKeys);
+    const existingIds = new Set((existingRows || []).map((r: any) => r.id));
+
+    const upsertBatch: any[] = [];
+
+    // JSCs: 5 Job-Specific Competencies for Manager: Planning & Economic Development
+    if (!existingIds.has(`job_competencies_tenant-229_${targetEmail}`)) {
+      const managerJscs = {
+        competencies: [
+          {
+            id: 'jsc-bvumaa-mgr-1',
+            jscNo: 'JSC-01',
+            competency: 'Spatial Planning & Land Use Management',
+            definition: {
+              mainText: 'Directs the application of the Spatial Planning and Land Use Management Act (SPLUMA), evaluates statutory land development applications, and ensures alignment with municipal zoning schemes and SDF directives.',
+              subsections: ['SPLUMA enforcement', 'Land development tribunal submissions', 'Zoning & rezoning assessments']
+            },
+            level: 'Level 4: Advanced Specialist',
+            weight: 25
+          },
+          {
+            id: 'jsc-bvumaa-mgr-2',
+            jscNo: 'JSC-02',
+            competency: 'Local Economic Development (LED) & Enterprise Incubation',
+            definition: {
+              mainText: 'Formulates and coordinates operational LED programmes, SMME incubation frameworks, job-creation initiatives, and private-public investment partnerships across the district.',
+              subsections: ['LED strategy execution', 'SMME capacity building', 'Investment facilitation']
+            },
+            level: 'Level 4: Advanced Specialist',
+            weight: 25
+          },
+          {
+            id: 'jsc-bvumaa-mgr-3',
+            jscNo: 'JSC-03',
+            competency: 'Geographic Information Systems (GIS) & Spatial Analytics',
+            definition: {
+              mainText: 'Oversees municipal GIS infrastructure, spatial layers synchronization, cadastral verification, and spatial data modelling for municipal infrastructure delivery.',
+              subsections: ['GIS spatial layer updates', 'Cadastral data integration', 'Spatial decision support']
+            },
+            level: 'Level 3: Competent Operator',
+            weight: 20
+          },
+          {
+            id: 'jsc-bvumaa-mgr-4',
+            jscNo: 'JSC-04',
+            competency: 'Human Settlements & Social Infrastructure Coordination',
+            definition: {
+              mainText: 'Coordinates housing chapter integration within the IDP, informal settlements upgrading assessments, and inter-governmental social housing programmes.',
+              subsections: ['Housing chapter reviews', 'Informal settlement upgrading', 'Social housing oversight']
+            },
+            level: 'Level 3: Competent Operator',
+            weight: 15
+          },
+          {
+            id: 'jsc-bvumaa-mgr-5',
+            jscNo: 'JSC-05',
+            competency: 'Intergovernmental Planning Alignment & Grant Management',
+            definition: {
+              mainText: 'Manages provincial and national grant-funded PED projects, ensuring compliance with DORA, MIG spatial guidelines, and timely statutory reporting.',
+              subsections: ['MIG & DORA compliance', 'Inter-governmental alignment', 'Grant expenditure tracking']
+            },
+            level: 'Level 3: Competent Operator',
+            weight: 15
+          }
+        ]
+      };
+      for (const tId of targetTenants) {
+        upsertBatch.push({
+          id: `job_competencies_${tId}_${targetEmail}`,
+          tenant_id: tId,
+          sender_id: 'job_competencies_editor',
+          sender_email: targetEmail,
+          sender_name: 'Alvin Bvuma',
+          content: JSON.stringify(managerJscs),
+          message_type: 'job_competencies_list',
+          created_at: nowIso
+        });
+      }
+    }
+
+    // Core Competencies: 5 PED Competencies
+    if (!existingIds.has(`core_competencies_tenant-229_${targetEmail}`)) {
+      const managerCoreCompetencies = {
+        roleKey: 'ped',
+        roleTitle: 'Manager: Planning & Economic Development Core Competencies',
+        competencies: [
+          {
+            id: 'ped-core-1',
+            competency: 'Strategic Land Use & Spatial Planning',
+            components: 'Spatial Development Framework (SDF), Land Use Management Scheme (LUMS), GIS Alignment',
+            definition: 'Formulates and implements integrated spatial strategies and land-use policies aligned with municipal development goals.',
+            weighting: '25'
+          },
+          {
+            id: 'ped-core-2',
+            competency: 'Local Economic Development (LED)',
+            components: 'LED Strategy, SMME support, job creation programs, investment promotion, tourism coordination',
+            definition: 'Designs and executes programs that stimulate sustainable local economic growth, competitiveness, and enterprise support.',
+            weighting: '25'
+          },
+          {
+            id: 'ped-core-3',
+            competency: 'Integrated Human Settlements',
+            components: 'Housing needs assessment, informal settlement upgrading, social housing oversight',
+            definition: 'Coordinates housing development strategies to deliver sustainable and well-located human settlements.',
+            weighting: '20'
+          },
+          {
+            id: 'ped-core-4',
+            competency: 'Project Portfolio Management (PED)',
+            components: 'MIG projects, economic infrastructure projects, development progress tracking, CapEx control',
+            definition: 'Directs the execution of human settlements, land use, and LED capital projects effectively.',
+            weighting: '15'
+          },
+          {
+            id: 'ped-core-5',
+            competency: 'Intergovernmental Relations & Funding Alignment',
+            components: 'Community consultation, public-private partnerships, MIG & grant fund utilization',
+            definition: 'Leverages inter-governmental programs and funding models to implement economic growth policies.',
+            weighting: '15'
+          }
+        ]
+      };
+      for (const tId of targetTenants) {
+        upsertBatch.push({
+          id: `core_competencies_${tId}_${targetEmail}`,
+          tenant_id: tId,
+          sender_id: 'core_competencies_editor',
+          sender_email: targetEmail,
+          sender_name: 'Alvin Bvuma',
+          content: JSON.stringify(managerCoreCompetencies),
+          message_type: 'core_competencies_list',
+          created_at: nowIso
+        });
+      }
+    }
+
+    // KPAs: 5 Substantive PED KPAs
+    if (!existingIds.has(`kpas_tenant-229_${targetEmail}`)) {
+      const managerKpas = {
+        kpas: [
+          { id: 'kpa-ped-1', name: 'KPA 1: Local Economic Development (LED)', title: 'Local Economic Development', weighting: 35, nationalKpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT' },
+          { id: 'kpa-ped-2', name: 'KPA 2: Basic Service Delivery and Infrastructure (Spatial Planning & Land Use)', title: 'Basic Service Delivery and Infrastructure', weighting: 30, nationalKpa: 'KPA 1: BASIC SERVICE DELIVERY AND INFRASTRUCTURE' },
+          { id: 'kpa-ped-3', name: 'KPA 3: Municipal Institutional Development and Transformation', title: 'Institutional Development and Transformation', weighting: 15, nationalKpa: 'KPA 2: MUNICIPAL INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION' },
+          { id: 'kpa-ped-4', name: 'KPA 4: Good Governance and Public Participation', title: 'Good Governance and Public Participation', weighting: 10, nationalKpa: 'KPA 4: GOOD GOVERNANCE AND PUBLIC PARTICIPATION' },
+          { id: 'kpa-ped-5', name: 'KPA 5: Municipal Financial Viability and Management', title: 'Municipal Financial Viability and Management', weighting: 10, nationalKpa: 'KPA 5: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT' }
+        ]
+      };
+      for (const tId of targetTenants) {
+        upsertBatch.push({
+          id: `kpas_${tId}_${targetEmail}`,
+          tenant_id: tId,
+          sender_id: 'kpa_manager_tool',
+          sender_email: targetEmail,
+          sender_name: 'Alvin Bvuma',
+          content: JSON.stringify(managerKpas),
+          message_type: 'kpas_list',
+          created_at: nowIso
+        });
+      }
+    }
+
+    // Performance Plan (6 KPIs)
+    if (!existingIds.has(`pplan_tenant-229_${targetEmail}`)) {
+      const managerPplanItems = [
+        {
+          id: 'kpi-ped-mgr-01',
+          kpiNo: 'PED_MGR_01',
+          refNum: 'PED_MGR_01',
+          kpi: 'Review and submission of the revised Nkangala Spatial Development Framework (SDF) and Land Use Scheme alignment report by 31 March 2027',
+          description: 'Review and submission of the revised Nkangala Spatial Development Framework (SDF) and Land Use Scheme alignment report by 31 March 2027',
+          kpa: 'KPA 2: Basic Service Delivery and Infrastructure (Spatial Planning & Land Use)',
+          functionalKpa: 'KPA 2: Basic Service Delivery and Infrastructure (Spatial Planning & Land Use)',
+          weighting: 20,
+          weight: '20',
+          wt: '20',
+          baseline: 'SDF 2025/26',
+          annualTarget: '1 Approved Alignment Report',
+          annual: '1 Approved Alignment Report',
+          q1: 'Draft Status Quo Assessment Report',
+          q2: 'Public Participation and Sector Stakeholder Feedback Report',
+          q3: 'Submission of Final Alignment Report to Council',
+          q4: 'Post-Council Implementation Framework Gazetting',
+          q1Poe: 'Draft SDF Status Quo Assessment and Spatial Diagnostic Report',
+          q2Poe: 'Stakeholder Workshop Attendance Registers and Minutes',
+          q3Poe: 'Council Resolution and Final SDF Alignment Submission Dossier',
+          q4Poe: 'Provincial Gazette Notice and Implementation Action Plan',
+          poeDesc: 'Approved Council Resolution and SDF Diagnostic Alignment Submission Dossier',
+          budget: 'OPEX',
+          status: 'draft'
+        },
+        {
+          id: 'kpi-ped-mgr-02',
+          kpiNo: 'PED_MGR_02',
+          refNum: 'PED_MGR_02',
+          kpi: 'Percentage of statutory land development and rezoning applications processed and evaluated within 60 calendar days',
+          description: 'Percentage of statutory land development and rezoning applications processed and evaluated within 60 calendar days',
+          kpa: 'KPA 2: Basic Service Delivery and Infrastructure (Spatial Planning & Land Use)',
+          functionalKpa: 'KPA 2: Basic Service Delivery and Infrastructure (Spatial Planning & Land Use)',
+          weighting: 20,
+          weight: '20',
+          wt: '20',
+          baseline: '100%',
+          annualTarget: '100%',
+          annual: '100%',
+          q1: '100%',
+          q2: '100%',
+          q3: '100%',
+          q4: '100%',
+          q1Poe: 'Quarterly Land Development Assessment Register with tribunal notices',
+          q2Poe: 'Quarterly Land Development Assessment Register with tribunal notices',
+          q3Poe: 'Quarterly Land Development Assessment Register with tribunal notices',
+          q4Poe: 'Annual Consolidated Land Applications Audit Register',
+          poeDesc: 'Signed Quarterly Land Development Assessment Register with decision notices',
+          budget: 'OPEX',
+          status: 'draft'
+        },
+        {
+          id: 'kpi-ped-mgr-03',
+          kpiNo: 'PED_MGR_03',
+          refNum: 'PED_MGR_03',
+          kpi: 'Implementation of 4 Local Economic Development (LED) SMME capacity-building and incubation programs across local municipalities by 30 June 2027',
+          description: 'Implementation of 4 Local Economic Development (LED) SMME capacity-building and incubation programs across local municipalities by 30 June 2027',
+          kpa: 'KPA 1: Local Economic Development (LED)',
+          functionalKpa: 'KPA 1: Local Economic Development (LED)',
+          weighting: 20,
+          weight: '20',
+          wt: '20',
+          baseline: '4 Programs',
+          annualTarget: '4 Programs',
+          annual: '4 Programs',
+          q1: '1 Program Delivered',
+          q2: '1 Program Delivered (2 Cumulative)',
+          q3: '1 Program Delivered (3 Cumulative)',
+          q4: '1 Program Delivered (4 Cumulative)',
+          q1Poe: 'Signed Attendance Register and Closeout Report for Q1 SMME Training Session',
+          q2Poe: 'Signed Attendance Register and Closeout Report for Q2 SMME Incubation Workshop',
+          q3Poe: 'Signed Attendance Register and Closeout Report for Q3 Supplier Development Seminar',
+          q4Poe: 'Annual Consolidated LED SMME Program Closeout Report with impact assessment',
+          poeDesc: 'Approved Training Closeout Reports and Beneficiary Attendance Registers',
+          budget: 'R 850,000 (LED Operational Grant)',
+          status: 'draft'
+        },
+        {
+          id: 'kpi-ped-mgr-04',
+          kpiNo: 'PED_MGR_04',
+          refNum: 'PED_MGR_04',
+          kpi: 'Maintenance, spatial layer updates, and quarterly data synchronization of the Municipal GIS portal by 30 June 2027',
+          description: 'Maintenance, spatial layer updates, and quarterly data synchronization of the Municipal GIS portal by 30 June 2027',
+          kpa: 'KPA 3: Municipal Institutional Development and Transformation',
+          functionalKpa: 'KPA 3: Municipal Institutional Development and Transformation',
+          weighting: 15,
+          weight: '15',
+          wt: '15',
+          baseline: '4 Updates',
+          annualTarget: '4 Quarterly GIS Updates',
+          annual: '4 Quarterly GIS Updates',
+          q1: '1 GIS Quarterly Data Refresh Completed',
+          q2: '1 GIS Quarterly Data Refresh Completed',
+          q3: '1 GIS Quarterly Data Refresh Completed',
+          q4: '1 GIS Quarterly Data Refresh Completed',
+          q1Poe: 'Q1 GIS Server Logs and Layer Synchronization Audit Certificate',
+          q2Poe: 'Q2 GIS Server Logs and Layer Synchronization Audit Certificate',
+          q3Poe: 'Q3 GIS Server Logs and Layer Synchronization Audit Certificate',
+          q4Poe: 'Q4 GIS Server Logs and Layer Synchronization Audit Certificate',
+          poeDesc: 'Certified Quarterly GIS Spatial Layer Audit and Synchronization Certificates',
+          budget: 'OPEX',
+          status: 'draft'
+        },
+        {
+          id: 'kpi-ped-mgr-05',
+          kpiNo: 'PED_MGR_05',
+          refNum: 'PED_MGR_05',
+          kpi: 'Submission of quarterly monitoring and expenditure reports on PED capital and MIG-funded economic infrastructure projects by 15 days after quarter end',
+          description: 'Submission of quarterly monitoring and expenditure reports on PED capital and MIG-funded economic infrastructure projects by 15 days after quarter end',
+          kpa: 'KPA 5: Municipal Financial Viability and Management',
+          functionalKpa: 'KPA 5: Municipal Financial Viability and Management',
+          weighting: 15,
+          weight: '15',
+          wt: '15',
+          baseline: '4 Reports',
+          annualTarget: '4 Quarterly Expenditure Reports',
+          annual: '4 Quarterly Expenditure Reports',
+          q1: 'Q1 Project Monitoring & Expenditure Report Submitted',
+          q2: 'Q2 Project Monitoring & Expenditure Report Submitted',
+          q3: 'Q3 Project Monitoring & Expenditure Report Submitted',
+          q4: 'Q4 Project Monitoring & Expenditure Report Submitted',
+          q1Poe: 'Signed Q1 PED Capital Project Site Inspection and Financial Summary Report',
+          q2Poe: 'Signed Q2 PED Capital Project Site Inspection and Financial Summary Report',
+          q3Poe: 'Signed Q3 PED Capital Project Site Inspection and Financial Summary Report',
+          q4Poe: 'Signed Q4 PED Capital Project Site Inspection and Financial Summary Report',
+          poeDesc: 'Approved Quarterly Infrastructure Expenditure Reports signed by General Manager',
+          budget: 'MIG / Capital',
+          status: 'draft'
+        },
+        {
+          id: 'kpi-ped-mgr-06',
+          kpiNo: 'PED_MGR_06',
+          refNum: 'PED_MGR_06',
+          kpi: '100% compliance with quarterly risk mitigation and statutory audit action deliverables for the Planning and Economic Development unit',
+          description: '100% compliance with quarterly risk mitigation and statutory audit action deliverables for the Planning and Economic Development unit',
+          kpa: 'KPA 4: Good Governance and Public Participation',
+          functionalKpa: 'KPA 4: Good Governance and Public Participation',
+          weighting: 10,
+          weight: '10',
+          wt: '10',
+          baseline: '100%',
+          annualTarget: '100%',
+          annual: '100%',
+          q1: '100%',
+          q2: '100%',
+          q3: '100%',
+          q4: '100%',
+          q1Poe: 'Signed Unit Risk Register Review and Internal Audit Action Plan Tracking Matrix',
+          q2Poe: 'Signed Unit Risk Register Review and Internal Audit Action Plan Tracking Matrix',
+          q3Poe: 'Signed Unit Risk Register Review and Internal Audit Action Plan Tracking Matrix',
+          q4Poe: 'Annual Unit Risk Governance Compliance Audit Sign-off',
+          poeDesc: 'Approved Quarterly Unit Risk Matrix and Internal Audit Progress Dashboard',
+          budget: 'OPEX',
+          status: 'draft'
+        }
+      ];
+      const pplanPayload = { items: managerPplanItems };
+      const kpisPayload = { kpis: managerPplanItems };
+      for (const tId of targetTenants) {
+        upsertBatch.push(
+          {
+            id: `pplan_${tId}_${targetEmail}`,
+            tenant_id: tId,
+            sender_id: 'performance_plan_editor',
+            sender_email: targetEmail,
+            sender_name: 'Alvin Bvuma',
+            content: JSON.stringify(pplanPayload),
+            message_type: 'performance_plan',
+            created_at: nowIso
+          },
+          {
+            id: `kpis_${tId}_${targetEmail}`,
+            tenant_id: tId,
+            sender_id: 'kpi_manager_tool',
+            sender_email: targetEmail,
+            sender_name: 'Alvin Bvuma',
+            content: JSON.stringify(kpisPayload),
+            message_type: 'kpis_list',
+            created_at: nowIso
+          }
+        );
+      }
+    }
+
+    // PDP
+    if (!existingIds.has(`pdp_tenant-229_${targetEmail}`)) {
+      const managerPdp = {
+        items: [
+          {
+            id: 'pdp-ped-mgr-01',
+            skillsGap: 'Advanced Spatial Development & SPLUMA Enforcement Masterclass',
+            outcomes: 'Mastery of municipal land-use tribunal procedures and integrated spatial analytics',
+            suggestedTraining: 'SALGA Municipal Spatial Planning Leadership Academy',
+            modeOfDelivery: 'Formal Interactive Hybrid Seminar',
+            timeFrame: 'Q2 - Q3 2026/2027',
+            workOpportunity: 'Chairing municipal technical planning evaluations and spatial framework reviews',
+            supportPerson: 'Alvin Bvuma (Acting GM: PED)'
+          }
+        ]
+      };
+      for (const tId of targetTenants) {
+        upsertBatch.push({
+          id: `pdp_${tId}_${targetEmail}`,
+          tenant_id: tId,
+          sender_id: 'pdp_editor',
+          sender_email: targetEmail,
+          sender_name: 'Alvin Bvuma',
+          content: JSON.stringify(managerPdp),
+          message_type: 'pdp_store',
+          created_at: nowIso
+        });
+      }
+    }
+
+    // PA Templates & Draft Doc
+    if (!existingIds.has(`draft_doc_tenant-229_${targetEmail}`)) {
+      const managerPaDoc = {
+        employeeName: 'Alvin Bvuma',
+        employeeFullName: 'Alvin Bvuma',
+        employeePosition: 'Manager: Planning & Economic Development',
+        employeeSignature: 'Alvin Bvuma',
+        employeeDate: '29 July 2026',
+        supervisorName: 'Alvin Bvuma',
+        supervisorPosition: 'Acting General Manager: Planning & Economic Development',
+        supervisorEmail: 'bvumaa@nkangaladm.gov.za',
+        supervisorSignature: 'Alvin Bvuma',
+        supervisorDate: '29 July 2026',
+        municipalityName: 'Nkangala District Municipality',
+        sigDay: '29',
+        sigMonth: 'July',
+        sigYear: '2026',
+        createdAt: nowIso
+      };
+      for (const tId of targetTenants) {
+        upsertBatch.push(
+          {
+            id: `draft_doc_${tId}_${targetEmail}`,
+            tenant_id: tId,
+            sender_id: 'pa_drafting_suite',
+            sender_email: targetEmail,
+            sender_name: 'Alvin Bvuma',
+            content: JSON.stringify(managerPaDoc),
+            message_type: 'pa_draft_doc',
+            created_at: nowIso
+          },
+          {
+            id: `pa_templates_${tId}_${targetEmail}`,
+            tenant_id: tId,
+            sender_id: 'pa_drafting_suite',
+            sender_email: targetEmail,
+            sender_name: 'Alvin Bvuma',
+            content: JSON.stringify(managerPaDoc),
+            message_type: 'pa_templates',
+            created_at: nowIso
+          }
+        );
+      }
+    }
+
+    if (upsertBatch.length > 0) {
+      await supabase.from('messages').upsert(upsertBatch, { onConflict: 'id' });
+      console.log(`[syncBvumaDualPositionProfile] Upserted ${upsertBatch.length} initial records for Manager: PED (${targetEmail}).`);
+    }
+  } catch (err) {
+    console.warn("[syncBvumaDualPositionProfile] Notice:", err);
+  }
+}
+
 export async function resolveTenantId(reqTenantId: string, userEmail?: string): Promise<string> {
   const cleanRoute = (reqTenantId || '').toLowerCase().trim();
   const cleanEmail = (userEmail || '').toLowerCase().trim();
@@ -1766,6 +2263,7 @@ async function startServer() {
   syncKhumaloNkosiDualProfile().catch(err => console.error("[Khumalo/Nkosi Sync] Background failure:", err));
   syncTeamPmsZuluNsibande().catch(err => console.error("[Team PMS Zulu/Nsibande Sync] Background failure:", err));
   syncNedaPerformanceAgreements().catch(err => console.error("[NEDA PA Sync] Background failure:", err));
+  syncBvumaDualPositionProfile().catch(err => console.error("[Bvuma Dual Profile Sync] Background failure:", err));
   const app = express();
   app.use(compression());
   const server = http.createServer(app);
@@ -9241,6 +9739,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Mandla L. Mahlangu';
         dynamicReportTo = 'Mandla L. Mahlangu';
         dynamicManagerEmail = 'mahlanguml@nkangaladm.gov.za';
+      } else if (emailLower === 'bvumaa-mgr@nkangaladm.gov.za') {
+        dynamicManager = 'Alvin Bvuma';
+        dynamicReportTo = 'Alvin Bvuma';
+        dynamicManagerEmail = 'bvumaa@nkangaladm.gov.za';
       }
 
       return {
@@ -9876,6 +10378,41 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         hasSubordinates: Boolean(primaryNkosi?.hasSubordinates),
         subordinateCount: primaryNkosi?.subordinateCount || 0,
         subordinateEmails: primaryNkosi?.subordinateEmails || []
+      });
+    }
+
+    // Ensure Alvin Bvuma has both Acting GM PED (bvumaa@nkangaladm.gov.za) and substantive Manager PED (bvumaa-mgr@nkangaladm.gov.za)
+    const primaryBvuma = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'bvumaa@nkangaladm.gov.za');
+    if (primaryBvuma) {
+      primaryBvuma.fullName = 'Alvin Bvuma';
+      primaryBvuma.jobFunction = 'Acting General Manager: Planning & Economic Development';
+      primaryBvuma.department = 'Planning & Economic Development (PED)';
+      primaryBvuma.directorate = primaryBvuma.directorate || 'Planning & Economic Development (PED)';
+      primaryBvuma.manager = primaryBvuma.manager || 'Mandla L. Mahlangu';
+      primaryBvuma.reportTo = primaryBvuma.reportTo || 'Mandla L. Mahlangu';
+      primaryBvuma.managerEmail = primaryBvuma.managerEmail || 'mahlanguml@nkangaladm.gov.za';
+    }
+    const hasBvumaManager = sanitizedFormatted.some((u: any) => (u.email || '').toLowerCase().trim() === 'bvumaa-mgr@nkangaladm.gov.za');
+    if (!hasBvumaManager) {
+      sanitizedFormatted.push({
+        id: 'nk-user-bvumaa-mgr',
+        fullName: 'Alvin Bvuma',
+        email: 'bvumaa-mgr@nkangaladm.gov.za',
+        jobFunction: 'Manager: Planning & Economic Development',
+        department: 'Planning & Economic Development (PED)',
+        source: 'manual',
+        role: 'Manager',
+        tenantId: normTenant === 'nkangala_master' ? 'tenant-229' : (normTenant || 'tenant-229'),
+        manager: 'Alvin Bvuma',
+        directorate: 'Planning & Economic Development (PED)',
+        reportTo: 'Alvin Bvuma',
+        level: '2',
+        signatureType: primaryBvuma?.signatureType || 'draw',
+        signatureData: primaryBvuma?.signatureData || '',
+        managerEmail: 'bvumaa@nkangaladm.gov.za',
+        hasSubordinates: false,
+        subordinateCount: 0,
+        subordinateEmails: []
       });
     }
 

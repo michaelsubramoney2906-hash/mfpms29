@@ -264,7 +264,7 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
 
   const defaultScope = isNeda
     ? (userEmail.includes('manganijp') ? 'mm' : userEmail.includes('chaukekc') ? 'cfo' : 'corp')
-    : 'directors';
+    : (userEmail.includes('bvumaa-mgr') || userEmail.includes('bvumaa') ? 'ped' : 'directors');
 
   const [activeScope, setActiveScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>(defaultScope);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
@@ -282,11 +282,13 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
   // Preview Modal state
   const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
 
-  // Keep activeScope locked to NEDA official's true profile
+  // Keep activeScope locked to official's true profile
   useEffect(() => {
     if (isNeda) {
       const scope = userEmail.includes('manganijp') ? 'mm' : userEmail.includes('chaukekc') ? 'cfo' : 'corp';
       setActiveScope(scope);
+    } else if (userEmail.includes('bvumaa-mgr') || userEmail.includes('bvumaa')) {
+      setActiveScope('ped');
     }
   }, [userEmail, isNeda]);
 

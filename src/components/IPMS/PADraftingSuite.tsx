@@ -491,10 +491,19 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           );
         }
 
+        const isBvumaManagerTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().trim() === 'bvumaa-mgr@nkangaladm.gov.za';
         const isManganiTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('manganijp') || (matchedEmp.fullName || currentUser.fullName || '').toLowerCase().includes('mangani');
         const isShabanguTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('shabangusm');
 
-        if (isManganiTarget) {
+        if (isBvumaManagerTarget) {
+          setEmployeeName('Alvin Bvuma');
+          setEmployeePosition('Manager: Planning & Economic Development');
+          setSupervisorSignature('Alvin Bvuma');
+          setSupervisorName('Alvin Bvuma');
+          setSupervisorPosition('Acting General Manager: Planning & Economic Development');
+          setSupervisorDate('29 July 2026');
+          matchedSup = null;
+        } else if (isManganiTarget) {
           setEmployeeName('Johan P. Mangani');
           setEmployeePosition('Acting Chief Executive Officer');
           setSupervisorSignature('Mr MT Khumalo');

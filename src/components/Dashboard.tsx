@@ -252,6 +252,14 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     return saved === 'acting_gm_cds' ? 'acting_gm_cds' : 'accountant';
   });
 
+  // Dual-Position Capacity State for Alvin Bvuma (bvumaa@nkangaladm.gov.za / bvumaa-mgr@nkangaladm.gov.za)
+  const isBvumaDualUser = rawUserEmailLower === 'bvumaa@nkangaladm.gov.za' || rawUserEmailLower === 'bvumaa-mgr@nkangaladm.gov.za' || rawUserEmailLower === 'bvumaa_manager@nkangaladm.gov.za' || (fullUserProfile?.fullName || user?.fullName || '').toLowerCase().includes('alvin bvuma');
+  const [bvumaRoleCapacity, setBvumaRoleCapacity] = useState<'acting_gm_ped' | 'manager_ped'>(() => {
+    if (rawUserEmailLower.includes('-mgr') || rawUserEmailLower.includes('_manager')) return 'manager_ped';
+    const saved = localStorage.getItem('mzansi_bvuma_active_capacity');
+    return saved === 'manager_ped' ? 'manager_ped' : 'acting_gm_ped';
+  });
+
   useEffect(() => {
     if (rawUserEmailLower.includes('_gm_cds')) {
       setLengwateRoleCapacity('acting_gm_cds');
@@ -259,6 +267,17 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       const saved = localStorage.getItem('mzansi_lengwate_active_capacity');
       if (saved === 'acting_gm_cds' || saved === 'accountant') {
         setLengwateRoleCapacity(saved);
+      }
+    }
+  }, [rawUserEmailLower]);
+
+  useEffect(() => {
+    if (rawUserEmailLower.includes('-mgr') || rawUserEmailLower.includes('_manager')) {
+      setBvumaRoleCapacity('manager_ped');
+    } else if (rawUserEmailLower === 'bvumaa@nkangaladm.gov.za') {
+      const saved = localStorage.getItem('mzansi_bvuma_active_capacity');
+      if (saved === 'acting_gm_ped' || saved === 'manager_ped') {
+        setBvumaRoleCapacity(saved);
       }
     }
   }, [rawUserEmailLower]);
@@ -271,6 +290,46 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     }
     if (nextCap === 'accountant' && activeSubModule && activeSubModule.id === 'ccomp') {
       setActiveSubModule(null);
+    }
+  };
+
+  const handleSwitchBvumaCapacity = (nextCap: 'acting_gm_ped' | 'manager_ped') => {
+    setBvumaRoleCapacity(nextCap);
+    localStorage.setItem('mzansi_bvuma_active_capacity', nextCap);
+    const targetUser: User = nextCap === 'manager_ped'
+      ? {
+          ...fullUserProfile,
+          id: 'user_bvumaa_manager_ped',
+          email: 'bvumaa-mgr@nkangaladm.gov.za',
+          fullName: 'Alvin Bvuma',
+          jobFunction: 'Manager: Planning & Economic Development',
+          department: 'Planning & Economic Development (PED)',
+          directorate: 'Planning & Economic Development (PED)',
+          role: 'Manager' as any,
+          manager: 'Alvin Bvuma',
+          reportTo: 'Alvin Bvuma',
+          managerEmail: 'bvumaa@nkangaladm.gov.za',
+          tenantId: 'tenant-229'
+        }
+      : {
+          ...fullUserProfile,
+          id: 'user_bvumaa_acting_gm',
+          email: 'bvumaa@nkangaladm.gov.za',
+          fullName: 'Alvin Bvuma',
+          jobFunction: 'Acting General Manager: Planning & Economic Development (PED)',
+          department: 'Planning & Economic Development (PED)',
+          directorate: 'Planning & Economic Development',
+          role: 'General Manager' as any,
+          manager: 'Mandla L. Mahlangu',
+          reportTo: 'Mandla L. Mahlangu',
+          managerEmail: 'mahlanguml@nkangaladm.gov.za',
+          tenantId: 'tenant-229'
+        };
+    setFullUserProfile(targetUser);
+    localStorage.setItem('currentUser', JSON.stringify(targetUser));
+    sessionStorage.setItem('currentUser', JSON.stringify(targetUser));
+    if (onImpersonate) {
+      onImpersonate(targetUser);
     }
   };
 
@@ -300,6 +359,36 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             reportTo: 'Alice L. Stander',
             managerEmail: 'standeral@nkangaladm.gov.za'
           })
+    : isBvumaDualUser
+      ? (bvumaRoleCapacity === 'manager_ped'
+          ? {
+              ...fullUserProfile,
+              id: 'user_bvumaa_manager_ped',
+              email: 'bvumaa-mgr@nkangaladm.gov.za',
+              fullName: 'Alvin Bvuma',
+              jobFunction: 'Manager: Planning & Economic Development',
+              department: 'Planning & Economic Development (PED)',
+              directorate: 'Planning & Economic Development (PED)',
+              role: 'Manager' as any,
+              manager: 'Alvin Bvuma',
+              reportTo: 'Alvin Bvuma',
+              managerEmail: 'bvumaa@nkangaladm.gov.za',
+              tenantId: 'tenant-229'
+            }
+          : {
+              ...fullUserProfile,
+              id: 'user_bvumaa_acting_gm',
+              email: 'bvumaa@nkangaladm.gov.za',
+              fullName: 'Alvin Bvuma',
+              jobFunction: 'Acting General Manager: Planning & Economic Development (PED)',
+              department: 'Planning & Economic Development (PED)',
+              directorate: 'Planning & Economic Development',
+              role: 'General Manager' as any,
+              manager: 'Mandla L. Mahlangu',
+              reportTo: 'Mandla L. Mahlangu',
+              managerEmail: 'mahlanguml@nkangaladm.gov.za',
+              tenantId: 'tenant-229'
+            })
     : fullUserProfile;
 
   useEffect(() => {
@@ -1138,6 +1227,67 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                   )}
                 >
                   <span>2. Acting GM: CDS</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Dual-Position Capacity Switcher for Alvin Bvuma */}
+          {isBvumaDualUser && (
+            <div className={cn(
+              "mb-4 rounded-2xl p-4 shadow-xl border flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition-all animate-in fade-in-50 duration-300",
+              bvumaRoleCapacity === 'manager_ped'
+                ? "bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-indigo-500/50 text-white"
+                : "bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900 border-amber-500/50 text-white"
+            )}>
+              <div className="flex items-start sm:items-center gap-3">
+                <div className={cn(
+                  "p-2.5 rounded-xl font-black text-xs uppercase tracking-wider shrink-0 border",
+                  bvumaRoleCapacity === 'manager_ped'
+                    ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40"
+                    : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                )}>
+                  {bvumaRoleCapacity === 'manager_ped' ? '💼 Manager: PED Capacity' : '🏛️ Acting GM: PED Capacity'}
+                </div>
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                    <span>Dual-Position Profile Switcher — Alvin Bvuma</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-emerald-300 border border-white/15">
+                      100% Isolated Storage
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    {bvumaRoleCapacity === 'manager_ped'
+                      ? 'Active Role: Manager: Planning & Economic Development — Includes separate Manager Performance Agreement, Performance Plan, JSCs, Core Competencies, PDP, and Self-Evaluation.'
+                      : 'Active Role: Acting General Manager: Planning & Economic Development (PED) — Section 56/57 SDBIP Targets, Executive PA, and Director Core Competencies.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-xl border border-white/10 shrink-0 self-stretch lg:self-auto">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchBvumaCapacity('acting_gm_ped')}
+                  className={cn(
+                    "px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5",
+                    bvumaRoleCapacity === 'acting_gm_ped'
+                      ? "bg-amber-500 text-slate-950 shadow-md"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <span>1. Acting GM: PED</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchBvumaCapacity('manager_ped')}
+                  className={cn(
+                    "px-3.5 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5",
+                    bvumaRoleCapacity === 'manager_ped'
+                      ? "bg-indigo-600 text-white shadow-md"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <span>2. Manager: PED</span>
                 </button>
               </div>
             </div>

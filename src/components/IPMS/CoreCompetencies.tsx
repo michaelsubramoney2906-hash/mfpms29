@@ -290,6 +290,23 @@ export function matchOfficialCoreRole(user?: {
     };
   }
 
+  // Rule 5.9: Alvin Bvuma - Manager: Planning & Economic Development (Substantive Post)
+  if (
+    emailRaw === 'bvumaa-mgr@nkangaladm.gov.za' ||
+    emailPrefix === 'bvumaa-mgr' ||
+    (emailPrefix === 'bvumaa' && jobLower.includes('manager') && !jobLower.includes('general manager') && !jobLower.includes('acting gm'))
+  ) {
+    return {
+      fullName: 'Alvin Bvuma',
+      email: 'bvumaa-mgr@nkangaladm.gov.za',
+      jobFunction: 'Manager: Planning & Economic Development',
+      department: 'Planning & Economic Development (PED)',
+      refCode: 'MGR-PED-01',
+      roleKey: 'ped',
+      roleName: 'Manager: PED Core Competencies'
+    };
+  }
+
   // Rule 6: Planning & Economic Development (PED) -> bvumaa@nkangaladm.gov.za / shabanguf@nkangaladm.gov.za / ped
   if (
     emailRaw === 'bvumaa@nkangaladm.gov.za' ||
