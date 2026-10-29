@@ -1381,16 +1381,17 @@ export async function syncNedaPerformanceAgreements() {
     const supabase = getSupabase();
     if (!supabase) return;
     const nowIso = new Date().toISOString();
-    const targetTenants = ['neda', 'tenant-neda', 'tenant-229'];
+    // Strict isolation: NEDA performance agreements must NEVER write into Nkangala (tenant-229)
+    const targetTenants = ['neda', 'tenant-neda'];
 
-    // 1. Upsert the 4 NEDA users into users table under 'neda' and update users_extra_metadata
+    // 1. Upsert NEDA users into users table under 'neda' and update users_extra_metadata
     const nedaUserRows = NEDA_EXTRACTED_PACKAGES.map(pkg => ({
-      id: `user_neda_${pkg.key}`,
+      id: `user_neda_${(pkg as any).key || pkg.userId}`,
       email: pkg.primaryEmail.toLowerCase(),
       full_name: pkg.fullName,
-      job_title: pkg.jobTitle,
+      job_title: (pkg as any).jobTitle || pkg.jobFunction,
       department: pkg.department,
-      role: pkg.role,
+      role: pkg.role || 'Senior Management',
       status: 'active',
       tenant_id: 'neda'
     }));
@@ -1407,12 +1408,12 @@ export async function syncNedaPerformanceAgreements() {
         extraMap[em] = {
           ...(extraMap[em] || {}),
           directorate: pkg.directorate,
-          manager: pkg.manager,
-          reportTo: pkg.reportTo,
-          managerEmail: pkg.managerEmail,
+          manager: (pkg as any).manager || pkg.supervisorName,
+          reportTo: (pkg as any).reportTo || pkg.supervisorTitle,
+          managerEmail: (pkg as any).managerEmail || pkg.supervisorEmail,
           level: pkg.level,
           department: pkg.department,
-          jobFunction: pkg.jobTitle,
+          jobFunction: (pkg as any).jobTitle || pkg.jobFunction,
           fullName: pkg.fullName
         };
       }
@@ -1456,7 +1457,7 @@ export async function syncNedaPerformanceAgreements() {
         }
       }
 
-      const mergedKpis = pkg.kpis.map(officialKpi => {
+      const mergedKpis = pkg.kpis.map((officialKpi: any) => {
         const kNo = String(officialKpi.kpiNo || '').toLowerCase().trim();
         const kDesc = String(officialKpi.kpi || '').toLowerCase().trim();
         const existing = existingItemOverlay.get(kNo) || existingItemOverlay.get(kDesc);
@@ -3123,6 +3124,26 @@ CRITICAL MAPPING & EXTRACTION RULES:
       const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
       const tenantId = await resolveTenantId(routeTenantId, userId);
 
+      // Check NEDA context
+      const isNedaReq = routeTenantId === 'neda' || routeTenantId === 'tenant-neda' || tenantId === 'neda' || tenantId === 'tenant-neda' || userId.endsWith('@neda.gov.za') || Boolean(findNedaPackageByEmailOrName(userId));
+
+      if (isNedaReq) {
+        const allowedNedaRecipients = [
+          'chaukenh@nkangaladm.gov.za',
+          'sehlakols@neda.gov.za',
+          'sehlakols@nkangaladm.gov.za',
+          'chaukekc@neda.gov.za',
+          'chaukekc@nkangaladm.gov.za',
+          'manganijp@nkangaladm.gov.za',
+          'manganijp@neda.gov.za'
+        ];
+        if (!allowedNedaRecipients.includes(userId)) {
+          return res.status(403).json({
+            error: "Extraction Engine in NEDA strictly restricts pushed Performance Agreements to approved NEDA personnel: ChaukeNH@nkangaladm.gov.za, SehlakoLS@neda.gov.za, ChaukeKC@neda.gov.za, manganijp@nkangaladm.gov.za"
+          });
+        }
+      }
+
       // Sanitize each item to ensure all fields are mapped verbatim to standard pplan and kpi fields
       const formattedItems = items.map((it: any, idx: number) => {
         const functionalKpa = it.functionalKpa || it.kpa || it["functional kpa"] || 'Functional Performance Area';
@@ -3199,7 +3220,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
         // 1. Upsert into ipms_gm_performance_plans table
         try {
           await supabase.from('ipms_gm_performance_plans').upsert({
-            tenant_id: tenantId,
+            tenant_id: isNedaReq ? 'neda' : tenantId,
             user_email: userId,
             items_payload: formattedItems,
             kpas_payload: kpas || [],
@@ -3234,18 +3255,25 @@ CRITICAL MAPPING & EXTRACTION RULES:
           kpas: kpas || []
         });
 
-        const targetDocIds = [
-          `pplan_${tenantId}_${userId}`,
-          `kpis_${tenantId}_${userId}`,
-          `pplan_tenant-229_${userId}`,
-          `kpis_tenant-229_${userId}`,
-          `pplan_nkangala_auto_${userId}`,
-          `kpis_nkangala_auto_${userId}`,
-          `pplan_global_${userId}`,
-          `kpis_global_${userId}`
-        ];
+        const targetDocIds = isNedaReq
+          ? [
+              `pplan_neda_${userId}`,
+              `kpis_neda_${userId}`,
+              `pplan_tenant-neda_${userId}`,
+              `kpis_tenant-neda_${userId}`
+            ]
+          : [
+              `pplan_${tenantId}_${userId}`,
+              `kpis_${tenantId}_${userId}`,
+              `pplan_tenant-229_${userId}`,
+              `kpis_tenant-229_${userId}`,
+              `pplan_nkangala_auto_${userId}`,
+              `kpis_nkangala_auto_${userId}`,
+              `pplan_global_${userId}`,
+              `kpis_global_${userId}`
+            ];
 
-        if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
+        if (!isNedaReq && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
           targetDocIds.push(
             `pplan_tenant-229_mahlanguml@nkangaladm.gov.za`,
             `pplan_tenant-229_mahlangulm@nkangaladm.gov.za`,
@@ -3265,17 +3293,18 @@ CRITICAL MAPPING & EXTRACTION RULES:
 
         const gmWritePromise = (async () => {
           try {
+            const canonicalTenantId = isNedaReq ? 'neda' : 'tenant-229';
             const primaryDocs = [
-              `pplan_tenant-229_${userId}`,
-              `kpis_tenant-229_${userId}`
+              `pplan_${canonicalTenantId}_${userId}`,
+              `kpis_${canonicalTenantId}_${userId}`
             ];
             await supabase.from('messages').upsert(
               primaryDocs.map(docId => ({
                 id: docId,
-                tenant_id: 'tenant-229',
+                tenant_id: canonicalTenantId,
                 sender_id: 'fred_gm_extractor',
                 sender_email: userEmail,
-                sender_name: 'FRED GM Extractor',
+                sender_name: 'Extraction Engine',
                 content: docId.startsWith('kpis_') ? kpiPayloadStr : pplanPayload,
                 message_type: docId.startsWith('kpis_') ? 'kpis_list' : 'pplan_list',
                 created_at: nowIso
@@ -3299,8 +3328,8 @@ CRITICAL MAPPING & EXTRACTION RULES:
                 weighting: ''
               }));
               await supabase.from('messages').upsert({
-                id: `kpas_tenant-229_${userId}`,
-                tenant_id: 'tenant-229',
+                id: `kpas_${canonicalTenantId}_${userId}`,
+                tenant_id: canonicalTenantId,
                 sender_id: 'kpa_capturing_tool',
                 sender_email: 'kpa@system.local',
                 sender_name: 'KPA Manager',
@@ -9852,46 +9881,70 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
     // Ensure all 4 official NEDA Performance Agreement users are always present and enriched in the consolidated directory
     for (const pkg of NEDA_EXTRACTED_PACKAGES) {
-      const existingIdx = sanitizedFormatted.findIndex((u: any) => {
-        const em = (u.email || '').toLowerCase().trim();
-        return em === pkg.primaryEmail.toLowerCase() || pkg.aliases.some(a => a.toLowerCase() === em);
-      });
-      if (existingIdx >= 0) {
-        sanitizedFormatted[existingIdx] = {
-          ...sanitizedFormatted[existingIdx],
-          fullName: pkg.fullName,
-          jobFunction: pkg.jobTitle,
-          department: pkg.department,
-          directorate: pkg.directorate,
-          manager: pkg.manager,
-          reportTo: pkg.reportTo,
-          managerEmail: pkg.managerEmail,
-          level: pkg.level,
-          role: pkg.role,
-          status: 'active',
-          tenantId: 'neda'
-        };
+      const matchingIndices = sanitizedFormatted
+        .map((u: any, idx: number) => {
+          const em = (u.email || '').toLowerCase().trim();
+          return (em === pkg.primaryEmail.toLowerCase() || pkg.aliases.some(a => a.toLowerCase() === em)) ? idx : -1;
+        })
+        .filter(idx => idx >= 0);
+
+      if (matchingIndices.length > 0) {
+        for (const existingIdx of matchingIndices) {
+          sanitizedFormatted[existingIdx] = {
+            ...sanitizedFormatted[existingIdx],
+            fullName: pkg.fullName,
+            jobFunction: pkg.jobFunction,
+            department: pkg.department,
+            directorate: pkg.directorate,
+            manager: pkg.supervisorName,
+            reportTo: pkg.supervisorName,
+            managerEmail: pkg.supervisorEmail,
+            level: pkg.level,
+            role: pkg.role,
+            status: 'active',
+            tenantId: 'neda'
+          };
+        }
       } else {
+        const isCeo = pkg.userId.includes('manganijp') || pkg.primaryEmail.includes('manganijp');
         sanitizedFormatted.unshift({
-          id: `user_neda_${pkg.key}`,
+          id: `user_neda_${pkg.userId}`,
           fullName: pkg.fullName,
           email: pkg.primaryEmail.toLowerCase(),
-          jobFunction: pkg.jobTitle,
+          jobFunction: pkg.jobFunction,
           department: pkg.department,
           directorate: pkg.directorate,
-          manager: pkg.manager,
-          reportTo: pkg.reportTo,
-          managerEmail: pkg.managerEmail,
+          manager: pkg.supervisorName,
+          reportTo: pkg.supervisorName,
+          managerEmail: pkg.supervisorEmail,
           level: pkg.level,
           role: pkg.role,
           status: 'active',
           tenantId: 'neda',
           signatureType: 'draw',
           signatureData: '',
-          hasSubordinates: pkg.key === 'manganijp',
-          subordinateCount: pkg.key === 'manganijp' ? 3 : 0,
-          subordinateEmails: pkg.key === 'manganijp' ? ['chaukekc@neda.gov.za', 'sehlakols@neda.gov.za', 'ngomanennc@neda.gov.za'] : []
+          hasSubordinates: isCeo,
+          subordinateCount: isCeo ? 3 : 0,
+          subordinateEmails: isCeo ? ['chaukekc@neda.gov.za', 'sehlakols@neda.gov.za', 'ngomanennc@neda.gov.za'] : []
         });
+      }
+    }
+
+    // Explicitly purge any Alvin Bvuma details from JP Mangani (manganijp@nkangaladm.gov.za) profile across the directory
+    for (const u of sanitizedFormatted) {
+      const em = (u.email || '').toLowerCase().trim();
+      const fn = (u.fullName || '').toLowerCase().trim();
+      if (em === 'manganijp@nkangaladm.gov.za' || em === 'manganijp@neda.gov.za' || em.includes('manganijp') || fn.includes('mangani')) {
+        u.fullName = 'Johan P. Mangani';
+        u.jobFunction = 'Acting Chief Executive Officer';
+        u.department = 'Office of the Chief Executive Officer';
+        u.directorate = 'Office of the Chief Executive Officer';
+        u.manager = 'Mr MT Khumalo';
+        u.reportTo = 'Mr MT Khumalo';
+        u.managerEmail = 'khumalomt@neda.gov.za';
+        u.role = 'Senior Management';
+        u.level = '1';
+        u.tenantId = 'neda';
       }
     }
 
@@ -10447,7 +10500,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       const nedaPkg = findNedaPackageByEmailOrName(userId);
       if (nedaPkg) {
-        return res.json({ kpas: nedaPkg.kpas, customKpaTable: nedaPkg.customKpaTable });
+        return res.json({ kpas: nedaPkg.kpas, customKpaTable: (nedaPkg as any).customKpaTable || null });
       }
 
       if (userId.includes('shabangusm')) {
@@ -10478,11 +10531,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         kpas: kpas || [],
         customKpaTable: customKpaTable || null
       };
-      const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
-        ? 'tenant-229'
-        : tenantId;
-      const targetTenants = Array.from(new Set([canonicalTenant, tenantId]));
-      const targetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
+      const isNedaTenant = tenantId === 'neda' || tenantId === 'tenant-neda' || tenantId === 'neda_auto' || Boolean(findNedaPackageByEmailOrName(userId));
+      const canonicalTenant = isNedaTenant
+        ? 'neda'
+        : (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+          ? 'tenant-229'
+          : tenantId;
+      const targetTenants = isNedaTenant
+        ? ['neda', 'tenant-neda']
+        : Array.from(new Set([canonicalTenant, tenantId]));
+      const targetUsers = isNedaTenant
+        ? [userId]
+        : (userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default']);
       const nowIso = new Date().toISOString();
 
       const upsertRows = targetUsers.flatMap(uKey =>
@@ -14787,18 +14847,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const documentId = `core_competencies_${tenantId}_${userId}`;
 
+      const nedaCorePkg = findNedaPackageByEmailOrName(userId);
+      const isNedaTenant = tenantId === 'neda' || tenantId === 'tenant-neda' || routeTenantId === 'neda' || routeTenantId === 'tenant-neda' || !!nedaCorePkg;
+
       const aliasUsers = getKhumaloNkosiAliases(userId);
-      const candidateCoreDocIds = Array.from(new Set([
-        documentId,
-        ...aliasUsers.flatMap(aUser => [
-          `core_competencies_${tenantId}_${aUser}`,
-          `core_competencies_neda_${aUser}`,
-          `core_competencies_tenant-neda_${aUser}`,
-          `core_competencies_tenant-229_${aUser}`,
-          `core_competencies_nkangala_auto_${aUser}`,
-          `core_competencies_global_${aUser}`
-        ])
-      ]));
+      const candidateCoreDocIds = isNedaTenant
+        ? Array.from(new Set([
+            `core_competencies_neda_${userId}`,
+            `core_competencies_tenant-neda_${userId}`,
+            ...aliasUsers.flatMap(aUser => [
+              `core_competencies_neda_${aUser}`,
+              `core_competencies_tenant-neda_${aUser}`
+            ])
+          ]))
+        : Array.from(new Set([
+            documentId,
+            ...aliasUsers.flatMap(aUser => [
+              `core_competencies_${tenantId}_${aUser}`,
+              `core_competencies_tenant-229_${aUser}`,
+              `core_competencies_nkangala_auto_${aUser}`,
+              `core_competencies_global_${aUser}`
+            ])
+          ]));
 
       let data: any = null;
       let error: any = null;
@@ -14816,8 +14886,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           break;
         }
       }
-
-      const nedaCorePkg = findNedaPackageByEmailOrName(userId);
 
       if (error && !data && !nedaCorePkg) {
         logSupabaseError("core competencies", error);
@@ -14860,12 +14928,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           }
 
           return res.json({
-            items: (parsed.items && parsed.items.length > 0) ? parsed.items : (nedaCorePkg?.coreCompetencyCategory === 'items' ? nedaCorePkg.coreCompetencies : []),
+            items: (parsed.items && parsed.items.length > 0) ? parsed.items : (nedaCorePkg?.competencyType === 'jsc' ? nedaCorePkg.coreCompetencies : []),
             directorItems: loadedDirectorItems,
             communityServicesItems: loadedCommunityServicesItems,
             technicalServicesItems: loadedTechnicalServicesItems,
-            cfoItems: (loadedCfoItems && loadedCfoItems.length > 0) ? loadedCfoItems : (nedaCorePkg?.coreCompetencyCategory === 'cfoItems' ? nedaCorePkg.coreCompetencies : []),
-            mmItems: (loadedMmItems && loadedMmItems.length > 0) ? loadedMmItems : (nedaCorePkg?.coreCompetencyCategory === 'mmItems' ? nedaCorePkg.coreCompetencies : []),
+            cfoItems: (loadedCfoItems && loadedCfoItems.length > 0) ? loadedCfoItems : (nedaCorePkg?.competencyType === 'cfo' ? nedaCorePkg.coreCompetencies : []),
+            mmItems: (loadedMmItems && loadedMmItems.length > 0) ? loadedMmItems : (nedaCorePkg?.competencyType === 'mm' ? nedaCorePkg.coreCompetencies : []),
             pedItems: parsed.pedItems || [],
             corporateServicesItems: parsed.corporateServicesItems || [],
             isCleared: false
@@ -14904,16 +14972,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const nedaPkg = findNedaPackageByEmailOrName(userId);
       const isNedaContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaPkg;
 
-      const targetUsers = (userId && userId !== 'default')
+      const targetUsers = isNedaContext
         ? Array.from(new Set([
             userId,
-            ...getKhumaloNkosiAliases(userId),
             ...(nedaPkg ? [nedaPkg.primaryEmail, ...(nedaPkg.aliases || [])].map(e => e.toLowerCase()) : [])
           ]))
-        : ['default'];
+        : (userId && userId !== 'default')
+          ? Array.from(new Set([
+              userId,
+              ...getKhumaloNkosiAliases(userId)
+            ]))
+          : ['default'];
 
       const targetTenants = isNedaContext
-        ? Array.from(new Set([tenantId, 'neda', 'tenant-neda', 'neda_auto', 'tenant-229']))
+        ? ['neda', 'tenant-neda']
         : [tenantId];
 
       const nowIso = new Date().toISOString();
@@ -14973,16 +15045,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const nedaPkg = findNedaPackageByEmailOrName(userId);
       const isNedaContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaPkg;
 
-      const targetUsers = (userId && userId !== 'default')
+      const targetUsers = isNedaContext
         ? Array.from(new Set([
             userId,
-            ...getKhumaloNkosiAliases(userId),
             ...(nedaPkg ? [nedaPkg.primaryEmail, ...(nedaPkg.aliases || [])].map(e => e.toLowerCase()) : [])
           ]))
-        : ['default'];
+        : (userId && userId !== 'default')
+          ? Array.from(new Set([
+              userId,
+              ...getKhumaloNkosiAliases(userId)
+            ]))
+          : ['default'];
 
       const targetTenants = isNedaContext
-        ? Array.from(new Set([tenantId, 'neda', 'tenant-neda', 'neda_auto', 'tenant-229']))
+        ? ['neda', 'tenant-neda']
         : [tenantId];
 
       // Determine the exact competency rows being pushed for this user
@@ -15013,7 +15089,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       for (const tId of targetTenants) {
         for (const u of targetUsers) {
           // CRITICAL GUARD: NEVER allow NEDA pushes or user-scoped pushes to touch global tenant-229 (Nkangala Municipal Manager)
-          if (tId === 'tenant-229' && (u === 'default' || !u)) continue;
+          if (tId === 'tenant-229' && (u === 'default' || !u || isNedaContext)) continue;
 
           // 1. Save to core_competencies_${tId}_${u}
           const ccDocId = `core_competencies_${tId}_${u}`;
@@ -15070,7 +15146,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           });
 
           // 3. Update the actual Performance Agreement document read by PADraftingSuite (`draft_doc_${tId}_${u}`)
-          const draftDocId = (u && u !== 'default') ? `draft_doc_${tId}_${u}`.toLowerCase() : `draft_doc_${tId}`.toLowerCase();
+          const draftDocId = isNedaContext 
+            ? `draft_doc_${tId}_${u}`.toLowerCase()
+            : ((u && u !== 'default') ? `draft_doc_${tId}_${u}`.toLowerCase() : `draft_doc_${tId}`.toLowerCase());
           const { data: existingDraftData } = await supabase
             .from('messages')
             .select('content')
@@ -16827,18 +16905,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       let error: any = null;
       let hadQueryError = false;
 
+      const isNedaContext = routeTenantId === 'neda' || routeTenantId === 'tenant-neda' || tenantId === 'neda' || tenantId === 'tenant-neda' || Boolean(findNedaPackageByEmailOrName(userId));
+
       const aliasUsers = getKhumaloNkosiAliases(userId);
-      const primaryCacheKeys = Array.from(new Set([
-        documentId,
-        ...aliasUsers.flatMap(aUser => [
-          `pplan_neda_${aUser}`,
-          `pplan_tenant-neda_${aUser}`,
-          `pplan_tenant-229_${aUser}`,
-          `pplan_nkangala_auto_${aUser}`,
-          `pplan_global_${aUser}`
-        ])
-      ]));
-      if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
+      const primaryCacheKeys = isNedaContext
+        ? Array.from(new Set([
+            `pplan_neda_${userId}`,
+            `pplan_tenant-neda_${userId}`,
+            ...aliasUsers.flatMap(aUser => [
+              `pplan_neda_${aUser}`,
+              `pplan_tenant-neda_${aUser}`
+            ])
+          ]))
+        : Array.from(new Set([
+            documentId,
+            ...aliasUsers.flatMap(aUser => [
+              `pplan_tenant-229_${aUser}`,
+              `pplan_nkangala_auto_${aUser}`,
+              `pplan_global_${aUser}`
+            ])
+          ]));
+      if (!isNedaContext && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
         primaryCacheKeys.push(
           `pplan_tenant-229_mahlanguml@nkangaladm.gov.za`,
           `pplan_tenant-229_mahlangulm@nkangaladm.gov.za`,
@@ -16865,9 +16952,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (!data) {
         // Fast Canonical Lookup First: query ONLY the canonical row (`pplan_tenant-229_${userId}` or `documentId`) first
         // so users with large embedded POE documents never download 40MB-80MB redundant rows on a single request!
-        const canonicalDocId = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
-          ? `pplan_tenant-229_${userId}`
-          : documentId;
+        const canonicalDocId = isNedaContext
+          ? `pplan_neda_${userId}`
+          : ((tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+            ? `pplan_tenant-229_${userId}`
+            : documentId);
 
         let batchRowsData: any[] = [];
         if (isTeamPmsCoOwner(userId)) {
@@ -16906,14 +16995,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             batchRowsData = [canonicalRes.data];
           } else {
             // Canonical row missing: fall back to querying secondary pplan and kpis keys (including nkosibs/khumalobs aliases)
-            const kpiCandidateKeys = Array.from(new Set(
-              aliasUsers.flatMap(aUser => [
-                `kpis_${tenantId}_${aUser}`,
-                `kpis_tenant-229_${aUser}`,
-                `kpis_nkangala_auto_${aUser}`,
-                `kpis_global_${aUser}`
-              ])
-            ));
+            const kpiCandidateKeys = isNedaContext
+              ? Array.from(new Set(
+                  aliasUsers.flatMap(aUser => [
+                    `kpis_neda_${aUser}`,
+                    `kpis_tenant-neda_${aUser}`
+                  ])
+                ))
+              : Array.from(new Set(
+                  aliasUsers.flatMap(aUser => [
+                    `kpis_${tenantId}_${aUser}`,
+                    `kpis_tenant-229_${aUser}`,
+                    `kpis_nkangala_auto_${aUser}`,
+                    `kpis_global_${aUser}`
+                  ])
+                ));
             const secondaryKeys = [...primaryCacheKeys.filter(k => k !== canonicalDocId), ...kpiCandidateKeys];
             const batchRes = await supabase
               .from('messages')
@@ -17182,16 +17278,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             ...(parsed?.metadata || {}),
             name: nedaPlanPkg.fullName,
             employeeName: nedaPlanPkg.fullName,
-            position: nedaPlanPkg.jobTitle,
-            jobTitle: nedaPlanPkg.jobTitle,
+            position: nedaPlanPkg.jobFunction,
+            jobTitle: nedaPlanPkg.jobFunction,
             department: nedaPlanPkg.department,
             directorate: nedaPlanPkg.directorate,
-            manager: nedaPlanPkg.manager,
-            reportTo: nedaPlanPkg.reportTo,
-            managerEmail: nedaPlanPkg.managerEmail,
+            manager: nedaPlanPkg.supervisorName,
+            reportTo: nedaPlanPkg.supervisorTitle,
+            managerEmail: nedaPlanPkg.supervisorEmail,
             financialYear: nedaPlanPkg.financialYear,
             period: nedaPlanPkg.period,
-            municipality: nedaPlanPkg.municipality
+            municipality: 'Nkangala Economic Development Agency (NEDA)'
           },
           items: mergedNedaItems,
           rows: mergedNedaItems
@@ -18288,15 +18384,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
-      const targetUsers = getKhumaloNkosiAliases(userId);
-      if (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml')) {
+      const isNedaTenant = routeTenantId === 'neda' || routeTenantId === 'tenant-neda' || tenantId === 'neda' || tenantId === 'tenant-neda' || Boolean(findNedaPackageByEmailOrName(userId));
+
+      const targetUsers = isNedaTenant
+        ? [userId]
+        : getKhumaloNkosiAliases(userId);
+      if (!isNedaTenant && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
         if (!targetUsers.includes('mahlanguml@nkangaladm.gov.za')) targetUsers.push('mahlanguml@nkangaladm.gov.za');
         if (!targetUsers.includes('mahlangulm@nkangaladm.gov.za')) targetUsers.push('mahlangulm@nkangaladm.gov.za');
       }
 
-      const syncTenants = (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || userId.includes('@nkangaladm.gov.za'))
-        ? ['tenant-229', 'nkangala_auto', 'global']
-        : [tenantId, 'global'];
+      const syncTenants = isNedaTenant
+        ? ['neda', 'tenant-neda']
+        : ((tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || userId.includes('@nkangaladm.gov.za'))
+          ? ['tenant-229', 'nkangala_auto', 'global']
+          : [tenantId, 'global']);
 
       const isSyntheticPostItem = (it: any): boolean => {
         if (!it) return true;
@@ -18513,9 +18615,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       if (supabase) {
-        const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
-          ? 'tenant-229'
-          : tenantId;
+        const canonicalTenant = isNedaTenant
+          ? 'neda'
+          : ((tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+            ? 'tenant-229'
+            : tenantId);
 
         const primaryRows: any[] = [];
         const secondaryRows: any[] = [];
@@ -21651,28 +21755,44 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const documentId = `kpis_${tenantId}_${userId}`;
       const aliasUsers = getKhumaloNkosiAliases(userId);
-      const fallbackDocIds = Array.from(new Set([
-        documentId,
-        ...aliasUsers.flatMap(aUser => [
-          `kpis_neda_${aUser}`,
-          `kpis_tenant-neda_${aUser}`,
-          `kpis_tenant-229_${aUser}`,
-          `kpis_nkangala_auto_${aUser}`,
-          `kpis_global_${aUser}`
-        ])
-      ]));
+      const isNedaTenant = tenantId === 'neda' || tenantId === 'tenant-neda' || tenantId === 'neda_auto' || userId.endsWith('@neda.gov.za') || Boolean(findNedaPackageByEmailOrName(userId));
+
+      const fallbackDocIds = isNedaTenant
+        ? Array.from(new Set([
+            `kpis_neda_${userId}`,
+            `kpis_tenant-neda_${userId}`,
+            ...aliasUsers.flatMap(aUser => [
+              `kpis_neda_${aUser}`,
+              `kpis_tenant-neda_${aUser}`
+            ])
+          ]))
+        : Array.from(new Set([
+            documentId,
+            ...aliasUsers.flatMap(aUser => [
+              `kpis_tenant-229_${aUser}`,
+              `kpis_nkangala_auto_${aUser}`,
+              `kpis_global_${aUser}`
+            ])
+          ]));
 
       // Also inspect pplanCache / pplan documents so any manager approvals/rejections on pplan are reflected in /kpis
-      const pplanLookupKeys = Array.from(new Set([
-        `pplan_${tenantId}_${userId}`,
-        ...aliasUsers.flatMap(aUser => [
-          `pplan_neda_${aUser}`,
-          `pplan_tenant-neda_${aUser}`,
-          `pplan_tenant-229_${aUser}`,
-          `pplan_nkangala_auto_${aUser}`,
-          `pplan_global_${aUser}`
-        ])
-      ]));
+      const pplanLookupKeys = isNedaTenant
+        ? Array.from(new Set([
+            `pplan_neda_${userId}`,
+            `pplan_tenant-neda_${userId}`,
+            ...aliasUsers.flatMap(aUser => [
+              `pplan_neda_${aUser}`,
+              `pplan_tenant-neda_${aUser}`
+            ])
+          ]))
+        : Array.from(new Set([
+            `pplan_${tenantId}_${userId}`,
+            ...aliasUsers.flatMap(aUser => [
+              `pplan_tenant-229_${aUser}`,
+              `pplan_nkangala_auto_${aUser}`,
+              `pplan_global_${aUser}`
+            ])
+          ]));
       const pplanStatusOverlay = new Map<string, any>();
       let isPlanExplicitlyCleared = false;
       for (const pKey of pplanLookupKeys) {
@@ -21812,7 +21932,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       // Fallback to pplan document if kpis document has 0 items
-      const pplanDocId = `pplan_${tenantId}_${userId}`;
+      const pplanDocId = isNedaTenant ? `pplan_neda_${userId}` : `pplan_${tenantId}_${userId}`;
       const { data: pData } = await supabase.from('messages').select('content').eq('id', pplanDocId).maybeSingle();
       if (pData && pData.content) {
         try {
@@ -21922,14 +22042,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       const payload = { kpis: cleanKpis };
       const payloadStr = JSON.stringify(payload);
-      const canonicalTenant = (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
-        ? 'tenant-229'
-        : tenantId;
+      const isNedaKpis = tenantId === 'neda' || tenantId === 'tenant-neda' || tenantId === 'neda_auto' || userId.endsWith('@neda.gov.za') || Boolean(findNedaPackageByEmailOrName(userId));
+      const canonicalTenant = isNedaKpis
+        ? 'neda'
+        : ((tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
+          ? 'tenant-229'
+          : tenantId);
       const primaryId = `kpis_${canonicalTenant}_${userId}`;
       const nowIso = new Date().toISOString();
       const nowMs = Date.now();
 
-      const syncKpiTenants = Array.from(new Set([canonicalTenant, tenantId, 'nkangala_auto', 'global']));
+      const syncKpiTenants = isNedaKpis
+        ? ['neda', 'tenant-neda']
+        : Array.from(new Set([canonicalTenant, tenantId, 'nkangala_auto', 'global']));
       for (const tId of syncKpiTenants) {
         kpisCache.set(`kpis_${tId}_${userId}`, { raw: payloadStr, timestamp: nowMs });
       }
