@@ -32,6 +32,12 @@ export function resolveUserEmailAlias(email: string): string {
   if (norm === 'morari@nkangaladm.gov.za' || norm === 'morarj@nkangaladm.gov.za') {
     return 'morarj@nkangaladm.gov.za';
   }
+  if (norm.includes('bvuma') && (norm.includes('mgr') || norm.includes('manager'))) {
+    return 'bvumaa-mgr@nkangaladm.gov.za';
+  }
+  if (norm.includes('bvuma') || norm.includes('alvin.bvuma') || norm.includes('a.bvuma')) {
+    return 'bvumaa@nkangaladm.gov.za';
+  }
   return norm;
 }
 
@@ -39,7 +45,7 @@ export function resolveUserEmailAlias(email: string): string {
  * Transforms or filters KPIs according to specific official instructions.
  */
 export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[] {
-  const normEmail = normalizeEmail(userEmail);
+  const normEmail = resolveUserEmailAlias(normalizeEmail(userEmail));
 
   // 1. Ms. Jayvanti Morar (MorarJ@nkangaladm.gov.za or morarj@nkangaladm.gov.za or morari@nkangaladm.gov.za)
   if (isJayvantiMorar(normEmail)) {

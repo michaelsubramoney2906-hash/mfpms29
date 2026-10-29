@@ -646,7 +646,14 @@ async function fixNedaTenants() {
 
 export function normalizeNkangalaEmail(email: string): string {
   if (!email) return '';
-  return email.toLowerCase().trim();
+  const clean = email.toLowerCase().trim();
+  if (clean.includes('bvuma') && (clean.includes('mgr') || clean.includes('manager'))) {
+    return 'bvumaa-mgr@nkangaladm.gov.za';
+  }
+  if (clean.includes('bvuma') && !clean.includes('bvumaa-mgr')) {
+    return 'bvumaa@nkangaladm.gov.za';
+  }
+  return clean;
 }
 
 export const DISASTER_CONTROL_TEAM_EMAILS = [
