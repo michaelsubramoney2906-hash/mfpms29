@@ -712,6 +712,255 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 20. Ms. M.J. Thabang (thabangmj@nkangaladm.gov.za) - Remove duplicate seed templates, preserve submitted items
+  if (normEmail === 'thabangmj@nkangaladm.gov.za' || normEmail.includes('thabangmj')) {
+    const seenSeedMap = new Map<string, number>();
+    result = result.filter((kpi) => {
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+      if (desc.includes('clean audit opinion') || desc.includes('compile and sign the annual performance agreement')) {
+        const key = desc.includes('clean audit') ? 'clean_audit' : 'annual_pa';
+        const count = seenSeedMap.get(key) || 0;
+        seenSeedMap.set(key, count + 1);
+        if (count >= 1) {
+          return false; // Remove repeated seed templates
+        }
+      }
+      return true;
+    });
+
+    result = result.map(kpi => {
+      const hasActual = Boolean(kpi.q1Actual && String(kpi.q1Actual).trim() !== '' && String(kpi.q1Actual).trim().toUpperCase() !== 'N/A');
+      const hasDocs = Array.isArray(kpi.q1PoeDocs) && kpi.q1PoeDocs.length > 0;
+      if ((hasActual || hasDocs) && (!kpi.reviewStatus || kpi.reviewStatus === 'Draft' || kpi.reviewStatus === 'In Progress')) {
+        return {
+          ...kpi,
+          reviewStatus: 'Submitted for Approval'
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 21. Mr. M. Mokgolo (mokgolomothome@nkangaladm.gov.za) - Ensure all 24 KPIs preserve Submitted status when actuals/POEs exist
+  if (normEmail === 'mokgolomothome@nkangaladm.gov.za' || normEmail.includes('mokgolomothome')) {
+    result = result.map((kpi) => {
+      const hasPoeDocs = (Array.isArray(kpi.q1PoeDocs) && kpi.q1PoeDocs.length > 0) ||
+                         (Array.isArray(kpi.q2PoeDocs) && kpi.q2PoeDocs.length > 0) ||
+                         (Array.isArray(kpi.q3PoeDocs) && kpi.q3PoeDocs.length > 0) ||
+                         (Array.isArray(kpi.q4PoeDocs) && kpi.q4PoeDocs.length > 0) ||
+                         Boolean(kpi.poeFileBase64 || kpi.poeFileName);
+      const hasActuals = (kpi.q1Actual && String(kpi.q1Actual).trim() !== '' && String(kpi.q1Actual).trim().toUpperCase() !== 'N/A') ||
+                         (kpi.q2Actual && String(kpi.q2Actual).trim() !== '' && String(kpi.q2Actual).trim().toUpperCase() !== 'N/A') ||
+                         (kpi.q3Actual && String(kpi.q3Actual).trim() !== '' && String(kpi.q3Actual).trim().toUpperCase() !== 'N/A') ||
+                         (kpi.q4Actual && String(kpi.q4Actual).trim() !== '' && String(kpi.q4Actual).trim().toUpperCase() !== 'N/A') ||
+                         Boolean(kpi.q1Score || kpi.myScore || kpi.evaluationComment);
+      if ((hasPoeDocs || hasActuals) && (!kpi.reviewStatus || kpi.reviewStatus === 'Draft' || kpi.reviewStatus === 'In Progress')) {
+        return {
+          ...kpi,
+          reviewStatus: 'Submitted for Approval'
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 22. Mr. Alvin Bvuma (bvumaa@nkangaladm.gov.za) - Reconcile strictly 22 official KPIs from signed July-August 2026 Acting GM PED PA
+  if (normEmail === 'bvumaa@nkangaladm.gov.za' || normEmail === 'bvumaa') {
+    const officialActingKpis = [
+      { kpiNo: 'M_07', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Percentage of administrative staff who have declared their financial interests (circular 88) by 30 June 2027', weighting: '2', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Report on Declarations of Interests of Employees' },
+      { kpiNo: '1', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Number of performance agreement signed with direct subordinates and submit to PMS unit by 30 July 2026', weighting: '2', baseline: 'New', annualTarget: '2', q1Target: '2', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from PMS' },
+      { kpiNo: '2', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Number of quarterly leave reconciliation report submitted to Corporate Services', weighting: '2', baseline: '4', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from corporate services' },
+      { kpiNo: '3', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '2', baseline: 'New', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '4', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Percentage of leave approvals processed within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '2', baseline: 'New', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '5', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Submission of a Contract Request Development Memo to Legal Services within 7 (seven) days of receipt of an acceptance letter from the Service Provider.', weighting: '2', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Assurance Certificate signed by the Senior Legal Advisor.' },
+      { kpiNo: '6', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Percentage on implementation of CoGHSTA recommendations by 30 June 2027.', weighting: '2', baseline: 'New', annualTarget: '20%', q1Target: '20%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed quarterly resolution tracking progress report on the implementation. Proof of submission' },
+      { kpiNo: '7', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Percentage on implementation of revenue enhancement and cost containment initiatives to support municipal financial sustainability by 30 June 2027.', weighting: '2', baseline: 'New', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed progress implementation report' },
+      { kpiNo: '8', kpa: 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION', kpi: 'Percentage implementation and Monitoring of Employment Equity Plan per quarter', weighting: '2', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Progress report on the implementation of EEP Plan' },
+      { kpiNo: 'M_15', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of action plans implemented to address Strategic Risks Identified per quarter (PED)', weighting: '2', baseline: '89%', annualTarget: '90%', q1Target: '90%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly Strategic Risk report' },
+      { kpiNo: 'M_16', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of action plans implemented to address Operational Risks Identified per quarter (PED)', weighting: '2', baseline: '98%', annualTarget: '98%', q1Target: '98%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly Operational Risk report' },
+      { kpiNo: 'M_17', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (PED)', weighting: '2', baseline: '96%', annualTarget: '96%', q1Target: '96%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly Fraud and corruption Risk report' },
+      { kpiNo: 'M_27', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Number of 2027/2028 IDP Final Framework Plan approved by 30 August 2026.', weighting: '2', baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Final Framework Plan and Council resolution' },
+      { kpiNo: 'M_34', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Number of Nkangala District One Plan (DDM) report submitted to council by 30 June 2027.', weighting: '2', baseline: '4', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Quarterly Report on the Implementation of DDM One Plan and Council Resolutions.' },
+      { kpiNo: 'M_35', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of DDM One Plan resolutions implemented by NDM per quarter', weighting: '1', baseline: 'New', annualTarget: '60%', q1Target: '60%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Quarterly DDM One Plan resolution monitoring report.' },
+      { kpiNo: 'M_36', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of strategic lekgotla resolutions implemented by 30 June 2027', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Strategic Lekgotla monitoring report' },
+      { kpiNo: 'M_37', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Number of reports on Council Resolutions submitted to Council per quarter', weighting: '2', baseline: 'New', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly Reports and Council Resolution.' },
+      { kpiNo: 'M_40', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of internal audit recommendations implemented by 30 June 2027. (PED)', weighting: '2', baseline: '58%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly IA report' },
+      { kpiNo: 'M_41', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of audit committee resolutions implemented by 30 June 2027. (PED)', weighting: '2', baseline: '83%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly Audit committee resolution register' },
+      { kpiNo: 'M_45', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Number of EPWP Full Time Equivalent (FTE’s) job opportunities provided (GKPI) by 30 June 2027.', weighting: '10', baseline: '350', annualTarget: '30', q1Target: '30', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed progress reports and listing of employed EPWP Full Time Equivalent (FTE’s)' },
+      { kpiNo: 'M_46', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Number of EPWP Work Opportunities jobs created (GKPI) by 30 June 2027', weighting: '10', baseline: '553', annualTarget: '300', q1Target: '300', q2Target: '0', q3Target: '0', q4Target: 'N/A', poe: 'Signed progress reports and listing of employed EPWP' },
+      { kpiNo: 'P_01', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: '50 SASSETA Learnership (Security) recruited and trained by 30 June 2027 (34377)', weighting: '5', baseline: 'Stage 3', annualTarget: 'Stage 2 (100%): Appointment of service provider', q1Target: 'Stage 2 (100%): Appointment of service provider', q2Target: 'Stage 3 (50%): Recruitment', q3Target: 'Stage 3 (75%): Theory', q4Target: 'Stage 3 (100%): Practical', poe: 'Appointment Letter, Contracts of learners' },
+      { kpiNo: 'P_02', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Support to SMMEs/ Cooperatives/ Informal Traders by 30 June 2027. (34409)', weighting: '5', baseline: 'Stage 3', annualTarget: 'Stage 1 (100%): Bid Specification Committee Resolution', q1Target: 'Stage 1 (100%): Bid Specification Committee Resolution', q2Target: 'Stage 2 (25%): Tender Advert', q3Target: 'Stage 2 (100%): BAC Resolution', q4Target: 'Stage 3 (100%): Signing of Agreement', poe: 'BSC Resolution, Tender Advert Tear Sheet' },
+      { kpiNo: 'M_53', kpa: 'KPA 4: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', kpi: 'Percentage of operational budget actually spent (circular 88) by 30 June 2027.', weighting: '2', baseline: '91%', annualTarget: '20%', q1Target: '20%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Operational Expenditure progress report' },
+      { kpiNo: 'M_54', kpa: 'KPA 4: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', kpi: 'Percentage of transfer and subsidies budget actually spent on projects (local Municipalities projects) by 30 June 2027', weighting: '2', baseline: '89%', annualTarget: '20%', q1Target: '20%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Transfer and subsidies Expenditure signed progress report' },
+      { kpiNo: 'M_64', kpa: 'KPA 4: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', kpi: 'Percentage of procurement plan implementation by 30 June 2027', weighting: '3', baseline: '89%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Quarterly Procurement plan report' },
+      { kpiNo: '9', kpa: 'KPA 4: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', kpi: '% attendance at scheduled Bid Committee meetings per quarter', weighting: '3', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Quarterly Bid Committee Report' },
+      { kpiNo: 'M_91', kpa: 'KPA 6: SPATIAL RATIONALE', kpi: 'Percentage of compliant applications considered by municipal tribunal with respect to land use application within 120 days by 30 June 2027.', weighting: '5', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Register of application compliant and minutes of municipal tribunal' },
+      { kpiNo: 'M_92', kpa: 'KPA 6: SPATIAL RATIONALE', kpi: 'Number of quarterly reports on land development applications received and responded to by the Local Municipalities by 30 June 2027.', weighting: '5', baseline: 'New', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Progress report on Land Development applications' },
+      { kpiNo: 'P_18', kpa: 'KPA 6: SPATIAL RATIONALE', kpi: 'Finalisation of a Township Establishment in Siyathuthuka', weighting: '5', baseline: 'Stage 2', annualTarget: 'Stage 1 (100%): Appointment of Service Provider', q1Target: 'Stage 1 (100%): Appointment of Service Provider', q2Target: 'Stage 2 (30%): Inception Report', q3Target: 'Stage 2 (60%): Draft Special Study', q4Target: 'Stage 2 (100%): Final Special Study', poe: 'Appointment Letter, Inception Report' },
+      { kpiNo: '10', kpa: 'KPA 7: SKILLS DEVELOPMENT', kpi: 'Number of quarterly Internships/Learnerships assessments conducted in the department by 30 June 2027', weighting: '9', baseline: 'New', annualTarget: '4', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed quarterly assessment progress reports' }
+    ];
+
+    const existingMap = new Map<string, any>();
+    if (Array.isArray(result)) {
+      result.forEach(item => {
+        if (item) {
+          const kNo = String(item.kpiNo || '').toUpperCase();
+          const desc = String(item.kpi || item.description || '').toLowerCase();
+          if (kNo) existingMap.set(kNo, item);
+          if (desc) existingMap.set(desc.substring(0, 30), item);
+        }
+      });
+    }
+
+    result = officialActingKpis.map((def, idx) => {
+      const existing = existingMap.get(def.kpiNo.toUpperCase()) || existingMap.get(def.kpi.toLowerCase().substring(0, 30)) || {};
+      const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      return {
+        ...existing,
+        id: existing.id || `bvumaa-acting-kpi-${idx + 1}`,
+        kpiNo: def.kpiNo,
+        'kpi no': def.kpiNo,
+        kpa: def.kpa,
+        functionalKpa: def.kpa,
+        kpi: def.kpi,
+        indicator: def.kpi,
+        description: def.kpi,
+        'kpi description': def.kpi,
+        weighting: def.weighting,
+        weight: def.weighting,
+        '%wt': def.weighting,
+        baseline: def.baseline,
+        annualTarget: def.annualTarget,
+        'annual target': def.annualTarget,
+        q1Target: def.q1Target,
+        '1st qtr target': def.q1Target,
+        q2Target: def.q2Target,
+        '2nd qtr target': def.q2Target,
+        q3Target: def.q3Target,
+        '3rd qtr target': def.q3Target,
+        q4Target: def.q4Target,
+        '4th qtr target': def.q4Target,
+        poe: allQtrPoe,
+        annualRequiredPoe: def.poe,
+        q1Poe: def.poe,
+        q2Poe: def.poe,
+        midtermPoe: def.poe,
+        q3Poe: def.poe,
+        q4Poe: def.poe,
+        budget: 'OPEX',
+        q1Applicable: def.q1Target !== 'N/A',
+        q1Locked: def.q1Target === 'N/A',
+        reviewStatus: existing.reviewStatus || (existing.q1Actual ? 'Submitted for Approval' : undefined),
+        reviewApprovalStatus: existing.reviewApprovalStatus,
+        q1PoeStatus: existing.q1PoeStatus,
+        q1Actual: existing.q1Actual,
+        q1PoeDocs: Array.isArray(existing.q1PoeDocs) ? existing.q1PoeDocs : []
+      };
+    });
+  }
+
+  // 23. Mr. Alvin Bvuma (bvumaa-mgr@nkangaladm.gov.za) - Reconcile strictly 24 official KPIs from signed 2026/2027 Manager PED PA
+  if (normEmail === 'bvumaa-mgr@nkangaladm.gov.za' || normEmail === 'bvumaa-mgr') {
+    const officialManagerKpis = [
+      { kpiNo: 'M_11', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of new/reviewed policies approved by Council by 30 June 2027', weighting: '1', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '1', poe: 'Report to Council and Council Resolution(s)' },
+      { kpiNo: 'M_15', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of action plans implemented to address Strategic Risks Identified per quarter (PED)', weighting: '1', baseline: '90%', annualTarget: '90%', q1Target: '90%', q2Target: '90%', q3Target: '90%', q4Target: '90%', poe: 'Signed Quarterly Strategic Risk report' },
+      { kpiNo: 'M_16', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of action plans implemented to address Operational Risks Identified per quarter (PED)', weighting: '1', baseline: '97%', annualTarget: '98%', q1Target: '98%', q2Target: '98%', q3Target: '98%', q4Target: '98%', poe: 'Signed Quarterly Operational Risk report' },
+      { kpiNo: 'M_17', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (PED)', weighting: '1', baseline: '95%', annualTarget: '96%', q1Target: '96%', q2Target: '96%', q3Target: '96%', q4Target: '96%', poe: 'Signed Quarterly Fraud and corruption Risk report' },
+      { kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Attain clean audit opinion by 31 December 2026.', weighting: '1', baseline: '1', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG’s Audit Report' },
+      { kpiNo: 'M_22', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of repeat audit findings (circular 88) by 30 December 2026.', weighting: '1', baseline: '0', annualTarget: '≤ 0', q1Target: 'N/A', q2Target: '≤ 0', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG’s Audit Report' },
+      { kpiNo: 'M_23', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.', weighting: '1', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'Audit Action Plan and Council resolution' },
+      { kpiNo: 'M_24', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of AG Findings raised in the Management Letter resolved (PED) by 30 June 2027.', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: 'N/A', q2Target: 'N/A', q3Target: '40%', q4Target: '100%', poe: 'Signed Progress Report on the Implementation of the Audit Action Plan.' },
+      { kpiNo: 'M_36', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of strategic lekgotla resolutions implemented by 30 June 2027. (PED)', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Strategic Lekgotla monitoring report' },
+      { kpiNo: 'M_37', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of reports on Council Resolutions submitted to Council per quarter (PED)', weighting: '1', baseline: 'New', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly Reports and Council Resolution.' },
+      { kpiNo: 'M_40', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of internal audit recommendations implemented by 30 June 2027 (PED)', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly IA report' },
+      { kpiNo: 'M_41', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of audit committee resolutions implemented by 30 June 2027.', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Audit committee resolution register' },
+      { kpiNo: '13', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026', weighting: '1', baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit' },
+      { kpiNo: '14', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of performance agreements signed with subordinates and submitted to OPME & PMDS unit for the 2026/2027 financial year by 30 July 2026', weighting: '1', baseline: '5', annualTarget: '5', q1Target: '5', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit' },
+      { kpiNo: '15', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of self-assessment report compiled and submitted to Supervisor per quarter.', weighting: '1', baseline: '4', annualTarget: '4', q1Target: '1 (Q1 assessment)', q2Target: '1 (midyear assessment)', q3Target: '1 (Q3 assessment)', q4Target: '1 (annual assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS unit' },
+      { kpiNo: '16', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', weighting: '1', baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit' },
+      { kpiNo: '17', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of informal performance evaluation conducted with all subordinates per quarter', weighting: '1', baseline: '2', annualTarget: '2 (Q1 & Q3)', q1Target: '1 (Q1)', q2Target: 'N/A', q3Target: '1 (Q3)', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit' },
+      { kpiNo: '18', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of quarterly leave reconciliation report submitted to Departmental General Manager (within 30 days after end of each quarter)', weighting: '1', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Compliance certificate from corporate services' },
+      { kpiNo: '19', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '20', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of leave approvals processed within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of departmental Training Needs Analysis submitted (TNA) by 30 March 2027', weighting: '1', baseline: 'New', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Compliance Certificate issued by HRM&D Unit.' },
+      { kpiNo: '22', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of quarterly Internships/Learnerships assessments conducted in the department by 30 June 2027', weighting: '1', baseline: 'New', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed quarterly assessment progress reports' },
+      { kpiNo: 'M_53', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of operational budget actually spent (circular 88) by 30 June 2027.', weighting: '2', baseline: '90%', annualTarget: '91%', q1Target: '20%', q2Target: '40%', q3Target: '60%', q4Target: '91%', poe: 'Signed Operational Expenditure progress report' },
+      { kpiNo: 'M_54', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage of transfer and subsidies budget actually spent on projects (local Municipalities projects) by 30 June 2027', weighting: '2', baseline: '90%', annualTarget: '90%', q1Target: '20%', q2Target: '40%', q3Target: '60%', q4Target: '90%', poe: 'Transfer and subsidies Expenditure signed progress report' },
+      { kpiNo: 'M_64', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: 'Percentage implementation of the procurement plan by 30 June 2027.', weighting: '2', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Procurement plan report' },
+      { kpiNo: '26', kpa: 'KPA 2: GOOD GOVERNANCE AND PUBLIC PARTICIPATION', kpi: '100% attendance at scheduled Bid Committee meetings per quarter', weighting: '4', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Bid Committee Attendance Report' },
+      { kpiNo: 'M_45', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Number of EPWP Full Time Equivalent (FTE’s) job opportunities provided (GKPI) by 30 June 2027.', weighting: '5', baseline: '350', annualTarget: '132', q1Target: '30', q2Target: '30', q3Target: '30', q4Target: '42', poe: 'Signed progress reports and listing of employed EPWP Full Time Equivalent (FTE’s)' },
+      { kpiNo: 'M_46', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Number of EPWP Work Opportunities jobs created (GKPI) by 30 June 2027', weighting: '5', baseline: '553', annualTarget: '394', q1Target: '300', q2Target: '0', q3Target: '0', q4Target: '94', poe: 'Signed progress reports and listing of employed EPWP' },
+      { kpiNo: 'M_47', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Number of Final LED Strategy Reviewed by 31 December 2026.', weighting: '5', baseline: 'New', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'Final LED Strategy and Council resolution' },
+      { kpiNo: 'M_49', kpa: 'KPA 3: LOCAL ECONOMIC DEVELOPMENT', kpi: 'Number of Tourism Expo convened by 30 April 2027.', weighting: '5', baseline: '71%', annualTarget: '66%', q1Target: 'N/A', q2Target: 'N/A', q3Target: '40%', q4Target: '66%', poe: 'Signed SCM Quarterly Report on designated groups who benefited from NDM' },
+      { kpiNo: '31', kpa: 'KPA 4: TRANSPORT PLANNING', kpi: 'Number of District Transport Forum meetings attended by June 2027', weighting: '5', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'NDM Transport Forum Attendance register and Agenda' },
+      { kpiNo: '32', kpa: 'KPA 5: INTEGRATED DEVELOPMENT PLANNING', kpi: 'Number of IDP/PMS Forums convened by 30 June 2027.', weighting: '6', baseline: '2', annualTarget: '2', q1Target: '1', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Attendance register' },
+      { kpiNo: '33', kpa: 'KPA 5: INTEGRATED DEVELOPMENT PLANNING', kpi: 'Coordinate and facilitate IDP strategic planning lekgotla by 30 June 2027.', weighting: '6', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '1', poe: 'Strategic Lekgotla Attendance Register' },
+      { kpiNo: '34', kpa: 'KPA 5: INTEGRATED DEVELOPMENT PLANNING', kpi: 'Coordinate the 2027 IDP/Budget Indaba by 30 June 2027.', weighting: '6', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '1', poe: 'Indaba register' },
+      { kpiNo: 'M_92', kpa: 'KPA 6: SPATIAL DEVELOPMENT', kpi: 'Number of quarterly reports on land development applications received and responded to by the Local Municipalities by 30 June 2027.', weighting: '10', baseline: 'New', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Progress report on Land Development applications' },
+      { kpiNo: 'P_01', kpa: 'KPA 7: PROJECT MANAGEMENT', kpi: '50 SASSETA Learnership (Security) recruited and trained by 30 June 2027 (34377)', weighting: '5', baseline: 'Stage 3', annualTarget: 'Stage 3: Implementation Stage (100%): Practical Training', q1Target: 'Stage 2 (100%): Appointment', q2Target: 'Stage 3 (50%): Recruitment', q3Target: 'Stage 3 (75%): Theory', q4Target: 'Stage 3 (100%): Practical', poe: 'Appointment Letter, Contracts of learners' },
+      { kpiNo: 'P_02', kpa: 'KPA 7: PROJECT MANAGEMENT', kpi: 'Support to SMMEs/ Cooperatives/ Informal Traders by 30 June 2027. (34409)', weighting: '5', baseline: 'Stage 3', annualTarget: 'Stage 3: Implementation Stage (100%)', q1Target: 'Stage 1 (100%): BSC Resolution', q2Target: 'Stage 2 (25%): Tender Advert', q3Target: 'Stage 2 (100%): BAC Resolution', q4Target: 'Stage 3 (100%): Signing Agreement', poe: 'BSC Resolution, Tender Advert Tear Sheet' },
+      { kpiNo: 'P_18', kpa: 'KPA 7: PROJECT MANAGEMENT', kpi: 'Finalisation of Township Establishment in Siyathuthuka', weighting: '5', baseline: 'Stage 2', annualTarget: 'Stage 2: Implementation stage (100%) Final Special Study and Opening Township Register', q1Target: 'Stage 1 (100%): Appointment', q2Target: 'Stage 2 (30%): Inception Report', q3Target: 'Stage 2 (60%): Draft Special Study', q4Target: 'Stage 2 (100%): Final Special Study', poe: 'Appointment letter, Inception Report' }
+    ];
+
+    const existingMap = new Map<string, any>();
+    if (Array.isArray(result)) {
+      result.forEach(item => {
+        if (item) {
+          const kNo = String(item.kpiNo || '').toUpperCase();
+          const desc = String(item.kpi || item.description || '').toLowerCase();
+          if (kNo) existingMap.set(kNo, item);
+          if (desc) existingMap.set(desc.substring(0, 30), item);
+        }
+      });
+    }
+
+    result = officialManagerKpis.map((def, idx) => {
+      const existing = existingMap.get(def.kpiNo.toUpperCase()) || existingMap.get(def.kpi.toLowerCase().substring(0, 30)) || {};
+      const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      return {
+        ...existing,
+        id: existing.id || `bvumaa-mgr-kpi-${idx + 1}`,
+        kpiNo: def.kpiNo,
+        'kpi no': def.kpiNo,
+        kpa: def.kpa,
+        functionalKpa: def.kpa,
+        kpi: def.kpi,
+        indicator: def.kpi,
+        description: def.kpi,
+        'kpi description': def.kpi,
+        weighting: def.weighting,
+        weight: def.weighting,
+        '%wt': def.weighting,
+        baseline: def.baseline,
+        annualTarget: def.annualTarget,
+        'annual target': def.annualTarget,
+        q1Target: def.q1Target,
+        '1st qtr target': def.q1Target,
+        q2Target: def.q2Target,
+        '2nd qtr target': def.q2Target,
+        q3Target: def.q3Target,
+        '3rd qtr target': def.q3Target,
+        q4Target: def.q4Target,
+        '4th qtr target': def.q4Target,
+        poe: allQtrPoe,
+        annualRequiredPoe: def.poe,
+        q1Poe: def.poe,
+        q2Poe: def.poe,
+        midtermPoe: def.poe,
+        q3Poe: def.poe,
+        q4Poe: def.poe,
+        budget: 'OPEX',
+        q1Applicable: def.q1Target !== 'N/A',
+        q1Locked: def.q1Target === 'N/A',
+        reviewStatus: existing.reviewStatus || (existing.q1Actual ? 'Submitted for Approval' : undefined),
+        reviewApprovalStatus: existing.reviewApprovalStatus,
+        q1PoeStatus: existing.q1PoeStatus,
+        q1Actual: existing.q1Actual,
+        q1PoeDocs: Array.isArray(existing.q1PoeDocs) ? existing.q1PoeDocs : []
+      };
+    });
+  }
+
   return result;
 }
 

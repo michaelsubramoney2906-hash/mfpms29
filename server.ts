@@ -18609,9 +18609,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               }
               if (secondaryLists.length > 0) {
                 const baseList = best.plan.items || [];
-                const merged = mergePlanItemsWithSecondary(baseList, secondaryLists, baseList.length === 0).map((it: any) => sanitizePplanItem(it, subId));
+                const merged = applyOfficialUserKpiFixes(mergePlanItemsWithSecondary(baseList, secondaryLists, baseList.length === 0), subId).map((it: any) => sanitizePplanItem(it, subId));
                 best.plan.items = isMetadataOnly ? merged.map(stripHeavyBlobsFromItem) : merged;
               }
+              best.plan.items = applyOfficialUserKpiFixes(best.plan.items || [], subId).map((it: any) => sanitizePplanItem(it, subId));
               if (best.plan.metadata && Array.isArray(best.plan.items)) {
                 // Ensure items with actuals or POE docs attached preserve Submitted status
                 best.plan.items = best.plan.items.map((it: any) => {
