@@ -465,11 +465,44 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
-  // 13. Mr. Mark Ephraim Maseko (masekome@nkangaladm.gov.za) - Unlock KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Quarter 1
+  // 13. Mr. Mark Ephraim Maseko (masekome@nkangaladm.gov.za)
   if (normEmail === 'masekome@nkangaladm.gov.za' || normEmail.includes('masekome')) {
+    // Collect any POE files attached to KPI 1 ("Maintain clean audit opinion")
+    let misplacedPoeDocs: any[] = [];
+    result.forEach((kpi, index) => {
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+      if (index === 0 || desc.includes('clean audit opinion')) {
+        if (Array.isArray(kpi.q1PoeDocs) && kpi.q1PoeDocs.length > 0) {
+          misplacedPoeDocs = [...kpi.q1PoeDocs];
+        }
+      }
+    });
+
+    const hrPlanDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('hr plan') || (d.name || '').toLowerCase().includes('hr plan'));
+    const vacancyDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('vacancy'));
+
     result = result.map((kpi, index) => {
       const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim();
       const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      // Clean Audit KPI (Index 0 / Maintain Clean Audit)
+      if (index === 0 || desc.includes('clean audit opinion')) {
+        return {
+          ...kpi,
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q1Locked: true,
+          q1Applicable: false,
+          q1PoeStatus: 'N/A',
+          q1Actual: '',
+          q1Poe: '',
+          poe: '',
+          q1PoeDocs: [],
+          q1Score: ''
+        };
+      }
+
+      // Unlock KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Quarter 1
       if (
         index === 4 ||
         (ref === '5' && (desc.includes('annual performance evaluation') || desc.includes('29 august'))) ||
@@ -484,6 +517,29 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
           lockedQuarters: (kpi.lockedQuarters || []).filter((q: string) => q.toUpperCase() !== 'Q1')
         };
       }
+
+      // HR Plan KPI (Index 8: "HR plan developed and submitted to GM CS by 30 September 2026")
+      if (index === 8 || desc.includes('hr plan developed')) {
+        const existingDocs = Array.isArray(kpi.q1PoeDocs) ? kpi.q1PoeDocs : [];
+        const mergedDocs = Array.from(new Map([...existingDocs, ...hrPlanDocs].map(d => [d.id || d.name, d])).values());
+        return {
+          ...kpi,
+          q1PoeDocs: mergedDocs,
+          poeFileName: mergedDocs[0]?.name || kpi.poeFileName
+        };
+      }
+
+      // Vacancy Reports KPI (Index 14: "Number of vacant positions coordinated and facilitated for filling as per approved organogram")
+      if (index === 14 || desc.includes('vacant positions coordinated')) {
+        const existingDocs = Array.isArray(kpi.q1PoeDocs) ? kpi.q1PoeDocs : [];
+        const mergedDocs = Array.from(new Map([...existingDocs, ...vacancyDocs].map(d => [d.id || d.name, d])).values());
+        return {
+          ...kpi,
+          q1PoeDocs: mergedDocs,
+          poeFileName: mergedDocs[0]?.name || kpi.poeFileName
+        };
+      }
+
       return kpi;
     });
   }
@@ -513,22 +569,52 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
   // 15. Clean Audit Opinion KPI (M_21 / KPI 1: "Attain clean audit opinion by 31 December 2026") is N/A in Quarter 1 (due Q2: 31 Dec 2026)
   result = result.map(kpi => {
     const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
-    const q1T = String(kpi.q1Target || kpi['1st qtr target'] || '').trim().toUpperCase();
-    if (desc.includes('clean audit opinion') && (q1T === 'N/A' || q1T === 'NA' || q1T === '')) {
+    const kNo = (kpi.kpiNo || kpi['kpi no'] || kpi.refNum || kpi.id || '').toString().trim().toUpperCase();
+    const isCleanAudit = desc.includes('clean audit opinion') || kNo === 'M_21' || kNo === 'M-21';
+
+    if (isCleanAudit) {
       const hasQ2Actual = Boolean(kpi.q2Actual && String(kpi.q2Actual).trim() !== '' && String(kpi.q2Actual).trim().toUpperCase() !== 'N/A');
+      const hasUserQ1Poe = Array.isArray(kpi.q1PoeDocs) && kpi.q1PoeDocs.length > 0 && !kpi.q1PoeDocs.some((d: any) => (d.name || '').toLowerCase().includes('hr plan') || (d.name || '').toLowerCase().includes('vacancy'));
+
       return {
         ...kpi,
+        kpiNo: kpi.kpiNo || 'M_21',
         q1Target: 'N/A',
         '1st qtr target': 'N/A',
         q1Locked: true,
         q1Applicable: false,
         q1PoeStatus: 'N/A',
+        q1Actual: (hasUserQ1Poe || kpi.q1Actual === 'N/A') ? kpi.q1Actual : '',
+        q1Poe: hasUserQ1Poe ? kpi.q1Poe : '',
+        poe: hasUserQ1Poe ? kpi.poe : '',
+        q1PoeDocs: hasUserQ1Poe ? kpi.q1PoeDocs : [],
         reviewStatus: hasQ2Actual ? kpi.reviewStatus : 'N/A',
         reviewApprovalStatus: hasQ2Actual ? kpi.reviewApprovalStatus : ''
       };
     }
     return kpi;
   });
+
+  // 16. Ms. M.A. Lukhele (lukhelema@nkangaladm.gov.za) - Remove duplicate KPI in KPA 4
+  if (normEmail === 'lukhelema@nkangaladm.gov.za' || normEmail.includes('lukhelema')) {
+    const kpa4SeenKeys = new Set<string>();
+    result = result.filter(kpi => {
+      const kpa = (kpi.kpa || kpi.functionalKpa || kpi['functional kpa'] || kpi.kpaName || '').toString().trim().toUpperCase();
+      const isKpa4 = kpa.includes('KPA 4') || kpa.includes('KPA4') || kpa.includes('WATER QUALITY MONITORING');
+      if (isKpa4) {
+        const kpiNo = (kpi.kpiNo || kpi['kpi no'] || kpi.id || '').toString().trim().toLowerCase();
+        const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().trim().toLowerCase();
+        const dedupKey = kpiNo ? `kpi_${kpiNo}` : `desc_${desc.substring(0, 40)}`;
+        if (kpa4SeenKeys.has(dedupKey)) {
+          return false; // Remove duplicate entry in KPA 4
+        }
+        if (dedupKey) {
+          kpa4SeenKeys.add(dedupKey);
+        }
+      }
+      return true;
+    });
+  }
 
   return result;
 }

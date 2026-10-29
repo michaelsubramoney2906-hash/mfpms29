@@ -25216,6 +25216,179 @@ User Request: ${prompt}`;
         await supabase.from('messages').upsert(dedupedControlRoom, { onConflict: 'id' });
       }
 
+      // Clean up duplicate KPA 4 KPIs for M.A. Lukhele (lukhelema@nkangaladm.gov.za)
+      const lukheleEmail = 'lukhelema@nkangaladm.gov.za';
+      const lukheleDocIds = [
+        `pplan_tenant-229_${lukheleEmail}`,
+        `kpis_tenant-229_${lukheleEmail}`,
+        `pplan_nkangala_auto_${lukheleEmail}`,
+        `kpis_nkangala_auto_${lukheleEmail}`
+      ];
+      const { data: lukheleRows } = await supabase.from('messages').select('id, content').in('id', lukheleDocIds);
+      if (Array.isArray(lukheleRows)) {
+        for (const row of lukheleRows) {
+          if (!row.content) continue;
+          try {
+            const parsed = JSON.parse(row.content);
+            const list = parsed.items || parsed.kpis || parsed.rows;
+            if (Array.isArray(list) && list.length > 0) {
+              const kpa4SeenKeys = new Set<string>();
+              const cleanedList = list.filter((it: any) => {
+                const kpa = String(it.kpa || it.functionalKpa || it['functional kpa'] || '').trim().toUpperCase();
+                const isKpa4 = kpa.includes('KPA 4') || kpa.includes('KPA4') || kpa.includes('WATER QUALITY MONITORING');
+                if (isKpa4) {
+                  const kpiNo = String(it.kpiNo || it['kpi no'] || it.id || '').trim().toLowerCase();
+                  const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').trim().toLowerCase();
+                  const dedupKey = kpiNo ? `kpi_${kpiNo}` : `desc_${desc.substring(0, 40)}`;
+                  if (kpa4SeenKeys.has(dedupKey)) {
+                    return false; // Remove duplicate entry in KPA 4
+                  }
+                  if (dedupKey) {
+                    kpa4SeenKeys.add(dedupKey);
+                  }
+                }
+                return true;
+              });
+
+              if (cleanedList.length < list.length) {
+                if (parsed.items) parsed.items = cleanedList;
+                if (parsed.kpis) parsed.kpis = cleanedList;
+                if (parsed.rows) parsed.rows = cleanedList;
+                const updatedContent = JSON.stringify(parsed);
+                await supabase.from('messages').update({ content: updatedContent, updated_at: nowIso }).eq('id', row.id);
+                memoryCache.delete(row.id);
+              }
+            }
+          } catch (err) {}
+        }
+      }
+
+      // Re-associate Mark Maseko's (masekome@nkangaladm.gov.za) misplaced HR POE files to KPI 8 (HR Plan) & KPI 14 (Vacancy Report)
+      const masekoEmail = 'masekome@nkangaladm.gov.za';
+      const masekoDocIds = [
+        `pplan_tenant-229_${masekoEmail}`,
+        `kpis_tenant-229_${masekoEmail}`,
+        `pplan_nkangala_auto_${masekoEmail}`,
+        `kpis_nkangala_auto_${masekoEmail}`
+      ];
+      const { data: masekoRows } = await supabase.from('messages').select('id, content').in('id', masekoDocIds);
+      if (Array.isArray(masekoRows)) {
+        for (const row of masekoRows) {
+          if (!row.content) continue;
+          try {
+            const parsed = JSON.parse(row.content);
+            let list = parsed.items || parsed.kpis || parsed.rows;
+            if (Array.isArray(list) && list.length > 0) {
+              let misplacedPoeDocs: any[] = [];
+              list.forEach((it: any, index: number) => {
+                const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+                if (index === 0 || desc.includes('clean audit opinion')) {
+                  if (Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0) {
+                    misplacedPoeDocs = [...it.q1PoeDocs];
+                  }
+                }
+              });
+
+              if (misplacedPoeDocs.length > 0) {
+                const hrPlanDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('hr plan'));
+                const vacancyDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('vacancy'));
+
+                const updatedList = list.map((it: any, index: number) => {
+                  const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+
+                  if (index === 0 || desc.includes('clean audit opinion')) {
+                    return {
+                      ...it,
+                      q1Target: 'N/A',
+                      '1st qtr target': 'N/A',
+                      q1Locked: true,
+                      q1Applicable: false,
+                      q1PoeStatus: 'N/A',
+                      q1Actual: '',
+                      q1Poe: '',
+                      poe: '',
+                      q1PoeDocs: [],
+                      q1Score: ''
+                    };
+                  }
+
+                  if (index === 8 || desc.includes('hr plan developed')) {
+                    const existing = Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : [];
+                    const merged = Array.from(new Map([...existing, ...hrPlanDocs].map(d => [d.id || d.name, d])).values());
+                    return { ...it, q1PoeDocs: merged, poeFileName: merged[0]?.name || it.poeFileName };
+                  }
+
+                  if (index === 14 || desc.includes('vacant positions coordinated')) {
+                    const existing = Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : [];
+                    const merged = Array.from(new Map([...existing, ...vacancyDocs].map(d => [d.id || d.name, d])).values());
+                    return { ...it, q1PoeDocs: merged, poeFileName: merged[0]?.name || it.poeFileName };
+                  }
+
+                  return it;
+                });
+
+                if (parsed.items) parsed.items = updatedList;
+                if (parsed.kpis) parsed.kpis = updatedList;
+                if (parsed.rows) parsed.rows = updatedList;
+                const updatedContent = JSON.stringify(parsed);
+                await supabase.from('messages').update({ content: updatedContent, updated_at: nowIso }).eq('id', row.id);
+                memoryCache.delete(row.id);
+              }
+            }
+          } catch (err) {}
+        }
+      }
+
+      // Global Clean Audit (M_21) Cleanup: Purge template POE strings and placeholder actuals for all users on M_21
+      const { data: allPplanRows } = await supabase.from('messages').select('id, content').or('id.ilike.pplan_%,id.ilike.kpis_%');
+      if (Array.isArray(allPplanRows)) {
+        for (const row of allPplanRows) {
+          if (!row.content) continue;
+          try {
+            const parsed = JSON.parse(row.content);
+            let list = parsed.items || parsed.kpis || parsed.rows;
+            if (Array.isArray(list) && list.length > 0) {
+              let updatedAny = false;
+              const cleanedList = list.map((it: any) => {
+                const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+                const kNo = String(it.kpiNo || it['kpi no'] || it.refNum || it.id || '').trim().toUpperCase();
+                const isCleanAudit = desc.includes('clean audit opinion') || kNo === 'M_21' || kNo === 'M-21';
+
+                if (isCleanAudit) {
+                  const hasUserQ1Poe = Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0;
+                  if (!hasUserQ1Poe && (it.q1Poe || it.poe || (it.q1Actual && it.q1Actual !== 'N/A'))) {
+                    updatedAny = true;
+                    return {
+                      ...it,
+                      kpiNo: it.kpiNo || 'M_21',
+                      q1Target: 'N/A',
+                      '1st qtr target': 'N/A',
+                      q1Locked: true,
+                      q1Applicable: false,
+                      q1PoeStatus: 'N/A',
+                      q1Actual: '',
+                      q1Poe: '',
+                      poe: '',
+                      q1PoeDocs: []
+                    };
+                  }
+                }
+                return it;
+              });
+
+              if (updatedAny) {
+                if (parsed.items) parsed.items = cleanedList;
+                if (parsed.kpis) parsed.kpis = cleanedList;
+                if (parsed.rows) parsed.rows = cleanedList;
+                const updatedContent = JSON.stringify(parsed);
+                await supabase.from('messages').update({ content: updatedContent, updated_at: nowIso }).eq('id', row.id);
+                memoryCache.delete(row.id);
+              }
+            }
+          } catch (err) {}
+        }
+      }
+
       for (const k of memoryCache.keys()) {
         if (k.startsWith('team_pplans_') || k.startsWith('reports_unlock_')) memoryCache.delete(k);
       }
