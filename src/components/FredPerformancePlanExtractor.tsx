@@ -32,6 +32,33 @@ import {
   type ExtractedKpaDefinition
 } from '../utils/ippParser';
 
+export const NEDA_ALLOWED_RECIPIENTS = [
+  {
+    email: 'ChaukeNH@nkangaladm.gov.za',
+    fullName: 'N.H. Chauke',
+    jobFunction: 'Senior Manager / Executive Official',
+    department: 'NEDA Executive Office'
+  },
+  {
+    email: 'SehlakoLS@neda.gov.za',
+    fullName: 'Lekgotla Samuel Sehlako',
+    jobFunction: 'Manager: Supply Chain Management',
+    department: 'Supply Chain Management'
+  },
+  {
+    email: 'ChaukeKC@neda.gov.za',
+    fullName: 'Kulani Collen Chauke',
+    jobFunction: 'Chief Financial Officer',
+    department: 'Finance and Administration'
+  },
+  {
+    email: 'manganijp@nkangaladm.gov.za',
+    fullName: 'Johan Prince Mangani',
+    jobFunction: 'Acting Chief Executive Officer',
+    department: 'Office of the Chief Executive Officer'
+  }
+];
+
 interface FredPerformancePlanExtractorProps {
   currentUser: User;
   activeTenantId: string;
@@ -43,6 +70,21 @@ export function FredPerformancePlanExtractor({
   activeTenantId,
   onNavigateToIPMS
 }: FredPerformancePlanExtractorProps) {
+  // Helper to resolve the initial target employee to one of the 4 approved NEDA users
+  const resolveApprovedNedaUser = (email?: string) => {
+    if (!email) return NEDA_ALLOWED_RECIPIENTS[3]; // default to ManganiJP
+    const clean = email.toLowerCase().trim();
+    const found = NEDA_ALLOWED_RECIPIENTS.find(u => {
+      const uEmail = u.email.toLowerCase().trim();
+      return uEmail === clean ||
+        (clean.includes('mangani') && uEmail.includes('mangani')) ||
+        (clean.includes('chaukekc') && uEmail.includes('chaukekc')) ||
+        (clean.includes('chaukenh') && uEmail.includes('chaukenh')) ||
+        (clean.includes('sehlako') && uEmail.includes('sehlako'));
+    });
+    return found || NEDA_ALLOWED_RECIPIENTS[3];
+  };
+
   // State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -54,14 +96,15 @@ export function FredPerformancePlanExtractor({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKpa, setFilterKpa] = useState<string>('all');
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser.email || '');
+  const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(() => resolveApprovedNedaUser(currentUser.email).email);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Update target employee when currentUser changes
+  // Update target employee when currentUser changes if it matches one of the 4 approved NEDA users
   useEffect(() => {
     if (currentUser?.email) {
-      setTargetEmployeeEmail(currentUser.email);
+      const matched = resolveApprovedNedaUser(currentUser.email);
+      setTargetEmployeeEmail(matched.email);
     }
   }, [currentUser]);
 
@@ -76,11 +119,10 @@ export function FredPerformancePlanExtractor({
 
     const loadSavedSnapshot = async () => {
       try {
-        const targetEmail = targetEmployeeEmail || currentUser.email;
+        const targetEmail = targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email;
         if (!targetEmail) return;
-        const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && targetEmail.toLowerCase().includes('nkangala')
-          ? 'tenant-229'
-          : activeTenantId;
+        // Strict NEDA isolation: extracted data never queries or targets Nkangala
+        const effectiveTenantId = 'neda';
         const res = await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
@@ -104,7 +146,7 @@ export function FredPerformancePlanExtractor({
       }
     };
     loadSavedSnapshot();
-  }, [activeTenantId, targetEmployeeEmail, currentUser.email]);
+  }, [targetEmployeeEmail, currentUser.email]);
 
   // Handle File Upload & Extraction
   const handleFileUpload = async (file: File) => {
@@ -139,10 +181,8 @@ export function FredPerformancePlanExtractor({
       });
 
       // Persist snapshot to server
-      const targetEmail = targetEmployeeEmail || currentUser.email;
-      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && targetEmail.toLowerCase().includes('nkangala')
-        ? 'tenant-229'
-        : activeTenantId;
+      const targetEmail = targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email;
+      const effectiveTenantId = 'neda';
       try {
         await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
@@ -176,27 +216,29 @@ export function FredPerformancePlanExtractor({
       return;
     }
 
+    // STRICT RECIPIENT SECURITY CHECK: Only the 4 approved NEDA users can ever receive extracted KPAs & KPIs
+    const normalizedTarget = (targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email).toLowerCase().trim();
+    const matchedRecipient = NEDA_ALLOWED_RECIPIENTS.find(r => r.email.toLowerCase().trim() === normalizedTarget);
+    if (!matchedRecipient) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Security Constraint: In NEDA Extraction Engine, extracted KPAs and KPIs can ONLY go to NEDA performance agreements for: ChaukeNH@nkangaladm.gov.za, SehlakoLS@neda.gov.za, ChaukeKC@neda.gov.za, or manganijp@nkangaladm.gov.za.'
+      });
+      return;
+    }
+
     setIsPushing(true);
     setStatusMessage({
       type: 'info',
-      text: `Pushing ${selected.length} verbatim KPIs directly into the Performance Plan for ${targetEmployeeEmail || currentUser.email}...`
+      text: `Pushing ${selected.length} verbatim KPIs directly into the NEDA Performance Plan for ${matchedRecipient.fullName} (${matchedRecipient.email})...`
     });
 
     try {
-      const targetEmail = targetEmployeeEmail || currentUser.email;
+      const targetEmail = matchedRecipient.email;
+      // STRICT ISOLATION: Must NEVER leave NEDA, must NEVER target Nkangala
+      const effectiveTenantId = 'neda';
 
       // Map strictly and verbatim as per required field definitions:
-      // kpi number -> kpi no
-      // kpi -> kpi description
-      // weight -> wt
-      // baseline -> baseline
-      // annual target -> annual target
-      // 1st quarter planned target -> 1st qtr target
-      // 2nd quarter planned target -> 2nd qtr target
-      // 3rd quarter planned target -> 3rd qtr target
-      // 4th quarter planned target -> 4th qtr target
-      // poe -> 1st qtr poe, 2nd qtr poe, 3rd qtr poe, 4th qtr poe
-      // total budget allocated -> budget
       const planItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
         const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
@@ -252,19 +294,16 @@ export function FredPerformancePlanExtractor({
         };
       });
 
-      const normTarget = targetEmail.toLowerCase().trim();
-      const isLinksReport = normTarget === 'joubertm@nkangaladm.gov.za' || normTarget === 'tloujmt@nkangaladm.gov.za';
+      const isMangani = targetEmail.toLowerCase().includes('mangani');
       const planMetadata: any = {
-        name: currentUser.fullName || 'Employee Performance Plan',
-        period: '2025/2026 Financial Year',
-        department: currentUser.department || 'Administration',
-        position: currentUser.jobFunction || 'Official',
-        email: targetEmail,
-        ...(isLinksReport ? {
-          manager: 'Solly Links',
-          managerEmail: 'linkss@nkangaladm.gov.za',
-          reportTo: 'Solly Links'
-        } : {}),
+        name: matchedRecipient.fullName,
+        period: '2026/2027 Financial Year',
+        department: matchedRecipient.department,
+        position: matchedRecipient.jobFunction,
+        email: matchedRecipient.email,
+        manager: isMangani ? 'Mr MT Khumalo' : 'Johan P. Mangani',
+        managerEmail: isMangani ? 'khumalomt@neda.gov.za' : 'manganijp@nkangaladm.gov.za',
+        reportTo: isMangani ? 'Board Chairperson' : 'Acting Chief Executive Officer',
         _isFredExtracted: true,
         _replacePlan: true,
         _allowItemDeletion: true,
@@ -272,10 +311,6 @@ export function FredPerformancePlanExtractor({
         _extractedFrom: sourceFileName || 'Performance Agreement',
         _pushedAt: new Date().toISOString()
       };
-
-      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && normTarget.includes('nkangala')
-        ? 'tenant-229'
-        : activeTenantId;
 
       // Helper to retry once on gateway timeouts (502/503/504)
       const fetchWithRetry = async (url: string, options: RequestInit, retries = 1): Promise<Response> => {
@@ -298,8 +333,7 @@ export function FredPerformancePlanExtractor({
         return fetch(url, options);
       };
 
-      // Push strictly to the target individual's pplan endpoint
-      // Note: This saves strictly to pplan_${tenantId}_${targetEmail} in Supabase with ZERO SDBIP contamination.
+      // Push strictly to the target individual's NEDA pplan endpoint
       const res = await fetchWithRetry(`/api/tenant/${effectiveTenantId}/pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -318,7 +352,7 @@ export function FredPerformancePlanExtractor({
         throw new Error(`Server returned error status ${res.status}${errDetail}`);
       }
 
-      // Concurrently align the user's KPIs and KPAs registers and clear extraction snapshots
+      // Concurrently align the user's KPIs and KPAs registers strictly in NEDA and clear extraction snapshots
       const uniqueKpaTitles = Array.from(new Set(
         (extractedKpas.length > 0
           ? extractedKpas.map((k: any) => k.kpa || k.functionalKpa || k.title || k.name || '')
@@ -352,8 +386,9 @@ export function FredPerformancePlanExtractor({
       ]);
 
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
+      window.dispatchEvent(new CustomEvent('neda-kpis-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
 
-      // Clear the local state immediately so Fred forgets the extraction
+      // Clear the local state immediately so Extraction Engine forgets the extraction
       setExtractedItems([]);
       setExtractedKpas([]);
       setSourceFileName('');
@@ -362,7 +397,7 @@ export function FredPerformancePlanExtractor({
 
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} KPIs verbatim into the Performance Plan for ${targetEmail}! Fred has saved the plan and forgotten the mapped extraction, ready for the next document.`
+        text: `Successfully pushed ${selected.length} KPIs verbatim into the NEDA Performance Plan for ${matchedRecipient.fullName} (${targetEmail})! Extracted data is strictly quarantined within NEDA.`
       });
 
     } catch (err: any) {
@@ -659,29 +694,29 @@ export function FredPerformancePlanExtractor({
   const selectedCount = extractedItems.filter(i => i._selected !== false).length;
 
   return (
-    <div id="fred-performance-plan-extractor" className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-y-auto p-6 space-y-6">
+    <div id="performance-plan-extractor" className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-y-auto p-6 space-y-6">
       
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-950 border border-indigo-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+      <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 border border-emerald-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
         
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center text-indigo-400 shrink-0 shadow-inner">
-              <Sparkles className="w-7 h-7 text-indigo-300" />
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
+              <Sparkles className="w-7 h-7 text-emerald-300" />
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-2xl font-black text-white tracking-tight">Fred Performance Plan Extractor</h2>
-                <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider">
-                  IPMS Individual Profile
-                </span>
+                <h2 className="text-2xl font-black text-white tracking-tight">EXTRACTION ENGINE — Performance Plan Extractor</h2>
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider">
+                  NEDA IPMS Profile
+                </span>
+                <span className="bg-teal-500/20 text-teal-300 border border-teal-500/40 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full tracking-wider">
                   1:1 Verbatim Grounding
                 </span>
               </div>
               <p className="text-slate-400 text-sm mt-1.5 max-w-3xl leading-relaxed">
-                Extracts all <strong className="text-indigo-300">Functional KPAs</strong> and <strong className="text-amber-300">KPIs</strong> from the uploaded Performance Agreement (specifically the Performance Plan / Annexure A) with 100% verbatim fidelity. Maps strictly to the individual employee's Performance Planner Grid with zero SDBIP cross-contamination.
+                Extracts all <strong className="text-emerald-300">Functional KPAs</strong> and <strong className="text-amber-300">KPIs</strong> from the uploaded Performance Agreement (Annexure A scorecard) with 100% verbatim fidelity. Extracted data is strictly quarantined within NEDA and can <strong className="text-white underline">ONLY</strong> go to the 4 approved NEDA executives/officials.
               </p>
             </div>
           </div>
@@ -701,71 +736,54 @@ export function FredPerformancePlanExtractor({
 
             {extractedItems.length > 0 && (
               <>
-                {((currentUser.email || '').toLowerCase().includes('dimpems') || (targetEmployeeEmail || '').toLowerCase().includes('dimpems')) && (
-                  <button
-                    id="btn-push-to-team-performance-plan-2"
-                    type="button"
-                    onClick={handlePushToTeamPerformancePlan2}
-                    disabled={isPushing || selectedCount === 0}
-                    className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-500 hover:to-cyan-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-teal-600/30 disabled:opacity-50 cursor-pointer"
-                  >
-                    {isPushing ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    ) : (
-                      <Users className="w-4 h-4 text-cyan-200" />
-                    )}
-                    <span>Push to Team Performance Plan 2 ({selectedCount})</span>
-                  </button>
-                )}
-
-                <button
-                  id="btn-push-to-team-performance-plan"
-                  type="button"
-                  onClick={handlePushToTeamPerformancePlan}
-                  disabled={isPushing || selectedCount === 0}
-                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPushing ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  ) : (
-                    <Users className="w-4 h-4 text-emerald-200" />
-                  )}
-                  <span>Push to Team Performance Plan ({selectedCount})</span>
-                </button>
-
                 <button
                   id="btn-push-to-performance-plan"
                   type="button"
                   onClick={handlePushToPerformancePlan}
                   disabled={isPushing || selectedCount === 0}
-                  className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
                 >
                   {isPushing ? (
                     <Loader2 className="w-4 h-4 animate-spin text-white" />
                   ) : (
                     <ArrowRight className="w-4 h-4 text-white" />
                   )}
-                  <span>Push to Performance Plan ({selectedCount})</span>
+                  <span>Push to NEDA Performance Plan ({selectedCount})</span>
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Target Profile Bar */}
-        <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
-          <div className="flex items-center gap-2 text-slate-300">
-            <UserIcon className="w-4 h-4 text-indigo-400" />
-            <span className="text-slate-400 font-medium">Target Individual Profile:</span>
-            <span className="font-bold text-white bg-slate-800/90 px-2.5 py-1 rounded-lg border border-slate-700">
-              {targetEmployeeEmail || currentUser.email} ({currentUser.fullName || 'Current User'})
+        {/* Target Profile Bar & Strict Whitelist Dropdown */}
+        <div className="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-slate-300">
+              <UserIcon className="w-4 h-4 text-emerald-400" />
+              <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Approved Recipient:</span>
+            </div>
+            <select
+              id="select-neda-plan-recipient"
+              value={targetEmployeeEmail}
+              onChange={(e) => setTargetEmployeeEmail(e.target.value)}
+              className="bg-slate-950 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 text-xs font-black rounded-xl px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer shadow-inner"
+            >
+              {NEDA_ALLOWED_RECIPIENTS.map(rec => (
+                <option key={rec.email} value={rec.email}>
+                  {rec.fullName} — {rec.jobFunction} ({rec.email})
+                </option>
+              ))}
+            </select>
+            <span className="text-[10px] text-emerald-400 font-extrabold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 uppercase tracking-widest">
+              LOCKED TO 4 NEDA USERS ONLY
             </span>
           </div>
+
           {onNavigateToIPMS && (
             <button
               type="button"
               onClick={() => onNavigateToIPMS('pplan')}
-              className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 cursor-pointer transition"
+              className="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 cursor-pointer transition text-xs"
             >
               <span>View Annual Performance Planner Grid</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -1099,20 +1117,22 @@ export function FredPerformancePlanExtractor({
                   <span>Push {selectedCount} to Team Performance Plan 2</span>
                 </button>
               )}
-              <button
-                id="btn-bottom-push-to-team-performance-plan"
-                type="button"
-                onClick={handlePushToTeamPerformancePlan}
-                disabled={isPushing || selectedCount === 0}
-                className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-              >
-                {isPushing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Users className="w-4 h-4 text-emerald-200" />
-                )}
-                <span>Push {selectedCount} to Team Performance Plan</span>
-              </button>
+              {activeTenantId !== 'neda' && (
+                <button
+                  id="btn-bottom-push-to-team-performance-plan"
+                  type="button"
+                  onClick={handlePushToTeamPerformancePlan}
+                  disabled={isPushing || selectedCount === 0}
+                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                >
+                  {isPushing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Users className="w-4 h-4 text-emerald-200" />
+                  )}
+                  <span>Push {selectedCount} to Team Performance Plan</span>
+                </button>
+              )}
               <button
                 id="btn-bottom-push-to-performance-plan"
                 type="button"

@@ -356,8 +356,11 @@ export function FredSDBIPExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
-      // Also ensure background sync across all standard tenant aliases
-      const syncTenants = ['tenant-229', 'nkangala_auto', 'nkangala', 'default', 'global', 'tenant-demo'].filter(t => t !== activeTenantId);
+      // Also ensure background sync across standard tenant aliases without crossing NEDA boundary
+      const isNedaSdbip = activeTenantId === 'neda' || activeTenantId === 'tenant-neda';
+      const syncTenants = isNedaSdbip
+        ? ['tenant-neda'].filter(t => t !== activeTenantId)
+        : ['tenant-229', 'nkangala_auto', 'nkangala', 'default', 'global', 'tenant-demo'].filter(t => t !== activeTenantId);
       for (const tId of syncTenants) {
         try {
           await fetch(`/api/tenant/${tId}/sdbip`, {

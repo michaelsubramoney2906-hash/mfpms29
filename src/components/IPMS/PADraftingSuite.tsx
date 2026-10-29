@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { 
@@ -8,7 +8,8 @@ import {
   Layers, Search, Users, Settings2, LayoutTemplate, Sliders,
   ArrowRight, FileSpreadsheet, Lock, AlertTriangle, Settings, Table2,
   ClipboardCheck, CalendarDays, History, RotateCcw, Clock, Tag,
-  ExternalLink, Bookmark, Palette, Type, Database, RefreshCw
+  ExternalLink, Bookmark, Palette, Type, Database, RefreshCw,
+  ZoomIn, ZoomOut
 } from 'lucide-react';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
@@ -284,6 +285,27 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const [pulledCorpCompetencyRows, setPulledCorpCompetencyRows] = useState<any[] | null>(null);
   const [pulledKhuboniJscRows, setPulledKhuboniJscRows] = useState<any[] | null>(null);
   const [khuboniJscNotes, setKhuboniJscNotes] = useState<string>("4.4 The personal development plan (PDP) will address any developmental needs identified during the competency assessment process.");
+
+  // Right-hand Preview Pane Zoom Controls State
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
+
+  // Strict NEDA isolation flag
+  const isNedaPortal = useMemo(() => {
+    const tenantLower = (activeTenantId || '').toLowerCase();
+    const emailLower = (currentUser?.email || '').toLowerCase();
+    return (
+      tenantLower === 'neda' ||
+      tenantLower.includes('neda') ||
+      emailLower.endsWith('@neda.gov.za') ||
+      emailLower.includes('manganijp') ||
+      emailLower.includes('chaukekc') ||
+      emailLower.includes('chaukenh') ||
+      emailLower.includes('sehlakols') ||
+      emailLower.includes('ngomanennc') ||
+      (currentUser as any)?.portalMode === 'neda'
+    );
+  }, [activeTenantId, currentUser]);
+
   const [pdpCustomTable, setPdpCustomTable] = useState<{ title: string; headers: string[]; rows: string[][] }>({
     title: 'Additional Custom Framework Matrix (PDP Development Plan)',
     headers: ['Target Area / Development Focus', 'Resource & Budget Requirement', 'Q1 Deliverable', 'Q2 Deliverable', 'Responsible Mentor / Supervisor'],
@@ -469,8 +491,18 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           );
         }
 
+        const isManganiTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('manganijp') || (matchedEmp.fullName || currentUser.fullName || '').toLowerCase().includes('mangani');
         const isShabanguTarget = (matchedEmp.email || currentUser.email || '').toLowerCase().includes('shabangusm');
-        if (isShabanguTarget) {
+
+        if (isManganiTarget) {
+          setEmployeeName('Johan P. Mangani');
+          setEmployeePosition('Acting Chief Executive Officer');
+          setSupervisorSignature('Mr MT Khumalo');
+          setSupervisorName('Mr MT Khumalo');
+          setSupervisorPosition('Board Chairperson');
+          setSupervisorDate('29 July 2026');
+          matchedSup = null; // Strictly block any reference to Alvin Bvuma
+        } else if (isShabanguTarget) {
           const mahlangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('mahlanguml') || (u.email || '').toLowerCase().includes('mandlaml'));
           if (mahlangu) {
             setSupervisorSignature(mahlangu.signatureData || mahlangu.fullName);
@@ -479,10 +511,18 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             setSupervisorDate('29 July 2026');
           }
         } else if (matchedSup) {
-          setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
-          setSupervisorName(matchedSup.fullName);
-          setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || "Line Manager");
-          setSupervisorDate('29 July 2026');
+          // Guard: If matched supervisor references Alvin Bvuma for NEDA or Mangani, suppress it
+          if (isNedaPortal && ((matchedSup.fullName || '').toLowerCase().includes('bvuma') || (matchedSup.email || '').toLowerCase().includes('bvuma'))) {
+            setSupervisorSignature('Mr MT Khumalo');
+            setSupervisorName('Mr MT Khumalo');
+            setSupervisorPosition('Board Chairperson');
+            setSupervisorDate('29 July 2026');
+          } else {
+            setSupervisorSignature(matchedSup.signatureData || matchedSup.fullName);
+            setSupervisorName(matchedSup.fullName);
+            setSupervisorPosition(matchedSup.jobFunction || matchedSup.job_function || matchedSup.position || "Line Manager");
+            setSupervisorDate('29 July 2026');
+          }
         } else if (isYenaKhuboni) {
           const shabangu = userManagementUsers.find(u => (u.email || '').toLowerCase().includes('shabangusm') || (u.email || '').toLowerCase().includes('shabangugm'));
           if (shabangu) {
@@ -978,7 +1018,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     const isPedTemplate = templateName.toLowerCase().includes('ped');
     if (isPedTemplate && pulledPedCompetencyRows && pulledPedCompetencyRows.length > 0 && effectiveRows !== pulledPedCompetencyRows) return null;
 
-    const isWeightingGridFormat = effectiveRows.some((row: any) =>
+    const isWeightingGridFormat = isNedaPortal || effectiveRows.some((row: any) =>
       (row.components !== undefined || row.definition !== undefined || row.weighting !== undefined) &&
       !row.basic && !row.competent
     );
@@ -991,9 +1031,27 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             <h5 className="font-bold text-[10px] uppercase tracking-tight" style={{ color: headingColor }}>
               Adopted Core Competencies Weighting Grid (Point 6.6) — {employeeName || currentUser?.fullName || currentUser?.email}
             </h5>
-            <span className="text-[8.5px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">
-              Total Weight: {totalWeight || 100}%
-            </span>
+            <div className="flex items-center gap-2">
+              {isNedaPortal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPulledCompetencyRows(null);
+                    setPulledCfoCompetencyRows(null);
+                    setPulledPedCompetencyRows(null);
+                    setPulledCorpCompetencyRows(null);
+                    triggerNotification("Deleted pulled Core Competencies table from NEDA agreement", "success");
+                  }}
+                  className="inline-flex items-center gap-1 text-[8.5px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded cursor-pointer print:hidden transition"
+                  title="Delete pulled Core Competencies table (NEDA only)"
+                >
+                  <Trash2 className="w-2.5 h-2.5" /> Delete Table
+                </button>
+              )}
+              <span className="text-[8.5px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">
+                Total Weight: {totalWeight || 100}%
+              </span>
+            </div>
           </div>
           <div className="border rounded overflow-hidden" style={{ borderColor }}>
             <table className="w-full text-left text-[9px] border-collapse bg-white">
@@ -1006,16 +1064,20 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                 </tr>
               </thead>
               <tbody>
-                {effectiveRows.map((row: any, i: number) => (
-                  <tr key={row.id || i} className="border-b last:border-b-0" style={{ borderColor }}>
-                    <td className="p-1.5 border-r font-bold align-top text-slate-900" style={{ borderColor }}>{row.competency || row.title || row.name || 'Core Competency'}</td>
-                    <td className="p-1.5 border-r align-top text-slate-600" style={{ borderColor }}>{row.components || '-'}</td>
-                    <td className="p-1.5 border-r align-top text-slate-700" style={{ borderColor }}>
-                      {typeof row.definition === 'string' ? row.definition : (row.definition?.mainText || row.description || '-')}
-                    </td>
-                    <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{row.weighting ?? row.weight ?? '20'}%</td>
-                  </tr>
-                ))}
+                {effectiveRows.map((row: any, i: number) => {
+                  const compName = row.competency || row.title || row.name || 'Core Competency';
+                  const compComponents = row.components || 'Core Competency';
+                  const compDef = typeof row.definition === 'string' ? row.definition : (row.definition?.mainText || row.description || row.basic || row.competent || '-');
+                  const compWeight = row.weighting ?? row.weight ?? '20';
+                  return (
+                    <tr key={row.id || i} className="border-b last:border-b-0" style={{ borderColor }}>
+                      <td className="p-1.5 border-r font-bold align-top text-slate-900 break-words" style={{ borderColor }}>{compName}</td>
+                      <td className="p-1.5 border-r align-top text-slate-600 break-words" style={{ borderColor }}>{compComponents}</td>
+                      <td className="p-1.5 border-r align-top text-slate-700 break-words" style={{ borderColor }}>{compDef}</td>
+                      <td className="p-1.5 align-top font-mono text-indigo-600 font-bold text-center" style={{ borderColor }}>{compWeight}%</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -2217,9 +2279,25 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               Job Specific Competencies (JSC) Matrix — Adopted Profile: {activeName} ({activeEmail})
             </span>
           </div>
-          <span className="text-[8.5px] font-black bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full uppercase">
-            Adopted Below Section 4.4
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[8.5px] font-black bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full uppercase">
+              Adopted Below Section 4.4
+            </span>
+            {isNedaPortal && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPulledKhuboniJscRows(null);
+                  triggerNotification("Removed adopted JSC table", "success");
+                }}
+                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 rounded text-[8px] font-bold uppercase transition cursor-pointer flex items-center gap-1"
+                title="Delete Adopted JSC Table"
+              >
+                <Trash2 className="w-2.5 h-2.5 text-rose-600" />
+                Delete Table
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="border rounded overflow-hidden" style={{ borderColor }}>
@@ -2412,9 +2490,25 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
             <ClipboardList className="w-4 h-4 text-indigo-600 shrink-0" />
             Adopted Personal Development Plan (PDP) Matrix
           </h4>
-          <span className="text-[9px] bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full font-black uppercase font-mono">
-            {pulledPdpItems.length} PDP Rows Loaded
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full font-black uppercase font-mono">
+              {pulledPdpItems.length} PDP Rows Loaded
+            </span>
+            {isNedaPortal && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPulledPdpItems(null);
+                  triggerNotification("Removed adopted PDP table", "success");
+                }}
+                className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 rounded text-[8px] font-bold uppercase transition cursor-pointer flex items-center gap-1"
+                title="Delete Adopted PDP Table"
+              >
+                <Trash2 className="w-2.5 h-2.5 text-rose-600" />
+                Delete Table
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto border rounded-xl bg-white shadow-2xs" style={{ borderColor }}>
@@ -3201,14 +3295,26 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setPulledKhuboniJscRows(tpl.pulledKhuboniJscRows !== undefined ? tpl.pulledKhuboniJscRows : null);
 
     // Signatures Loading
-    setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);
-    setEmployeeName(tpl.employeeName !== undefined ? tpl.employeeName : null);
-    setEmployeePosition(tpl.employeePosition !== undefined ? tpl.employeePosition : null);
-    setEmployeeDate(tpl.employeeDate ? tpl.employeeDate : '29 July 2026');
-    setSupervisorSignature(tpl.supervisorSignature !== undefined ? tpl.supervisorSignature : null);
-    setSupervisorName(tpl.supervisorName !== undefined ? tpl.supervisorName : null);
-    setSupervisorPosition(tpl.supervisorPosition !== undefined ? tpl.supervisorPosition : null);
-    setSupervisorDate(tpl.supervisorDate ? tpl.supervisorDate : '29 July 2026');
+    const isManganiTpl = (currentUser?.email || '').toLowerCase().includes('manganijp') || (tpl.employeeName || '').toLowerCase().includes('mangani');
+    if (isManganiTpl || (isNedaPortal && tpl.supervisorName?.toLowerCase().includes('bvuma'))) {
+      setEmployeeSignature(tpl.employeeSignature || 'Johan P. Mangani');
+      setEmployeeName('Johan P. Mangani');
+      setEmployeePosition('Acting Chief Executive Officer');
+      setEmployeeDate(tpl.employeeDate ? tpl.employeeDate : '29 July 2026');
+      setSupervisorSignature('Mr MT Khumalo');
+      setSupervisorName('Mr MT Khumalo');
+      setSupervisorPosition('Board Chairperson');
+      setSupervisorDate(tpl.supervisorDate ? tpl.supervisorDate : '29 July 2026');
+    } else {
+      setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);
+      setEmployeeName(tpl.employeeName !== undefined ? tpl.employeeName : null);
+      setEmployeePosition(tpl.employeePosition !== undefined ? tpl.employeePosition : null);
+      setEmployeeDate(tpl.employeeDate ? tpl.employeeDate : '29 July 2026');
+      setSupervisorSignature(tpl.supervisorSignature !== undefined ? tpl.supervisorSignature : null);
+      setSupervisorName(tpl.supervisorName !== undefined ? tpl.supervisorName : null);
+      setSupervisorPosition(tpl.supervisorPosition !== undefined ? tpl.supervisorPosition : null);
+      setSupervisorDate(tpl.supervisorDate ? tpl.supervisorDate : '29 July 2026');
+    }
 
     setSigDay(tpl.sigDay && tpl.sigDay !== '_____' ? tpl.sigDay : '29');
     setSigMonth(tpl.sigMonth && tpl.sigMonth !== '__________________' ? tpl.sigMonth : 'July');
@@ -3739,6 +3845,24 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   )}
                 </button>
 
+                {pulledPplanItems !== null && isNedaPortal && (
+                  <button
+                    id="btn-remove-adopted-pplan"
+                    type="button"
+                    onClick={() => {
+                      setPulledPplanItems(null);
+                      triggerNotification("Removed adopted Annual Performance Planner table", "success");
+                    }}
+                    className="w-full text-left font-bold text-[10px] px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Adopted Performance Plan Table
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   disabled={pullingFilteredPplan}
@@ -3764,6 +3888,24 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   )}
                 </button>
 
+                {pulledFilteredPplanItems !== null && isNedaPortal && (
+                  <button
+                    id="btn-remove-adopted-filtered-pplan"
+                    type="button"
+                    onClick={() => {
+                      setPulledFilteredPplanItems(null);
+                      triggerNotification("Removed adopted filtered performance planner table", "success");
+                    }}
+                    className="w-full text-left font-bold text-[10px] px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Filtered Performance Planner Table
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   disabled={pullingPdp}
@@ -3788,6 +3930,24 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                     <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
                   )}
                 </button>
+
+                {pulledPdpItems !== null && isNedaPortal && (
+                  <button
+                    id="btn-remove-adopted-pdp"
+                    type="button"
+                    onClick={() => {
+                      setPulledPdpItems(null);
+                      triggerNotification("Removed adopted PDP table", "success");
+                    }}
+                    className="w-full text-left font-bold text-[10px] px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 flex items-center justify-between transition-all cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      Remove Adopted PDP Table
+                    </span>
+                    <span className="text-[8.5px] font-bold text-rose-600 uppercase">Clear Table</span>
+                  </button>
+                )}
                 
                 <div className="bg-slate-50 border border-slate-200 rounded p-2 text-[9px] text-slate-600 mb-2 mt-2 leading-relaxed">
                   <span className="font-bold text-slate-800">Negotiation of Key Performance Areas:</span> The key performance areas related to the Employee's functional area shall be subject to negotiation between the Employer and the Employee
@@ -4862,7 +5022,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           id="templates-right-preview-pane" 
           ref={rightPaneRef}
           onScroll={(e) => { rightScrollPos.current = e.currentTarget.scrollTop; }}
-          className="w-1/2 h-full overflow-y-auto overscroll-contain bg-slate-200 p-6 flex flex-col items-center relative min-h-0 scroll-smooth"
+          className="w-1/2 h-full overflow-x-auto overflow-y-auto overscroll-contain bg-slate-200 p-6 flex flex-col items-center relative min-h-0 scroll-smooth"
         >
           {/* Sticky Toolbar for Side 2: Print Preview Mode */}
           <div className="sticky top-0 z-40 w-full max-w-[794px] flex justify-between items-center gap-2 py-2 px-3 mb-4 bg-slate-100/95 backdrop-blur-md rounded-xl border border-slate-300 shadow-md">
@@ -4874,6 +5034,50 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               <span className="text-[8.5px] text-slate-500 font-bold hidden lg:inline">Independent Scroll Track</span>
             </div>
             <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Zoom Controls to ensure all words end-to-end can be seen */}
+              <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg p-0.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(prev => Math.max(50, prev - 10))}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-700 transition cursor-pointer"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(100)}
+                  className="px-1.5 py-0.5 text-[9px] font-mono font-bold text-slate-800 hover:bg-slate-100 rounded transition cursor-pointer"
+                  title="Reset Zoom (100%)"
+                >
+                  {zoomLevel}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoomLevel(prev => Math.min(150, prev + 10))}
+                  className="p-1 hover:bg-slate-100 rounded text-slate-700 transition cursor-pointer"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (rightPaneRef.current) {
+                      const paneW = rightPaneRef.current.clientWidth - 48;
+                      const calculated = Math.min(100, Math.max(50, Math.floor((paneW / 794) * 100)));
+                      setZoomLevel(calculated);
+                    } else {
+                      setZoomLevel(75);
+                    }
+                  }}
+                  className="px-1.5 py-0.5 text-[8.5px] font-black uppercase text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded transition cursor-pointer"
+                  title="Fit to Width (Ensure all words end-to-end are visible)"
+                >
+                  Fit
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => rightPaneRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -4921,13 +5125,17 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
 
           <div 
             id="pa-template-printable-sheet"
-            className={`w-[794px] shrink-0 bg-white p-12 shadow-2xl rounded-sm ${documentFontFamily} leading-relaxed text-xs relative`}
+            className={`w-[794px] shrink-0 bg-white p-12 shadow-2xl rounded-sm ${documentFontFamily} leading-relaxed text-xs relative break-words`}
             style={{ 
               color: textColor, 
               borderColor: borderColor, 
               borderWidth: borderWidth, 
               borderStyle: borderStyle as any,
-              textAlign: documentTextAlign
+              textAlign: documentTextAlign,
+              transform: `scale(${zoomLevel / 100})`,
+              transformOrigin: 'top center',
+              transition: 'transform 0.12s ease-out',
+              marginBottom: zoomLevel < 100 ? `-${(100 - zoomLevel) * 0.7}%` : '0px'
             }}
           >
             
@@ -5254,9 +5462,26 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                       <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
                       Adopted Annual Performance Planner Grid (Grouped by KPA)
                     </h4>
-                    <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-black uppercase font-mono">
-                      {activeItems.length} KPI Rows Loaded
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-black uppercase font-mono">
+                        {activeItems.length} KPI Rows Loaded
+                      </span>
+                      {isNedaPortal && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPulledPplanItems(null);
+                            setPulledFilteredPplanItems(null);
+                            triggerNotification("Removed adopted performance plan table", "success");
+                          }}
+                          className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-700 rounded text-[8px] font-bold uppercase transition cursor-pointer flex items-center gap-1"
+                          title="Delete Adopted Performance Plan Table"
+                        >
+                          <Trash2 className="w-2.5 h-2.5 text-rose-600" />
+                          Delete Table
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {Object.keys(groups).map((kpaName) => {

@@ -126,14 +126,26 @@ export function matchOfficialCoreRole(user?: {
     };
   }
 
+  if (emailPrefix === 'chaukenh' || emailRaw.includes('chaukenh')) {
+    return {
+      fullName: 'N.H. Chauke',
+      email: user?.email || 'chaukenh@nkangaladm.gov.za',
+      jobFunction: 'Senior Manager / Executive Official (NEDA)',
+      department: 'NEDA Executive Office',
+      refCode: 'NEDA-EXEC-01',
+      roleKey: 'corp',
+      roleName: 'NEDA Executive Core Competencies'
+    };
+  }
+
   if (emailPrefix === 'sehlakols' || emailRaw.includes('sehlakols')) {
     return {
       fullName: 'Lydia Sadi Sehlako',
-      email: user?.email || 'sehlakols@nkangaladm.gov.za',
+      email: user?.email || 'sehlakols@neda.gov.za',
       jobFunction: 'Divisional Manager: Supply Chain Management (NEDA)',
       department: 'Finance (NEDA)',
       refCode: 'NEDA-SCM-01',
-      roleKey: 'standard',
+      roleKey: 'corp',
       roleName: 'NEDA SCM Core Competencies'
     };
   }
@@ -141,11 +153,11 @@ export function matchOfficialCoreRole(user?: {
   if (emailPrefix === 'ngomanennc' || emailRaw.includes('ngomanennc')) {
     return {
       fullName: 'Ntsoaki Nomonde Charmaine Ngomane',
-      email: user?.email || 'ngomanennc@nkangaladm.gov.za',
+      email: user?.email || 'ngomanennc@neda.gov.za',
       jobFunction: 'Company Secretary (NEDA)',
       department: 'Office of the Chief Executive Officer (NEDA)',
       refCode: 'NEDA-CSEC-01',
-      roleKey: 'standard',
+      roleKey: 'corp',
       roleName: 'NEDA Company Secretary Core Competencies'
     };
   }
@@ -342,13 +354,37 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     );
   }, [currentUser]);
 
+  // Check if current user or context belongs strictly to NEDA
+  const isNedaPortal = useMemo(() => {
+    const tenantLower = (activeTenantId || '').toLowerCase();
+    const emailLower = (currentUser?.email || '').toLowerCase();
+    return (
+      tenantLower.includes('neda') ||
+      assignedOfficial.refCode.startsWith('NEDA-') ||
+      emailLower.endsWith('@neda.gov.za') ||
+      emailLower.includes('manganijp') ||
+      emailLower.includes('chaukekc') ||
+      emailLower.includes('chaukenh') ||
+      emailLower.includes('sehlakols') ||
+      emailLower.includes('ngomanennc')
+    );
+  }, [activeTenantId, assignedOfficial.refCode, currentUser?.email]);
+
+  const resolvedRoleKey: CoreCompetencyScope = useMemo(() => {
+    if (isNedaPortal) {
+      if (assignedOfficial.roleKey === 'standard') return 'corp';
+      return assignedOfficial.roleKey as CoreCompetencyScope;
+    }
+    return assignedOfficial.roleKey as CoreCompetencyScope;
+  }, [isNedaPortal, assignedOfficial.roleKey]);
+
   // Active Tab state: defaulted to user's matched role
-  const [activeTab, setActiveTab] = useState<CoreCompetencyScope | 'grid'>(assignedOfficial.roleKey);
+  const [activeTab, setActiveTab] = useState<CoreCompetencyScope | 'grid'>(resolvedRoleKey);
 
   // Always switch activeTab to the impersonated/active user's roleKey when user changes
   useEffect(() => {
-    setActiveTab(assignedOfficial.roleKey);
-  }, [assignedOfficial.roleKey, currentUser?.email]);
+    setActiveTab(resolvedRoleKey);
+  }, [resolvedRoleKey, currentUser?.email]);
 
   // Pulling state indicators
   const [isPullingFredCommunity, setIsPullingFredCommunity] = useState<boolean>(false);
@@ -1084,6 +1120,10 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
   };
 
   const handleAddRowClick = () => {
+    if (isNedaPortal) {
+      handleAddRoleRow(resolvedRoleKey);
+      return;
+    }
     if (activeTab === 'standard') {
       handleAddStandardRow();
     } else if (activeTab === 'grid') {
@@ -1221,7 +1261,8 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
 
   // Active role config helper
   const getActiveRoleDetails = () => {
-    switch (activeTab) {
+    const effectiveScope = isNedaPortal ? resolvedRoleKey : (activeTab === 'grid' || activeTab === 'standard' ? null : activeTab);
+    switch (effectiveScope) {
       case 'community_services':
         return { 
           scope: 'community_services' as const, 
@@ -1247,7 +1288,7 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
           onPullFred: () => handlePullFredExtraction('technical_services_competencies_engine', 'Technical_Services_Core_Competencies', 'Technical Service', setTechnicalRows, setIsPullingFredTechnical)
         };
       case 'cfo': {
-        const isNedaCfo = assignedOfficial.refCode === 'NEDA-CFO-01' || (currentUser?.email || '').toLowerCase().includes('chaukekc') || (activeTenantId || '').toLowerCase().includes('neda');
+        const isNedaCfo = assignedOfficial.refCode === 'NEDA-CFO-01' || (currentUser?.email || '').toLowerCase().includes('chaukekc') || isNedaPortal;
         const cfoRoleLabel = isNedaCfo ? `${assignedOfficial.fullName} (NEDA CFO)` : 'CFO';
         const cfoTitle = isNedaCfo
           ? `${assignedOfficial.fullName} (${assignedOfficial.email}) — Chief Financial Officer (NEDA) Competency Weighting Grid`
@@ -1265,7 +1306,7 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
         };
       }
       case 'mm': {
-        const isNedaAceo = assignedOfficial.refCode === 'NEDA-ACEO-01' || (currentUser?.email || '').toLowerCase().includes('manganijp') || (activeTenantId || '').toLowerCase().includes('neda');
+        const isNedaAceo = assignedOfficial.refCode === 'NEDA-ACEO-01' || (currentUser?.email || '').toLowerCase().includes('manganijp') || isNedaPortal;
         const mmRoleLabel = isNedaAceo ? `${assignedOfficial.fullName} (NEDA Acting CEO)` : 'Municipal Manager';
         const mmTitle = isNedaAceo
           ? `${assignedOfficial.fullName} (${assignedOfficial.email}) — Acting Chief Executive Officer (NEDA) Competency Weighting Grid`
@@ -1294,28 +1335,33 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
           onPush: () => handlePushRoleToDraftingSuite('ped', 'PED', pedRows),
           onPullFred: () => handlePullFredExtraction('ped_competencies_engine', 'PED_Core_Competencies', 'PED', setPedRows, setIsPullingFredPed)
         };
-      case 'corp':
+      case 'corp': {
+        const isNedaCorp = isNedaPortal || assignedOfficial.refCode.startsWith('NEDA-');
+        const corpRoleLabel = isNedaCorp ? `${assignedOfficial.fullName} (${assignedOfficial.roleName})` : 'Corporate Services';
+        const corpTitle = isNedaCorp
+          ? `${assignedOfficial.fullName} (${assignedOfficial.email}) — ${assignedOfficial.roleName} Weighting Grid`
+          : 'Corporate Services Competency Grid';
         return { 
           scope: 'corp' as const, 
-          roleName: 'Corporate Services', 
-          title: 'Corporate Services Competency Grid', 
+          roleName: corpRoleLabel, 
+          title: corpTitle, 
           rows: corpRows, 
           totalWeight: totalCorpWeight,
           color: 'pink',
           isPulling: isPullingFredCorp,
-          onPush: () => handlePushRoleToDraftingSuite('corp', 'Corporate Services', corpRows),
-          onPullFred: () => handlePullFredExtraction('corporate_services_competencies_engine', 'Corporate_Services_Core_Competencies', 'Corporate Services', setCorpRows, setIsPullingFredCorp)
+          onPush: () => handlePushRoleToDraftingSuite('corp', corpRoleLabel, corpRows),
+          onPullFred: () => handlePullFredExtraction('corporate_services_competencies_engine', 'Corporate_Services_Core_Competencies', corpRoleLabel, setCorpRows, setIsPullingFredCorp)
         };
+      }
       default:
         return null;
     }
   };
 
   const activeRole = getActiveRoleDetails();
-  const isNedaPortal = (activeTenantId || '').toLowerCase().includes('neda') || assignedOfficial.refCode.startsWith('NEDA-');
 
   // Define tab navigation list based on Role Isolation:
-  // Non-admin users strictly see ONLY their assigned competency tab!
+  // In NEDA, there is strictly ONLY one type of Core Competency table for the official!
   const availableTabsList = [
     {
       id: 'community_services' as const,
@@ -1375,10 +1421,21 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
     }
   ];
 
-  // Strictly filter tabs: If user is not global admin/PMS lead, show ONLY their single matched tab
-  const displayTabs = isGlobalOrPmsAdmin 
-    ? availableTabsList 
-    : availableTabsList.filter(t => t.id === assignedOfficial.roleKey);
+  // Strictly filter tabs: In NEDA portal, show strictly the single designated Core Competencies table
+  const displayTabs = isNedaPortal
+    ? [
+        {
+          id: resolvedRoleKey,
+          label: `${assignedOfficial.fullName} Core Competencies`,
+          badge: 'NEDA OFFICIAL',
+          activeColor: 'bg-emerald-700 text-white',
+          badgeActiveColor: 'bg-emerald-900 text-emerald-100',
+          badgeInactiveColor: 'bg-slate-200 text-slate-700'
+        }
+      ]
+    : isGlobalOrPmsAdmin 
+      ? availableTabsList 
+      : availableTabsList.filter(t => t.id === assignedOfficial.roleKey);
 
   return (
     <div className="h-full flex flex-col bg-slate-50/50 select-text">
@@ -1544,7 +1601,7 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
           ))}
 
           {/* Quarterly Reviews Grid available to authorized oversight / evaluation */}
-          {(isGlobalOrPmsAdmin || assignedOfficial.roleKey === 'standard') && (
+          {!isNedaPortal && (isGlobalOrPmsAdmin || assignedOfficial.roleKey === 'standard') && (
             <button
               onClick={() => setActiveTab('grid')}
               className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
@@ -1593,12 +1650,12 @@ export function CoreCompetencies({ currentUser, activeTenantId, onNavigateToSubM
       )}
 
       <div className="flex-1 p-8 overflow-y-auto">
-        {activeTab === 'grid' ? (
+        {!isNedaPortal && activeTab === 'grid' ? (
           <JSCAllInOneCompetenciesTable
             currentUser={{ email: currentUser?.email || 'user@system.local' }}
             activeTenantId={activeTenantId || 'default'}
           />
-        ) : activeTab === 'standard' ? (
+        ) : !isNedaPortal && activeTab === 'standard' ? (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-3">
               <div>

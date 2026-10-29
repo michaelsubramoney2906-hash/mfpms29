@@ -793,6 +793,79 @@ export const NEDA_EXTRACTED_PACKAGES: NedaExtractedUserPackage[] = [
         supportPerson: 'Acting Chief Executive Officer (Johan Prince Mangani)'
       }
     ]
+  },
+
+  // ============================================================================
+  // 5. CHAUKE NH — EXECUTIVE OFFICIAL (NEDA)
+  // ============================================================================
+  {
+    userId: 'neda-user-chaukenh',
+    primaryEmail: 'chaukenh@nkangaladm.gov.za',
+    aliases: [
+      'chaukenh@nkangaladm.gov.za',
+      'ChaukeNH@nkangaladm.gov.za',
+      'chaukenh@neda.gov.za',
+      'ChaukeNH@neda.gov.za'
+    ],
+    fullName: 'N.H. Chauke',
+    jobFunction: 'Senior Manager / Executive Official',
+    department: 'NEDA Executive Office',
+    directorate: 'Administration & Economic Planning',
+    level: '2',
+    role: 'Senior Management',
+    supervisorName: 'Johan P. Mangani',
+    supervisorTitle: 'Acting Chief Executive Officer',
+    supervisorEmail: 'manganijp@nkangaladm.gov.za',
+    financialYear: '2026/2027',
+    period: '01 July 2026 – 30 June 2027',
+    pdfAssetUrl: '/assets/aistudio/2026-2027_Performance_Agreement_-_Chauke_853da60e.pdf',
+    kpas: [
+      { id: 'kpa-chaukenh-1', title: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', nationalKpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', parentObjective: 'Good Governance and Institution Transformation', mscoaCode: 'Operational', weighting: '40' },
+      { id: 'kpa-chaukenh-2', title: 'KPA 2: LOCAL ECONOMIC DEVELOPMENT', nationalKpa: 'KPA 2: LOCAL ECONOMIC DEVELOPMENT', parentObjective: 'Local Economic Development', mscoaCode: 'Operational', weighting: '10' },
+      { id: 'kpa-chaukenh-3', title: 'KPA 3: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', nationalKpa: 'KPA 3: MUNICIPAL FINANCIAL VIABILITY AND MANAGEMENT', parentObjective: 'Municipal Financial Viability and Management', mscoaCode: 'Operational', weighting: '35' },
+      { id: 'kpa-chaukenh-4', title: 'KPA 4: PROJECT MANAGEMENT', nationalKpa: 'KPA 4: PROJECT MANAGEMENT', parentObjective: 'Project Management', mscoaCode: 'Capital / Project', weighting: '15' }
+    ],
+    competencyType: 'jsc',
+    coreCompetencies: CCR_BASE_DEFINITIONS.map((c, idx) => ({
+      id: `chaukenh-cc-${idx + 1}`,
+      category: c.category,
+      competency: c.competency,
+      components: c.components,
+      definition: c.definition,
+      weighting: CHAUKE_CFO_WEIGHTS[idx] || 10,
+      level: 'Superior / Advanced'
+    })),
+    jscs: CCR_BASE_DEFINITIONS.map((c, idx) => ({
+      id: `jsc-chaukenh-${idx + 1}`,
+      jscNo: `CCR ${idx + 1}`,
+      category: c.category,
+      competency: c.competency,
+      definition: {
+        mainText: c.definition,
+        subsections: [{ heading: 'Key Components', paragraphs: [c.components] }]
+      },
+      level: 'Level 4',
+      weight: CHAUKE_CFO_WEIGHTS[idx] || 10
+    })),
+    kpis: [
+      { id: 'kpi-chaukenh-1', kpiNo: 'E_01', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', strategicGoal: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of SDBIP and Annual Performance Plan aligned with the NDM IDP approved by the Board Chairperson 28 days after the approval of the budget by 30 June 2027.', weighting: '4', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '1', poe: 'Approved SDBIP and Annual Performance Plan by Board Chairperson', budget: 'OPEX' },
+      { id: 'kpi-chaukenh-2', kpiNo: 'E_02', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', strategicGoal: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of new/reviewed policies and enabling documents approved by the board by 30 June 2027.', weighting: '3', baseline: '5', annualTarget: '5', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '5', poe: 'Reviewed Policies and Board Resolution', budget: 'OPEX' },
+      { id: 'kpi-chaukenh-3', kpiNo: 'E_03', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', strategicGoal: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Number of quarterly reports submitted to the Board and the NDM by 30 June 2027', weighting: '2', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Quarterly Report, Board and Council resolutions', budget: 'OPEX' },
+      { id: 'kpi-chaukenh-4', kpiNo: 'E_04', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', strategicGoal: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Maximum acceptable percentage of Staff vacancy rate (circular 88) per quarter', weighting: '2', baseline: 'NEW', annualTarget: '10% or below', q1Target: '10% or below', q2Target: '10% or below', q3Target: '10% or below', q4Target: '10% or below', poe: 'Signed Vacancy Rate Report (Indicating the vacancy rate percentage)', budget: 'OPEX' },
+      { id: 'kpi-chaukenh-5', kpiNo: 'E_08', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', strategicGoal: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', kpi: 'Percentage of Finance Employees who have declared their financial interests (Circular 88) by 30 June 2027', weighting: '2', baseline: 'NEW', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Report on Declarations of Interest by Employees and Board Resolution.', budget: 'OPEX' }
+    ],
+    pdps: [
+      {
+        id: 'pdp-chaukenh-1',
+        skillsGap: 'Executive Public Sector Governance & Strategic Municipal Delivery',
+        outcomes: 'Enhanced executive delivery across NEDA strategic planning, project implementation and compliance',
+        suggestedTraining: 'Municipal Entity Governance & Strategic Performance Executive Programme',
+        modeOfDelivery: 'Accredited Executive Provider',
+        timeFrame: '01 July 2026 to 30 June 2027',
+        workOpportunity: 'Executive planning and project oversight at NEDA',
+        supportPerson: 'Acting Chief Executive Officer (Johan Prince Mangani)'
+      }
+    ]
   }
 ];
 
@@ -804,7 +877,10 @@ export function findNedaPackageByEmailOrName(identifier: string): NedaExtractedU
     if (pkg.aliases.some(a => a.toLowerCase() === clean)) return true;
     const prefix = clean.split('@')[0];
     if (prefix && pkg.primaryEmail.toLowerCase().split('@')[0] === prefix) return true;
-    if (clean.includes('mangani')) return pkg.primaryEmail === 'manganijp@neda.gov.za';
+    if (clean.includes('mangani')) return pkg.primaryEmail === 'manganijp@neda.gov.za' || pkg.primaryEmail === 'manganijp@nkangaladm.gov.za';
+    if (clean.includes('chaukenh')) return pkg.primaryEmail === 'chaukenh@nkangaladm.gov.za';
+    if (clean.includes('chaukekc')) return pkg.primaryEmail === 'chaukekc@neda.gov.za';
+    if (clean.includes('chauke') && clean.includes('nh')) return pkg.primaryEmail === 'chaukenh@nkangaladm.gov.za';
     if (clean.includes('chauke')) return pkg.primaryEmail === 'chaukekc@neda.gov.za';
     if (clean.includes('sehlako') || clean.includes('lydia')) return pkg.primaryEmail === 'sehlakols@neda.gov.za';
     if (clean.includes('ngomane') || clean.includes('ntsoaki')) return pkg.primaryEmail === 'ngomanennc@neda.gov.za';

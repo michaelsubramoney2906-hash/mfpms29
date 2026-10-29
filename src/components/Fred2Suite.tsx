@@ -44,9 +44,9 @@ export function Fred2Suite({
   }, [initialSubModule]);
 
   return (
-    <div id="fred2-suite-root" className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-hidden rounded-2xl border border-slate-800">
+    <div id="extraction-engine-suite-root" className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-hidden rounded-2xl border border-slate-800">
       
-      {/* Top Fred 2 Navigation Tab Bar */}
+      {/* Top Extraction Engine Navigation Tab Bar */}
       <div className="bg-slate-950 border-b border-slate-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-md">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
@@ -55,7 +55,7 @@ export function Fred2Suite({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-white tracking-wide uppercase">Fred 2</span>
+                <span className="text-sm font-black text-white tracking-wide uppercase">EXTRACTION ENGINE</span>
                 <span className="text-[9px] text-emerald-400 font-extrabold px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-800/60 uppercase">
                   NEDA EXCLUSIVE
                 </span>
@@ -69,7 +69,7 @@ export function Fred2Suite({
           {/* Sub-Module Switcher */}
           <div className="inline-flex p-1 bg-slate-900 border border-slate-800 rounded-xl shadow-inner">
             <button
-              id="tab-fred2-performance-plan"
+              id="tab-engine-performance-plan"
               type="button"
               onClick={() => setActiveSubModule('performance-plan')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
@@ -86,7 +86,7 @@ export function Fred2Suite({
             </button>
 
             <button
-              id="tab-fred2-gm-extractor"
+              id="tab-engine-gm-extractor"
               type="button"
               onClick={() => setActiveSubModule('gm-extractor')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
@@ -103,7 +103,7 @@ export function Fred2Suite({
             </button>
 
             <button
-              id="tab-fred2-sdbip"
+              id="tab-engine-sdbip"
               type="button"
               onClick={() => setActiveSubModule('sdbip')}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
@@ -131,10 +131,12 @@ export function Fred2Suite({
         </div>
       </div>
 
-      {/* Warning banner */}
-      <div className="bg-emerald-950/30 border-b border-emerald-900/30 px-6 py-2 flex items-center gap-2 text-[10px] text-emerald-400 font-semibold uppercase tracking-wider select-none shrink-0">
-        <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-        <span>Strict Zero-Leakage Policy: Extracted data is routed exclusively to NEDA's autonomous tables and is completely separated from Nkangala.</span>
+      {/* Strict Isolation & Recipient Policy Banner */}
+      <div className="bg-emerald-950/40 border-b border-emerald-800/40 px-6 py-2.5 flex items-center gap-2.5 text-[11px] text-emerald-300 font-semibold select-none shrink-0">
+        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+        <span>
+          <strong className="text-white uppercase font-black">NEDA Strict Isolation & Recipient Policy:</strong> Extracted KPAs and KPIs can <strong className="text-white uppercase underline">ONLY</strong> go to the following approved users&apos; Performance Agreements: <span className="font-bold text-amber-300">ChaukeNH@nkangaladm.gov.za</span>, <span className="font-bold text-amber-300">SehlakoLS@neda.gov.za</span>, <span className="font-bold text-amber-300">ChaukeKC@neda.gov.za</span>, <span className="font-bold text-amber-300">manganijp@nkangaladm.gov.za</span>. Extracted data never leaves NEDA and is completely isolated from Nkangala.
+        </span>
       </div>
 
       {/* Sub-Module Active Body */}

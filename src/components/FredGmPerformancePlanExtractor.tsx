@@ -33,6 +33,33 @@ import {
   type ExtractedKpaDefinition
 } from '../utils/gmIppParser';
 
+export const NEDA_ALLOWED_RECIPIENTS = [
+  {
+    email: 'ChaukeNH@nkangaladm.gov.za',
+    fullName: 'N.H. Chauke',
+    jobFunction: 'Senior Manager / Executive Official',
+    department: 'NEDA Executive Office'
+  },
+  {
+    email: 'SehlakoLS@neda.gov.za',
+    fullName: 'Lekgotla Samuel Sehlako',
+    jobFunction: 'Manager: Supply Chain Management',
+    department: 'Supply Chain Management'
+  },
+  {
+    email: 'ChaukeKC@neda.gov.za',
+    fullName: 'Kulani Collen Chauke',
+    jobFunction: 'Chief Financial Officer',
+    department: 'Finance and Administration'
+  },
+  {
+    email: 'manganijp@nkangaladm.gov.za',
+    fullName: 'Johan Prince Mangani',
+    jobFunction: 'Acting Chief Executive Officer',
+    department: 'Office of the Chief Executive Officer'
+  }
+];
+
 interface FredGmPerformancePlanExtractorProps {
   currentUser: User;
   activeTenantId: string;
@@ -44,6 +71,21 @@ export function FredGmPerformancePlanExtractor({
   activeTenantId,
   onNavigateToIPMS
 }: FredGmPerformancePlanExtractorProps) {
+  // Helper to resolve the initial target employee to one of the 4 approved NEDA users
+  const resolveApprovedNedaUser = (email?: string) => {
+    if (!email) return NEDA_ALLOWED_RECIPIENTS[3];
+    const clean = email.toLowerCase().trim();
+    const found = NEDA_ALLOWED_RECIPIENTS.find(u => {
+      const uEmail = u.email.toLowerCase().trim();
+      return uEmail === clean ||
+        (clean.includes('mangani') && uEmail.includes('mangani')) ||
+        (clean.includes('chaukekc') && uEmail.includes('chaukekc')) ||
+        (clean.includes('chaukenh') && uEmail.includes('chaukenh')) ||
+        (clean.includes('sehlako') && uEmail.includes('sehlako'));
+    });
+    return found || NEDA_ALLOWED_RECIPIENTS[3];
+  };
+
   // State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -55,14 +97,14 @@ export function FredGmPerformancePlanExtractor({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKpa, setFilterKpa] = useState<string>('all');
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser.email || '');
+  const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(() => resolveApprovedNedaUser(currentUser.email).email);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update target employee when currentUser changes
   useEffect(() => {
     if (currentUser?.email) {
-      setTargetEmployeeEmail(currentUser.email);
+      setTargetEmployeeEmail(resolveApprovedNedaUser(currentUser.email).email);
     }
   }, [currentUser]);
 
@@ -76,9 +118,10 @@ export function FredGmPerformancePlanExtractor({
 
     const loadSavedSnapshot = async () => {
       try {
-        const targetEmail = targetEmployeeEmail || currentUser.email;
+        const targetEmail = targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email;
         if (!targetEmail) return;
-        const res = await fetch(`/api/tenant/${activeTenantId}/fred-extraction/gm_performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
+        const effectiveTenantId = 'neda';
+        const res = await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/gm_performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           const items = data.items || data.data;
@@ -101,7 +144,7 @@ export function FredGmPerformancePlanExtractor({
       }
     };
     loadSavedSnapshot();
-  }, [activeTenantId, targetEmployeeEmail, currentUser.email]);
+  }, [targetEmployeeEmail, currentUser.email]);
 
   // Handle File Upload & Extraction
   const handleFileUpload = async (file: File) => {
@@ -166,27 +209,29 @@ export function FredGmPerformancePlanExtractor({
       return;
     }
 
+    // STRICT RECIPIENT SECURITY CHECK: Only the 4 approved NEDA users can ever receive extracted KPAs & KPIs
+    const normalizedTarget = (targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email).toLowerCase().trim();
+    const matchedRecipient = NEDA_ALLOWED_RECIPIENTS.find(r => r.email.toLowerCase().trim() === normalizedTarget);
+    if (!matchedRecipient) {
+      setStatusMessage({
+        type: 'error',
+        text: 'Security Constraint: In NEDA Extraction Engine, extracted KPAs and KPIs can ONLY go to NEDA performance agreements for: ChaukeNH@nkangaladm.gov.za, SehlakoLS@neda.gov.za, ChaukeKC@neda.gov.za, or manganijp@nkangaladm.gov.za.'
+      });
+      return;
+    }
+
     setIsPushing(true);
     setStatusMessage({
       type: 'info',
-      text: `Pushing ${selected.length} verbatim GM KPIs into the Performance Plan grid for ${targetEmployeeEmail || currentUser.email}...`
+      text: `Pushing ${selected.length} verbatim GM KPIs into the NEDA Performance Plan for ${matchedRecipient.fullName} (${matchedRecipient.email})...`
     });
 
     try {
-      const targetEmail = targetEmployeeEmail || currentUser.email;
+      const targetEmail = matchedRecipient.email;
+      // STRICT NEDA ISOLATION
+      const effectiveTenantId = 'neda';
 
       // Map strictly as required:
-      // kpi ids -> kpi no
-      // key performance indicator -> kpi description
-      // weight -> wt
-      // baseline -> baseline
-      // total budget -> budget
-      // annual -> annual target
-      // q1 -> 1st qtr target
-      // q2 -> 2nd qtr target
-      // q3 -> 3rd qtr target
-      // q4 -> 4th qtr target
-      // poe -> 1st qtr poe, 2nd qtr poe, 3rd qtr poe, 4th qtr poe
       const planItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || (it as any).functionalKpa || it["kpa"] || (it as any).kpa || 'Functional Performance Area';
         const poeVal = it["poe"] || (it as any).poe || (it as any).poeDesc || '';
@@ -256,11 +301,6 @@ export function FredGmPerformancePlanExtractor({
         };
       });
 
-      const normTarget = targetEmail.toLowerCase().trim();
-      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && normTarget.includes('nkangala')
-        ? 'tenant-229'
-        : activeTenantId;
-
       let pushRes = await fetch(`/api/tenant/${effectiveTenantId}/ipms/gm-push-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -295,10 +335,11 @@ export function FredGmPerformancePlanExtractor({
       }
 
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
+      window.dispatchEvent(new CustomEvent('neda-kpis-updated', { detail: { tenantId: effectiveTenantId, userId: targetEmail } }));
 
       setStatusMessage({
         type: 'success',
-        text: `Successfully mapped and pushed ${planItems.length} verbatim GM KPIs into the Performance Plan for ${targetEmail}.`
+        text: `Successfully mapped and pushed ${planItems.length} verbatim GM KPIs into the NEDA Performance Plan for ${matchedRecipient.fullName} (${targetEmail}). Extracted data is strictly quarantined within NEDA.`
       });
 
       if (onNavigateToIPMS) {
@@ -389,28 +430,33 @@ export function FredGmPerformancePlanExtractor({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black text-white tracking-wide">GM Extractor</h2>
-              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                General Manager / Sec 56
+              <h2 className="text-lg font-black text-white tracking-wide">EXTRACTION ENGINE — GM Extractor</h2>
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                NEDA Sec 56 GM
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Dedicated Extractor for General Manager & Executive Director Agreements. Extracts KPAs, KPIs, KPI IDs, weights, quarterly targets & POEs verbatim.
+              Dedicated Extractor for General Manager & Executive Director Agreements. Extracted KPAs and KPIs can ONLY go to the 4 approved NEDA users.
             </p>
           </div>
         </div>
 
-        {/* Target Profile Switcher */}
-        <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-2 rounded-xl">
-          <UserIcon className="w-4 h-4 text-amber-400" />
-          <span className="text-xs text-slate-400 font-semibold">Target Profile:</span>
-          <input
-            type="email"
+        {/* Target Profile Switcher (Strictly Locked to 4 Approved NEDA Users) */}
+        <div className="flex items-center gap-3 bg-slate-900 border border-emerald-500/40 p-2 rounded-xl">
+          <UserIcon className="w-4 h-4 text-emerald-400" />
+          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Approved Target:</span>
+          <select
+            id="select-gm-recipient"
             value={targetEmployeeEmail}
             onChange={(e) => setTargetEmployeeEmail(e.target.value)}
-            placeholder="User Email"
-            className="bg-slate-950 border border-slate-700 text-amber-300 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-500 w-52"
-          />
+            className="bg-slate-950 border border-emerald-500/50 text-emerald-300 text-xs font-black rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer shadow-inner"
+          >
+            {NEDA_ALLOWED_RECIPIENTS.map(rec => (
+              <option key={rec.email} value={rec.email}>
+                {rec.fullName} — {rec.jobFunction} ({rec.email})
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

@@ -253,7 +253,20 @@ const DEFAULT_CORP_COMPETENCIES = [
 ];
 
 export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, isTeamEvaluation }: CoreCompetenciesSelfEvaluationProps) {
-  const [activeScope, setActiveScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>('directors');
+  const userEmail = (currentUser?.email || 'default').toLowerCase().trim();
+  const isNeda = (activeTenantId || '').toLowerCase().includes('neda') || 
+    userEmail.includes('neda.gov.za') || 
+    userEmail.includes('manganijp') || 
+    userEmail.includes('chaukekc') || 
+    userEmail.includes('chaukenh') || 
+    userEmail.includes('sehlakols') || 
+    userEmail.includes('ngomanennc');
+
+  const defaultScope = isNeda
+    ? (userEmail.includes('manganijp') ? 'mm' : userEmail.includes('chaukekc') ? 'cfo' : 'corp')
+    : 'directors';
+
+  const [activeScope, setActiveScope] = useState<'directors' | 'cfo' | 'mm' | 'ped' | 'corp'>(defaultScope);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -269,7 +282,13 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
   // Preview Modal state
   const [previewDoc, setPreviewDoc] = useState<PoeDocument | null>(null);
 
-  const userEmail = (currentUser?.email || 'default').toLowerCase().trim();
+  // Keep activeScope locked to NEDA official's true profile
+  useEffect(() => {
+    if (isNeda) {
+      const scope = userEmail.includes('manganijp') ? 'mm' : userEmail.includes('chaukekc') ? 'cfo' : 'corp';
+      setActiveScope(scope);
+    }
+  }, [userEmail, isNeda]);
 
   // Helper to get active rows array and setter
   const getActiveRowsAndSetter = () => {
@@ -819,72 +838,84 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
 
       {/* Scope Navigation Switcher (Directors, CFO, Municipal Manager, PED, Corporate Services) */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveScope('directors')}
-            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
-              activeScope === 'directors' 
-                ? 'bg-indigo-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            <span>Directors Core Competencies ({directorsRows.length})</span>
-          </button>
+        {isNeda ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+              {currentUser.fullName || currentUser.name || userEmail} — NEDA Core Competencies Self-Evaluation
+            </span>
+            <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">
+              {currentRows.length} Competencies Active
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl flex-wrap">
+            <button
+              type="button"
+              onClick={() => setActiveScope('directors')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+                activeScope === 'directors' 
+                  ? 'bg-indigo-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Award className="w-4 h-4" />
+              <span>Directors Core Competencies ({directorsRows.length})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveScope('cfo')}
-            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
-              activeScope === 'cfo' 
-                ? 'bg-blue-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Briefcase className="w-4 h-4" />
-            <span>CFOs Core Competencies ({cfoRows.length})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveScope('cfo')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+                activeScope === 'cfo' 
+                  ? 'bg-blue-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>CFOs Core Competencies ({cfoRows.length})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveScope('mm')}
-            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
-              activeScope === 'mm' 
-                ? 'bg-emerald-700 text-white shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            <span>Municipal Managers Core Competencies ({mmRows.length})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveScope('mm')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+                activeScope === 'mm' 
+                  ? 'bg-emerald-700 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Municipal Managers Core Competencies ({mmRows.length})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveScope('ped')}
-            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
-              activeScope === 'ped' 
-                ? 'bg-amber-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Compass className="w-4 h-4" />
-            <span>PED Core Competencies ({pedRows.length})</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setActiveScope('ped')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+                activeScope === 'ped' 
+                  ? 'bg-amber-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Compass className="w-4 h-4" />
+              <span>PED Core Competencies ({pedRows.length})</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveScope('corp')}
-            className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
-              activeScope === 'corp' 
-                ? 'bg-purple-600 text-white shadow-xs' 
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Briefcase className="w-4 h-4" />
-            <span>Corporate Services Core Competencies ({corpRows.length})</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => setActiveScope('corp')}
+              className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+                activeScope === 'corp' 
+                  ? 'bg-purple-600 text-white shadow-xs' 
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>Corporate Services Core Competencies ({corpRows.length})</span>
+            </button>
+          </div>
+        )}
 
         {/* Quarter Switcher */}
         <div className="flex items-center gap-1">
@@ -958,11 +989,13 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-              {activeScope === 'directors' ? 'Directors Specific Core Competencies Matrix' :
-               activeScope === 'cfo' ? 'Chief Financial Officer (CFO) Specific Core Competencies Matrix' :
-               activeScope === 'mm' ? 'Municipal Manager (MM) Specific Core Competencies Matrix' :
-               activeScope === 'ped' ? 'PED Specific Core Competencies Matrix' :
-               'Corporate Services Specific Core Competencies Matrix'} ({selectedQuarter.toUpperCase()})
+              {isNeda 
+                ? `${currentUser.fullName || currentUser.name || userEmail} — NEDA Core Competencies Self-Evaluation (${selectedQuarter.toUpperCase()})`
+                : (activeScope === 'directors' ? 'Directors Specific Core Competencies Matrix' :
+                   activeScope === 'cfo' ? 'Chief Financial Officer (CFO) Specific Core Competencies Matrix' :
+                   activeScope === 'mm' ? 'Municipal Manager (MM) Specific Core Competencies Matrix' :
+                   activeScope === 'ped' ? 'PED Specific Core Competencies Matrix' :
+                   'Corporate Services Specific Core Competencies Matrix') + ` (${selectedQuarter.toUpperCase()})`}
             </h3>
           </div>
           <div className="text-[10px] font-bold text-slate-500">

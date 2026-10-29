@@ -356,7 +356,7 @@ export function NEDAPortal({ user, onLogout, onImpersonate }: NEDAPortalProps) {
         { id: 'annual_perf_report', name: 'Annual Performance Report', desc: 'Evaluates top-tier corporate performance and annual targets.', icon: <BarChart3 className="w-4 h-4" /> },
         { id: 'idp', name: 'IDP Module', desc: 'Formulate, review, and align NEDA’s strategic development plans.', icon: <Layers className="w-4 h-4" /> },
         { id: 'sdbip', name: 'SDBIP Module', desc: 'Monitors Service Delivery and Budget Implementation Plan indicators.', icon: <CheckSquare className="w-4 h-4" /> },
-        { id: 'fred2', name: 'Fred 2 Extractor', desc: 'NEDA Autonomous AI cognitive extraction engine.', icon: <Bot className="w-4 h-4 text-emerald-600" /> },
+        { id: 'fred2', name: 'Extraction Engine', desc: 'NEDA Autonomous cognitive extraction engine for Performance Agreements & SDBIP.', icon: <Bot className="w-4 h-4 text-emerald-600" /> },
       ]
     },
     {
