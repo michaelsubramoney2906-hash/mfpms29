@@ -677,6 +677,9 @@ export function getKhumaloNkosiAliases(email: string): string[] {
   if (clean === 'nsibandenp@nkangaladm.gov.za' || clean === 'zulune@nkangaladm.gov.za' || clean.includes('nsibandenp') || clean.includes('zulune')) {
     return Array.from(new Set([clean, 'nsibandenp@nkangaladm.gov.za', 'zulune@nkangaladm.gov.za']));
   }
+  if (clean === 'msizaa@nkangaladm.gov.za' || clean === 'msizaas@nkangaladm.gov.za' || clean === 'msizaas@nkangala.gov.za' || clean.includes('msizaas') || clean.includes('msizaa')) {
+    return Array.from(new Set([clean, 'msizaas@nkangaladm.gov.za', 'msizaa@nkangaladm.gov.za', 'msizaas@nkangala.gov.za']));
+  }
   if (isDisasterControlTeamMember(clean)) {
     return Array.from(new Set([clean, ...DISASTER_CONTROL_TEAM_EMAILS]));
   }
