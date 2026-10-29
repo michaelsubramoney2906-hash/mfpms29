@@ -690,10 +690,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
         ]);
 
         const emailMap = new Map<string, string>();
-
-        if (isNirisha) {
-          NIRISHA_DIRECT_SUBORDINATES.forEach(s => emailMap.set(s.email, s.name));
-        }
+        const userObjMap = new Map<string, any>();
 
         if (usersRes.ok) {
           const usersData = await usersRes.json();
@@ -701,9 +698,8 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
             usersData.forEach((u: any) => {
               const em = (u.email || '').toLowerCase().trim();
               if (em && !em.endsWith('@mzansiflow.co.za') && !em.endsWith('@massivedynamixdistributors.com')) {
-                if (!emailMap.has(em)) {
-                  emailMap.set(em, u.fullName || u.full_name || u.name || em);
-                }
+                userObjMap.set(em, u);
+                emailMap.set(em, u.fullName || u.full_name || u.name || em);
               }
             });
           }
@@ -724,8 +720,45 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
         }
 
         const currNorm = (currentUser.email || '').toLowerCase().trim();
+        const defNorm = (defaultEmployeeEmail || '').toLowerCase().trim();
+
+        // Helper to verify if an official is a direct reporting subordinate of the current manager
+        const isDirectSubordinate = (employeeEmail: string) => {
+          const empNorm = employeeEmail.toLowerCase().trim();
+          if (empNorm === currNorm) return false; // Exclude self
+          if (defNorm && empNorm === defNorm) return true; // Allow explicitly requested subordinate from inbox/deep-link
+
+          // 1. Nirisha's direct reporting team override
+          if (isNirisha && NIRISHA_DIRECT_SUBORDINATES.some(s => s.email.toLowerCase().trim() === empNorm)) {
+            return true;
+          }
+
+          // 2. Check getTargetManagerForUser mapping
+          const mappedManager = getTargetManagerForUser(empNorm).toLowerCase().trim();
+          if (mappedManager === currNorm) return true;
+
+          // 3. Check user object manager attributes from DB
+          const uObj = userObjMap.get(empNorm);
+          if (uObj) {
+            const objMgr = (uObj.managerEmail || uObj.manager || uObj.reportTo || uObj.supervisorName || '').toLowerCase().trim();
+            if (objMgr && (objMgr === currNorm || objMgr.includes(currNorm.split('@')[0]))) {
+              return true;
+            }
+          }
+
+          // 4. Municipal Manager / System Admin departmental director oversight
+          if (currNorm.includes('mahlanguml') || currNorm.includes('mahlangulm')) {
+            const isDirectorOrHOD = [
+              'shabangusm', 'standeral', 'joubertm', 'linkss', 'magampeas', 'khuboniy', 'nkosije', 'singhn', 'vanniekerkt', 'masilelasi'
+            ].some(d => empNorm.includes(d));
+            if (isDirectorOrHOD) return true;
+          }
+
+          return false;
+        };
+
         const list = Array.from(emailMap.entries())
-          .filter(([email]) => email !== currNorm)
+          .filter(([email]) => isDirectSubordinate(email))
           .map(([email, name]) => ({ email, name }));
 
         if (isNirisha) {
@@ -745,8 +778,11 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
             setSelectedUserEmail('rachidimb@nkangaladm.gov.za');
           } else if (defaultEmployeeEmail && defaultEmployeeEmail.toLowerCase().trim() !== currNorm) {
             setSelectedUserEmail(defaultEmployeeEmail.toLowerCase().trim());
-          } else if (list.length > 0 && !selectedUserEmail) {
-            setSelectedUserEmail(list[0].email);
+          } else if (list.length > 0) {
+            const currentInList = list.some(s => s.email === selectedUserEmail);
+            if (!currentInList) {
+              setSelectedUserEmail(list[0].email);
+            }
           }
         }
       } catch (err) {
