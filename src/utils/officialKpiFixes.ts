@@ -616,6 +616,32 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 17. Mr. Rachidi Mokgatle (rachidimb@nkangaladm.gov.za) - Lock KPI 22 and KPI 23 for Quarter 1
+  if (normEmail === 'rachidimb@nkangaladm.gov.za' || normEmail.includes('rachidimb')) {
+    result = result.map((kpi, index) => {
+      const kNo = (kpi.kpiNo || kpi['kpi no'] || kpi.refNum || kpi.id || '').toString().trim().toUpperCase();
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
+
+      const isKpi22Or23 = index === 21 || index === 22 || kNo === '22' || kNo === '23' || desc.includes('prisons and correctional') || desc.includes('chemical handling premises');
+
+      if (isKpi22Or23) {
+        return {
+          ...kpi,
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q1Locked: true,
+          q1Applicable: false,
+          q1PoeStatus: 'N/A',
+          reviewStatus: 'N/A',
+          reviewApprovalStatus: '',
+          q1Actual: 'N/A',
+          lockedQuarters: Array.from(new Set([...(kpi.lockedQuarters || []), 'Q1', 'q1']))
+        };
+      }
+      return kpi;
+    });
+  }
+
   return result;
 }
 

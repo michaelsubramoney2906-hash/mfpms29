@@ -102,6 +102,7 @@ export function FredPerformancePlanExtractor({
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser?.email || 'manganijp@nkangaladm.gov.za');
   const [selectedTargetUser, setSelectedTargetUser] = useState<any>(currentUser);
+  const [selectedPlanDestination, setSelectedPlanDestination] = useState<'individual' | 'team-1' | 'team-2' | 'team-leader-dual'>('team-1');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -665,6 +666,109 @@ export function FredPerformancePlanExtractor({
     }
   };
 
+  const handlePushToTeamPerformancePlanWithEmail = async (overrideEmail: string, destinationName: string) => {
+    const selected = extractedItems.filter(it => it._selected !== false);
+    if (selected.length === 0) {
+      setStatusMessage({ type: 'error', text: 'Please select at least one KPI to push.' });
+      return;
+    }
+
+    setIsPushing(true);
+    setStatusMessage({
+      type: 'info',
+      text: `Pushing ${selected.length} verbatim KPIs directly into ${destinationName}...`
+    });
+
+    try {
+      const planItems = selected.map((it, idx) => {
+        const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+        const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
+        
+        return {
+          id: `team-ipp-kpi-${Date.now()}-${idx + 1}`,
+          kpiNo: it["kpi no"] || `KPI-${idx + 1}`,
+          kpi: it["kpi description"] || '',
+          weighting: it["%wt"] || '0',
+          baseline: it["baseline"] || '',
+          annualTarget: it["annual target"] || '',
+          q1Target: it["1st qtr target"] || '',
+          q2Target: it["2nd qtr target"] || '',
+          q3Target: it["3rd qtr target"] || '',
+          q4Target: it["4th qtr target"] || '',
+          poe: poeVal,
+          annualRequiredPoe: poeVal,
+          q1Poe: poeVal,
+          q2Poe: poeVal,
+          midtermPoe: poeVal,
+          q3Poe: poeVal,
+          q4Poe: poeVal,
+          budget: it["budget"] || 'R0.00',
+          kpa: functionalKpa,
+          mscoaCode: 'Operational',
+          strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
+          myScore: '3.0'
+        };
+      });
+
+      const planMetadata = {
+        name: destinationName,
+        period: '2025/2026 Financial Year',
+        department: currentUser.department || 'Administration',
+        position: destinationName,
+        email: overrideEmail,
+        _isFredExtracted: true,
+        _isCleared: false,
+        _extractedFrom: sourceFileName || 'Performance Agreement',
+        _pushedAt: new Date().toISOString()
+      };
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(overrideEmail)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: planMetadata,
+          items: planItems
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Server returned error status ${res.status}`);
+      }
+
+      setExtractedItems([]);
+      setExtractedKpas([]);
+      setSourceFileName('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully pushed ${selected.length} KPIs verbatim into ${destinationName}! Fred has saved the plan and forgotten the mapped extraction, ready for the next document.`
+      });
+
+    } catch (err: any) {
+      console.error(`Push to ${destinationName} error:`, err);
+      setStatusMessage({
+        type: 'error',
+        text: `Failed to push to ${destinationName}: ${err.message || 'Unknown server error.'}`
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  const handlePushToSelectedDestination = async () => {
+    if (selectedPlanDestination === 'individual') {
+      await handlePushToPerformancePlan();
+    } else if (selectedPlanDestination === 'team-2') {
+      await handlePushToTeamPerformancePlan2();
+    } else if (selectedPlanDestination === 'team-leader-dual') {
+      await handlePushToTeamPerformancePlanWithEmail((targetEmployeeEmail || currentUser.email) + '_team', 'Team Leader Dual Plan');
+    } else {
+      await handlePushToTeamPerformancePlan();
+    }
+  };
+
   // Reset / Clear Extractor
   const handleClearExtractor = async () => {
     setExtractedItems([]);
@@ -988,8 +1092,44 @@ export function FredPerformancePlanExtractor({
               </select>
             </div>
 
-            {/* Selection Status & Batch Toggle */}
-            <div className="flex items-center gap-3">
+            {/* Target Plan / Team Selector & Push Actions */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-1.5 bg-slate-900 px-2.5 py-1 rounded-xl border border-slate-750">
+                <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[11px] font-bold text-slate-300">Target Plan / Team:</span>
+                <select
+                  value={selectedPlanDestination}
+                  onChange={(e) => setSelectedPlanDestination(e.target.value as any)}
+                  className="bg-slate-950 text-emerald-300 font-bold text-xs px-2 py-1 rounded-lg border border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+                >
+                  <option value="team-1">👥 Team Performance Plan (Team 1)</option>
+                  <option value="team-2">👥 Team Performance Plan 2 (Team 2)</option>
+                  <option value="individual">👤 Individual Performance Plan</option>
+                  <option value="team-leader-dual">👥 Team Leader Dual Plan (_team)</option>
+                </select>
+              </div>
+
+              <button
+                id="btn-top-push-selected-destination"
+                type="button"
+                onClick={handlePushToSelectedDestination}
+                disabled={isPushing || selectedCount === 0}
+                className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black flex items-center gap-1.5 transition shadow-md shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+              >
+                {isPushing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Users className="w-3.5 h-3.5 text-emerald-200" />
+                )}
+                <span>
+                  Push {selectedCount} to {
+                    selectedPlanDestination === 'team-1' ? 'Team 1' :
+                    selectedPlanDestination === 'team-2' ? 'Team 2' :
+                    selectedPlanDestination === 'individual' ? 'Individual' : 'Dual Plan'
+                  }
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleSelectAll}
@@ -1169,63 +1309,88 @@ export function FredPerformancePlanExtractor({
 
           {/* Bottom Push & Clear Summary Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-slate-800/80">
-            <div className="text-xs text-slate-400">
-              Showing <strong className="text-white">{filteredItems.length}</strong> verbatim KPIs extracted from source agreement. Click <strong className="text-indigo-400">Push to Performance Plan</strong> to sync into IPMS, or <strong className="text-rose-400">Clear Extractor</strong> after completion.
+            <div className="text-xs text-slate-400 flex items-center gap-3 flex-wrap">
+              <span>Showing <strong className="text-white">{filteredItems.length}</strong> verbatim KPIs extracted from source agreement.</span>
+              <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-750">
+                <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[11px] font-bold text-slate-300">Target Plan / Team:</span>
+                <select
+                  value={selectedPlanDestination}
+                  onChange={(e) => setSelectedPlanDestination(e.target.value as any)}
+                  className="bg-slate-950 text-emerald-300 font-bold text-xs px-2.5 py-1 rounded-lg border border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+                >
+                  <option value="team-1">👥 Team Performance Plan (Team 1)</option>
+                  <option value="team-2">👥 Team Performance Plan 2 (Team 2)</option>
+                  <option value="individual">👤 Individual Performance Plan (Individual)</option>
+                  <option value="team-leader-dual">👥 Team Leader Dual Plan (_team)</option>
+                </select>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap">
               <button
                 type="button"
                 onClick={handleClearExtractor}
-                className="px-4 py-2.5 bg-slate-900 hover:bg-rose-950/70 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-bold border border-slate-750 hover:border-rose-700/50 transition cursor-pointer flex items-center gap-1.5 shadow"
+                className="px-3.5 py-2 bg-slate-900 hover:bg-rose-950/70 text-slate-300 hover:text-rose-200 rounded-xl text-xs font-bold border border-slate-750 hover:border-rose-700/50 transition cursor-pointer flex items-center gap-1.5 shadow"
               >
                 <Trash2 className="w-4 h-4 text-rose-400" />
-                <span>Clear Extractor</span>
+                <span>Clear</span>
               </button>
-              {((currentUser.email || '').toLowerCase().includes('dimpems') || (targetEmployeeEmail || '').toLowerCase().includes('dimpems')) && (
-                <button
-                  id="btn-bottom-push-to-team-performance-plan-2"
-                  type="button"
-                  onClick={handlePushToTeamPerformancePlan2}
-                  disabled={isPushing || selectedCount === 0}
-                  className="px-4 py-2.5 bg-gradient-to-r from-teal-600 via-cyan-600 to-teal-700 hover:from-teal-500 hover:to-cyan-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-teal-600/30 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPushing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Users className="w-4 h-4 text-cyan-200" />
-                  )}
-                  <span>Push {selectedCount} to Team Performance Plan 2</span>
-                </button>
-              )}
-              {activeTenantId !== 'neda' && (
-                <button
-                  id="btn-bottom-push-to-team-performance-plan"
-                  type="button"
-                  onClick={handlePushToTeamPerformancePlan}
-                  disabled={isPushing || selectedCount === 0}
-                  className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-                >
-                  {isPushing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Users className="w-4 h-4 text-emerald-200" />
-                  )}
-                  <span>Push {selectedCount} to Team Performance Plan</span>
-                </button>
-              )}
+
+              <button
+                id="btn-bottom-push-selected-destination"
+                type="button"
+                onClick={handlePushToSelectedDestination}
+                disabled={isPushing || selectedCount === 0}
+                className="px-5 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+              >
+                {isPushing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Users className="w-4 h-4 text-emerald-200" />
+                )}
+                <span>
+                  Push {selectedCount} to {
+                    selectedPlanDestination === 'team-1' ? 'Team Performance Plan' :
+                    selectedPlanDestination === 'team-2' ? 'Team Performance Plan 2' :
+                    selectedPlanDestination === 'individual' ? 'Individual Performance Plan' : 'Team Leader Dual Plan'
+                  }
+                </span>
+              </button>
+
+              <button
+                id="btn-bottom-push-to-team-performance-plan-2"
+                type="button"
+                onClick={handlePushToTeamPerformancePlan2}
+                disabled={isPushing || selectedCount === 0}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-cyan-950 text-cyan-300 border border-cyan-700/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                title="Direct 1-click Push to Team Performance Plan 2"
+              >
+                <Users className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Push Team 2</span>
+              </button>
+
+              <button
+                id="btn-bottom-push-to-team-performance-plan"
+                type="button"
+                onClick={handlePushToTeamPerformancePlan}
+                disabled={isPushing || selectedCount === 0}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-emerald-950 text-emerald-300 border border-emerald-700/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                title="Direct 1-click Push to Team Performance Plan 1"
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Push Team 1</span>
+              </button>
+
               <button
                 id="btn-bottom-push-to-performance-plan"
                 type="button"
                 onClick={handlePushToPerformancePlan}
                 disabled={isPushing || selectedCount === 0}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-black flex items-center gap-2 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer"
+                className="px-3.5 py-2 bg-slate-900 hover:bg-indigo-950 text-indigo-300 border border-indigo-700/50 rounded-xl text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+                title="Direct 1-click Push to Individual Performance Plan"
               >
-                {isPushing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ArrowRight className="w-4 h-4" />
-                )}
-                <span>Push {selectedCount} KPIs to Performance Plan</span>
+                <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Push Individual</span>
               </button>
             </div>
           </div>

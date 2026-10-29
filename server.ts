@@ -6352,6 +6352,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'mike@massivedynamixdistributors.com',
         'mike@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
+        'delpjhine@mzansiflow.co.za',
         'audrey@mzansiflow.co.za',
         'qiniso@mzansiflow.co.za',
         'bongani@mzansiflow.co.za',
@@ -7817,6 +7818,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'mike@massivedynamixdistributors.com',
         'audrey@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
+        'delpjhine@mzansiflow.co.za',
         'ryanw@mzansiflow.co.za',
         'bongani@mzansiflow.co.za',
         'bonganim@mzansiflow.co.za',
@@ -24757,12 +24759,32 @@ User Request: ${prompt}`;
               ...sItem,
               kpiNo: 'M_21',
               q1Target: 'N/A',
+              '1st qtr target': 'N/A',
               q1Locked: true,
+              q1Applicable: false,
               reviewStatus: 'N/A',
               reviewApprovalStatus: '',
               q1PoeStatus: 'N/A',
+              q1Actual: 'N/A',
               resubmittedAt: '',
-              resubmissionUnlocked: false
+              resubmissionUnlocked: false,
+              lockedQuarters: Array.from(new Set([...(sItem.lockedQuarters || []), 'Q1', 'q1']))
+            };
+          }
+          if (idx === 21 || idx === 22 || kNo === '22' || kNo === '23' || desc.includes('prisons and correctional') || desc.includes('chemical handling premises')) {
+            return {
+              ...sItem,
+              q1Target: 'N/A',
+              '1st qtr target': 'N/A',
+              q1Locked: true,
+              q1Applicable: false,
+              reviewStatus: 'N/A',
+              reviewApprovalStatus: '',
+              q1PoeStatus: 'N/A',
+              q1Actual: 'N/A',
+              resubmittedAt: '',
+              resubmissionUnlocked: false,
+              lockedQuarters: Array.from(new Set([...(sItem.lockedQuarters || []), 'Q1', 'q1']))
             };
           }
           const histDecision = latestRachidiStatusByIdx[itemNum];

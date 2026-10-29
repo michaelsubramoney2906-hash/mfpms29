@@ -14,6 +14,7 @@ export const GLOBAL_ADMIN_EMAILS = [
   'mike@mzansiflow.co.za',
   'mike@massivedynamixdistributors.com',
   'delphine@mzansiflow.co.za',
+  'delpjhine@mzansiflow.co.za',
   'audrey@mzansiflow.co.za',
   'qiniso@mzansiflow.co.za',
   'bonganim@mzansiflow.co.za',

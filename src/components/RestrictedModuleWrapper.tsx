@@ -240,6 +240,7 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     'mike@mzansiflow.co.za',
     'audrey@mzansiflow.co.za',
     'delphine@mzansiflow.co.za',
+    'delpjhine@mzansiflow.co.za',
     'ryanw@mzansiflow.co.za',
     'bongani@mzansiflow.co.za',
     'bonganim@mzansiflow.co.za',

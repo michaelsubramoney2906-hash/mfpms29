@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PoeDocument } from './Evaluation_IPMS';
+import { TeamAzureSearchInput } from './TeamAzureSearchInput';
 import { 
   JSCSelfEvaluationSection, 
   JSCManagerApprovalSection, 
@@ -1508,7 +1509,21 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
           </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 min-w-[280px]">
+            <span className="text-[10px] uppercase font-bold text-orange-400 whitespace-nowrap">Target User:</span>
+            <div className="w-full">
+              <TeamAzureSearchInput
+                value={selectedUserEmail}
+                placeholder="Search Azure AD Directory..."
+                compact={true}
+                onChange={(val) => setSelectedUserEmailState(val)}
+                onSelectUser={(u) => {
+                  if (u && u.email) setSelectedUserEmailState(u.email);
+                }}
+              />
+            </div>
+          </div>
 
           {isDualLayerTeamLeader && (
             <div className="flex items-center gap-1.5 bg-slate-800 p-1 rounded-xl shrink-0 mr-4">
@@ -2584,7 +2599,13 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
 
         {/* TAB 3: Employee Self / Team Evaluation */}
         {activeTab === 'self_evaluation' && (
-          <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamJSC} isTeamJSC2={isTeamJSC2} />
+          <JSCSelfEvaluationSection 
+            currentUser={currentUser} 
+            activeTenantId={activeTenantId} 
+            isTeamJSC={isTeamJSC} 
+            isTeamJSC2={isTeamJSC2} 
+            defaultEmployeeEmail={selectedUserEmail}
+          />
         )}
 
         {/* TAB 4: Supervisor & Line Manager Approval */}

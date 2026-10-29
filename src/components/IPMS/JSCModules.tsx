@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { PoeDocument, QuarterPoeSelector } from './Evaluation_IPMS';
 import { viewOriginalFile } from '../../utils/documentBinaryHelper';
+import { TeamAzureSearchInput } from './TeamAzureSearchInput';
+import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 
 export interface CompetencyQuarterData {
   selfScore: number;
@@ -165,14 +167,25 @@ export const DEFAULT_COMPETENCY_ROWS: CompetencyRow[] = [
 // ==========================================
 // 1. JSC Self / Team Evaluation Section
 // ==========================================
-export function JSCSelfEvaluationSection({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
+export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
   const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const isTeam = isTeamJSC || isTeamJSC2;
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
-  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+
+  const [targetEmailState, setTargetEmailState] = useState<string>(
+    defaultEmployeeEmail || currentUser?.email || ''
+  );
+
+  useEffect(() => {
+    if (defaultEmployeeEmail) {
+      setTargetEmailState(defaultEmployeeEmail);
+    }
+  }, [defaultEmployeeEmail]);
+
+  const userEmail = (targetEmailState || currentUser?.email || '').toLowerCase().trim();
 
   useEffect(() => {
     let active = true;
@@ -722,10 +735,17 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
         const currNorm = (currentUser.email || '').toLowerCase().trim();
         const defNorm = (defaultEmployeeEmail || '').toLowerCase().trim();
 
+        const isUnrestrictedAdmin = 
+          isUserUnrestricted(currentUser) ||
+          currNorm.endsWith('@mzansiflow.co.za') ||
+          currNorm.endsWith('@massivedynamixdistributors.com') ||
+          ['mike@', 'delphine@', 'delpjhine@', 'audrey@', 'ryanw@', 'bongani@', 'marlan@', 'qiniso@'].some(a => currNorm.includes(a));
+
         // Helper to verify if an official is a direct reporting subordinate of the current manager
         const isDirectSubordinate = (employeeEmail: string) => {
           const empNorm = employeeEmail.toLowerCase().trim();
           if (empNorm === currNorm) return false; // Exclude self
+          if (isUnrestrictedAdmin) return true; // Global admins & Delphine can view/approve all municipal officials
           if (defNorm && empNorm === defNorm) return true; // Allow explicitly requested subordinate from inbox/deep-link
 
           // 1. Nirisha's direct reporting team override
