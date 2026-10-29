@@ -19403,6 +19403,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const aliasUsers = getKhumaloNkosiAliases(userId);
       const documentId = `team_pplan_${tenantId}_${userId}`;
+      const isTeamPms = isTeamPmsCoOwner(userId);
 
       const fallbackKeys = Array.from(new Set([
         documentId,
@@ -19415,12 +19416,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `team_pplan_nkangala_auto_${aUser}`,
           `team_pplan_global_${aUser}`
         ]),
-        `team_pplan_${tenantId}_all`,
-        `team_evaluation_${tenantId}_all`,
-        `team_pplan_tenant-229_all`,
-        `team_evaluation_tenant-229_all`,
-        `team_pplan_nkangala_auto_all`,
-        `team_pplan_global_all`
+        ...(isTeamPms ? [
+          `team_pplan_${tenantId}_all`,
+          `team_evaluation_${tenantId}_all`,
+          `team_pplan_tenant-229_all`,
+          `team_evaluation_tenant-229_all`,
+          `team_pplan_nkangala_auto_all`,
+          `team_pplan_global_all`
+        ] : [])
       ]));
 
       const fbRes = await supabase.from('messages').select('id, content').in('id', fallbackKeys);
@@ -19534,23 +19537,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       for (const u of targetUsers) {
         for (const tId of syncTenants) {
           const uDocId = `team_pplan_${tId}_${u}`;
-          const allDocId = `team_pplan_${tId}_all`;
           const evalDocId = `team_evaluation_${tId}_${u}`;
-          const evalAllDocId = `team_evaluation_${tId}_all`;
           pplanCache.set(uDocId, { raw: payloadStr, timestamp: Date.now() });
-          pplanCache.set(allDocId, { raw: payloadStr, timestamp: Date.now() });
           upsertRows.push({
             id: uDocId,
-            tenant_id: tId,
-            sender_id: 'team_pplan_editor_tool',
-            sender_email: 'team_pplan@system.local',
-            sender_name: 'Team PPLAN Editor',
-            content: payloadStr,
-            message_type: 'team_pplan_list',
-            created_at: nowIso
-          });
-          upsertRows.push({
-            id: allDocId,
             tenant_id: tId,
             sender_id: 'team_pplan_editor_tool',
             sender_email: 'team_pplan@system.local',
@@ -19569,17 +19559,30 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             message_type: 'team_evaluation_doc',
             created_at: nowIso
           });
-          upsertRows.push({
-            id: evalAllDocId,
-            tenant_id: tId,
-            sender_id: 'team_evaluation_editor',
-            sender_email: 'team_eval@system.local',
-            sender_name: 'Team Evaluation Editor',
-            content: payloadStr,
-            message_type: 'team_evaluation_doc',
-            created_at: nowIso
-          });
           if (isTeamPms) {
+            const allDocId = `team_pplan_${tId}_all`;
+            const evalAllDocId = `team_evaluation_${tId}_all`;
+            pplanCache.set(allDocId, { raw: payloadStr, timestamp: Date.now() });
+            upsertRows.push({
+              id: allDocId,
+              tenant_id: tId,
+              sender_id: 'team_pplan_editor_tool',
+              sender_email: 'team_pplan@system.local',
+              sender_name: 'Team PPLAN Editor',
+              content: payloadStr,
+              message_type: 'team_pplan_list',
+              created_at: nowIso
+            });
+            upsertRows.push({
+              id: evalAllDocId,
+              tenant_id: tId,
+              sender_id: 'team_evaluation_editor',
+              sender_email: 'team_eval@system.local',
+              sender_name: 'Team Evaluation Editor',
+              content: payloadStr,
+              message_type: 'team_evaluation_doc',
+              created_at: nowIso
+            });
             const pplanDocId = `pplan_${tId}_${u}`;
             const kpisDocId = `kpis_${tId}_${u}`;
             pplanCache.set(pplanDocId, { raw: payloadStr, timestamp: Date.now() });
@@ -20181,6 +20184,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const aliasUsers = getKhumaloNkosiAliases(userId);
+      const isTeamPms = isTeamPmsCoOwner(userId);
       
       const candidateDocIds = Array.from(new Set([
         ...aliasUsers.flatMap(aUser => [
@@ -20191,11 +20195,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `team_pplan_tenant-229_${aUser}`,
           `team_pplan_nkangala_auto_${aUser}`
         ]),
-        `team_evaluation_${tenantId}_all`,
-        `team_evaluation_tenant-229_all`,
-        `team_pplan_${tenantId}_all`,
-        `team_pplan_tenant-229_all`,
-        `team_pplan_global_all`
+        ...(isTeamPms ? [
+          `team_evaluation_${tenantId}_all`,
+          `team_evaluation_tenant-229_all`,
+          `team_pplan_${tenantId}_all`,
+          `team_pplan_tenant-229_all`,
+          `team_pplan_global_all`
+        ] : [])
       ]));
 
       const { data: rows } = await supabase
@@ -20354,27 +20360,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             });
           }
         }
-        pplanCache.set(`team_pplan_${tKey}_all`, { raw: payload, timestamp: Date.now() });
-        upsertRows.push({
-          id: `team_evaluation_${tKey}_all`,
-          tenant_id: tKey,
-          sender_id: 'team_evaluation_editor',
-          sender_email: 'team_eval@system.local',
-          sender_name: 'Team Evaluation Editor',
-          content: payload,
-          message_type: 'team_evaluation_doc',
-          created_at: nowIso
-        });
-        upsertRows.push({
-          id: `team_pplan_${tKey}_all`,
-          tenant_id: tKey,
-          sender_id: 'team_evaluation_editor',
-          sender_email: 'team_eval@system.local',
-          sender_name: 'Team Evaluation Editor',
-          content: payload,
-          message_type: 'team_pplan_list',
-          created_at: nowIso
-        });
+        if (isTeamPms) {
+          pplanCache.set(`team_pplan_${tKey}_all`, { raw: payload, timestamp: Date.now() });
+          upsertRows.push({
+            id: `team_evaluation_${tKey}_all`,
+            tenant_id: tKey,
+            sender_id: 'team_evaluation_editor',
+            sender_email: 'team_eval@system.local',
+            sender_name: 'Team Evaluation Editor',
+            content: payload,
+            message_type: 'team_evaluation_doc',
+            created_at: nowIso
+          });
+          upsertRows.push({
+            id: `team_pplan_${tKey}_all`,
+            tenant_id: tKey,
+            sender_id: 'team_evaluation_editor',
+            sender_email: 'team_eval@system.local',
+            sender_name: 'Team Evaluation Editor',
+            content: payload,
+            message_type: 'team_pplan_list',
+            created_at: nowIso
+          });
+        }
       }
 
       const dedupedUpsert = Array.from(new Map(upsertRows.map(item => [item.id, item])).values());
