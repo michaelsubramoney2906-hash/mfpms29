@@ -3622,25 +3622,8 @@ CRITICAL MAPPING & EXTRACTION RULES:
       const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
       const tenantId = await resolveTenantId(routeTenantId, userId);
 
-      // Check NEDA context
-      const isNedaReq = routeTenantId === 'neda' || routeTenantId === 'tenant-neda' || tenantId === 'neda' || tenantId === 'tenant-neda' || userId.endsWith('@neda.gov.za') || Boolean(findNedaPackageByEmailOrName(userId));
-
-      if (isNedaReq) {
-        const allowedNedaRecipients = [
-          'chaukenh@nkangaladm.gov.za',
-          'sehlakols@neda.gov.za',
-          'sehlakols@nkangaladm.gov.za',
-          'chaukekc@neda.gov.za',
-          'chaukekc@nkangaladm.gov.za',
-          'manganijp@nkangaladm.gov.za',
-          'manganijp@neda.gov.za'
-        ];
-        if (!allowedNedaRecipients.includes(userId)) {
-          return res.status(403).json({
-            error: "Extraction Engine in NEDA strictly restricts pushed Performance Agreements to approved NEDA personnel: ChaukeNH@nkangaladm.gov.za, SehlakoLS@neda.gov.za, ChaukeKC@neda.gov.za, manganijp@nkangaladm.gov.za"
-          });
-        }
-      }
+      // Allow any selected official from Azure AD directory across Nkangala & NEDA
+      const targetTenantId = (userId.endsWith('@neda.gov.za') || userId.includes('neda.gov.za')) ? 'neda' : (tenantId || 'tenant-229');
 
       // Sanitize each item to ensure all fields are mapped verbatim to standard pplan and kpi fields
       const formattedItems = items.map((it: any, idx: number) => {
@@ -3718,7 +3701,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
         // 1. Upsert into ipms_gm_performance_plans table
         try {
           await supabase.from('ipms_gm_performance_plans').upsert({
-            tenant_id: isNedaReq ? 'neda' : tenantId,
+            tenant_id: targetTenantId === 'neda' ? 'neda' : tenantId,
             user_email: userId,
             items_payload: formattedItems,
             kpas_payload: kpas || [],
@@ -3753,7 +3736,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
           kpas: kpas || []
         });
 
-        const targetDocIds = isNedaReq
+        const targetDocIds = (targetTenantId === 'neda')
           ? [
               `pplan_neda_${userId}`,
               `kpis_neda_${userId}`,
@@ -3771,7 +3754,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
               `kpis_global_${userId}`
             ];
 
-        if (!isNedaReq && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
+        if ((targetTenantId !== 'neda') && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
           targetDocIds.push(
             `pplan_tenant-229_mahlanguml@nkangaladm.gov.za`,
             `pplan_tenant-229_mahlangulm@nkangaladm.gov.za`,
@@ -3791,7 +3774,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
 
         const gmWritePromise = (async () => {
           try {
-            const canonicalTenantId = isNedaReq ? 'neda' : 'tenant-229';
+            const canonicalTenantId = (targetTenantId === 'neda') ? 'neda' : 'tenant-229';
             const primaryDocs = [
               `pplan_${canonicalTenantId}_${userId}`,
               `kpis_${canonicalTenantId}_${userId}`

@@ -96,21 +96,58 @@ export function FredPerformancePlanExtractor({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterKpa, setFilterKpa] = useState<string>('all');
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(() => resolveApprovedNedaUser(currentUser.email).email);
+  // State for Azure AD directory users
+  const [azureUsers, setAzureUsers] = useState<any[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser?.email || 'manganijp@nkangaladm.gov.za');
+  const [selectedTargetUser, setSelectedTargetUser] = useState<any>(currentUser);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Update target employee when currentUser changes if it matches one of the 4 approved NEDA users
+  // Fetch all directory users across Nkangala & NEDA
   useEffect(() => {
-    if (currentUser?.email) {
-      const matched = resolveApprovedNedaUser(currentUser.email);
-      setTargetEmployeeEmail(matched.email);
-    }
+    let active = true;
+    const fetchUsers = async () => {
+      try {
+        const [resNkangala, resNeda] = await Promise.all([
+          fetch(`/api/tenant/tenant-229/users`),
+          fetch(`/api/tenant/neda/users`)
+        ]);
+        let combined: any[] = [];
+        if (resNkangala.ok) {
+          const d = await resNkangala.json();
+          if (Array.isArray(d)) combined = [...combined, ...d];
+        }
+        if (resNeda.ok) {
+          const d = await resNeda.json();
+          if (Array.isArray(d)) combined = [...combined, ...d];
+        }
+        const map = new Map<string, any>();
+        combined.forEach(u => {
+          const em = (u.email || '').toLowerCase().trim();
+          if (em && !map.has(em)) map.set(em, u);
+        });
+        if (active) {
+          const list = Array.from(map.values());
+          setAzureUsers(list);
+          const currentClean = (currentUser?.email || '').toLowerCase().trim();
+          const match = list.find(u => (u.email || '').toLowerCase().trim() === currentClean);
+          if (match) {
+            setSelectedTargetUser(match);
+            setTargetEmployeeEmail(match.email);
+          }
+        }
+      } catch (e) {
+        console.warn("Error fetching Azure AD users:", e);
+      }
+    };
+    fetchUsers();
+    return () => { active = false; };
   }, [currentUser]);
 
   // Load existing extraction snapshot if available
   useEffect(() => {
-    // Reset previous extraction state whenever target employee changes
     setExtractedItems([]);
     setExtractedKpas([]);
     setSourceFileName('');
@@ -119,10 +156,9 @@ export function FredPerformancePlanExtractor({
 
     const loadSavedSnapshot = async () => {
       try {
-        const targetEmail = targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email;
+        const targetEmail = (targetEmployeeEmail || currentUser?.email || '').toLowerCase().trim();
         if (!targetEmail) return;
-        // Strict NEDA isolation: extracted data never queries or targets Nkangala
-        const effectiveTenantId = 'neda';
+        const effectiveTenantId = (targetEmail.endsWith('@neda.gov.za') || targetEmail.includes('neda.gov.za')) ? 'neda' : 'tenant-229';
         const res = await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
@@ -181,8 +217,8 @@ export function FredPerformancePlanExtractor({
       });
 
       // Persist snapshot to server
-      const targetEmail = targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email;
-      const effectiveTenantId = 'neda';
+      const targetEmail = (targetEmployeeEmail || currentUser?.email || '').toLowerCase().trim();
+      const effectiveTenantId = (targetEmail.endsWith('@neda.gov.za') || targetEmail.includes('neda.gov.za')) ? 'neda' : 'tenant-229';
       try {
         await fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, {
           method: 'POST',
@@ -208,7 +244,7 @@ export function FredPerformancePlanExtractor({
     }
   };
 
-  // Push Extracted Data Verbatim to the Individual's Performance Plan (IPMS Profile Grid)
+  // Push Extracted Data Verbatim to Selected Official Profile
   const handlePushToPerformancePlan = async () => {
     const selected = extractedItems.filter(it => it._selected !== false);
     if (selected.length === 0) {
@@ -216,28 +252,22 @@ export function FredPerformancePlanExtractor({
       return;
     }
 
-    // STRICT RECIPIENT SECURITY CHECK: Only the 4 approved NEDA users can ever receive extracted KPAs & KPIs
-    const normalizedTarget = (targetEmployeeEmail || resolveApprovedNedaUser(currentUser.email).email).toLowerCase().trim();
-    const matchedRecipient = NEDA_ALLOWED_RECIPIENTS.find(r => r.email.toLowerCase().trim() === normalizedTarget);
-    if (!matchedRecipient) {
-      setStatusMessage({
-        type: 'error',
-        text: 'Security Constraint: In NEDA Extraction Engine, extracted KPAs and KPIs can ONLY go to NEDA performance agreements for: ChaukeNH@nkangaladm.gov.za, SehlakoLS@neda.gov.za, ChaukeKC@neda.gov.za, or manganijp@nkangaladm.gov.za.'
-      });
+    const targetEmail = (targetEmployeeEmail || currentUser?.email || '').toLowerCase().trim();
+    if (!targetEmail) {
+      setStatusMessage({ type: 'error', text: 'Please select a valid official from Azure AD directory.' });
       return;
     }
 
     setIsPushing(true);
+    const targetName = selectedTargetUser?.fullName || selectedTargetUser?.full_name || targetEmail;
+    const effectiveTenantId = (targetEmail.endsWith('@neda.gov.za') || targetEmail.includes('neda.gov.za')) ? 'neda' : 'tenant-229';
+
     setStatusMessage({
       type: 'info',
-      text: `Pushing ${selected.length} verbatim KPIs directly into the NEDA Performance Plan for ${matchedRecipient.fullName} (${matchedRecipient.email})...`
+      text: `Pushing ${selected.length} verbatim KPIs directly into Performance Plan for ${targetName} (${targetEmail})...`
     });
 
     try {
-      const targetEmail = matchedRecipient.email;
-      // STRICT ISOLATION: Must NEVER leave NEDA, must NEVER target Nkangala
-      const effectiveTenantId = 'neda';
-
       // Map strictly and verbatim as per required field definitions:
       const planItems = selected.map((it, idx) => {
         const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
@@ -294,16 +324,15 @@ export function FredPerformancePlanExtractor({
         };
       });
 
-      const isMangani = targetEmail.toLowerCase().includes('mangani');
       const planMetadata: any = {
-        name: matchedRecipient.fullName,
+        name: selectedTargetUser?.fullName || selectedTargetUser?.full_name || targetEmail,
         period: '2026/2027 Financial Year',
-        department: matchedRecipient.department,
-        position: matchedRecipient.jobFunction,
-        email: matchedRecipient.email,
-        manager: isMangani ? 'Mr MT Khumalo' : 'Johan P. Mangani',
-        managerEmail: isMangani ? 'khumalomt@neda.gov.za' : 'manganijp@nkangaladm.gov.za',
-        reportTo: isMangani ? 'Board Chairperson' : 'Acting Chief Executive Officer',
+        department: selectedTargetUser?.department || 'Administration',
+        position: selectedTargetUser?.jobFunction || selectedTargetUser?.job_function || 'Official',
+        email: targetEmail,
+        manager: selectedTargetUser?.manager || 'Line Manager',
+        managerEmail: selectedTargetUser?.managerEmail || '',
+        reportTo: selectedTargetUser?.reportTo || selectedTargetUser?.manager || 'Line Manager',
         _isFredExtracted: true,
         _replacePlan: true,
         _allowItemDeletion: true,
@@ -397,7 +426,7 @@ export function FredPerformancePlanExtractor({
 
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} KPIs verbatim into the NEDA Performance Plan for ${matchedRecipient.fullName} (${targetEmail})! Extracted data is strictly quarantined within NEDA.`
+        text: `Successfully pushed ${selected.length} KPIs verbatim into the Performance Plan for ${targetName} (${targetEmail})!`
       });
 
     } catch (err: any) {
@@ -716,7 +745,7 @@ export function FredPerformancePlanExtractor({
                 </span>
               </div>
               <p className="text-slate-400 text-sm mt-1.5 max-w-3xl leading-relaxed">
-                Extracts all <strong className="text-emerald-300">Functional KPAs</strong> and <strong className="text-amber-300">KPIs</strong> from the uploaded Performance Agreement (Annexure A scorecard) with 100% verbatim fidelity. Extracted data is strictly quarantined within NEDA and can <strong className="text-white underline">ONLY</strong> go to the 4 approved NEDA executives/officials.
+                Extracts all <strong className="text-emerald-300">Functional KPAs</strong> and <strong className="text-amber-300">KPIs</strong> from the uploaded Performance Agreement (Annexure A scorecard) with 100% verbatim fidelity. Pushes directly to whichever official profile is selected from the Azure AD user database.
               </p>
             </div>
           </div>
@@ -748,34 +777,85 @@ export function FredPerformancePlanExtractor({
                   ) : (
                     <ArrowRight className="w-4 h-4 text-white" />
                   )}
-                  <span>Push to NEDA Performance Plan ({selectedCount})</span>
+                  <span>Push to Performance Plan ({selectedCount})</span>
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* Target Profile Bar & Strict Whitelist Dropdown */}
+        {/* Target Profile Bar & Azure AD Directory Search Picker */}
         <div className="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-slate-300">
               <UserIcon className="w-4 h-4 text-emerald-400" />
-              <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Approved Recipient:</span>
+              <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Selected Target Official (Azure AD Directory):</span>
             </div>
-            <select
-              id="select-neda-plan-recipient"
-              value={targetEmployeeEmail}
-              onChange={(e) => setTargetEmployeeEmail(e.target.value)}
-              className="bg-slate-950 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 text-xs font-black rounded-xl px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer shadow-inner"
-            >
-              {NEDA_ALLOWED_RECIPIENTS.map(rec => (
-                <option key={rec.email} value={rec.email}>
-                  {rec.fullName} — {rec.jobFunction} ({rec.email})
-                </option>
-              ))}
-            </select>
-            <span className="text-[10px] text-emerald-400 font-extrabold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800 uppercase tracking-widest">
-              LOCKED TO 4 NEDA USERS ONLY
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsPickerOpen(!isPickerOpen)}
+                className="bg-slate-950 border border-emerald-500/50 hover:border-emerald-400 text-emerald-300 text-xs font-black rounded-xl px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer shadow-inner flex items-center gap-2 min-w-[300px] justify-between"
+              >
+                <span className="truncate">
+                  {selectedTargetUser?.fullName || selectedTargetUser?.full_name || targetEmployeeEmail || 'Select Official'} — {selectedTargetUser?.jobFunction || selectedTargetUser?.job_function || 'Official'} ({targetEmployeeEmail})
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              </button>
+
+              {isPickerOpen && (
+                <div className="absolute left-0 mt-2 w-96 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl z-50 p-3 space-y-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Search Azure AD directory by name, email, department..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs text-white pl-8 pr-3 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
+                    />
+                  </div>
+                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/60">
+                    {azureUsers
+                      .filter(u => {
+                        if (!userSearchTerm) return true;
+                        const q = userSearchTerm.toLowerCase();
+                        return (
+                          (u.fullName || u.full_name || '').toLowerCase().includes(q) ||
+                          (u.email || '').toLowerCase().includes(q) ||
+                          (u.jobFunction || u.job_function || '').toLowerCase().includes(q) ||
+                          (u.department || '').toLowerCase().includes(q)
+                        );
+                      })
+                      .map((u, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTargetUser(u);
+                            setTargetEmployeeEmail(u.email);
+                            setIsPickerOpen(false);
+                            setUserSearchTerm('');
+                          }}
+                          className="w-full text-left p-2 hover:bg-slate-900 transition flex flex-col gap-0.5 cursor-pointer rounded-lg"
+                        >
+                          <span className="font-bold text-white text-xs">{u.fullName || u.full_name}</span>
+                          <span className="text-[10px] text-emerald-400 font-mono">{u.email}</span>
+                          {(u.jobFunction || u.job_function || u.department) && (
+                            <span className="text-[10px] text-slate-400">
+                              {u.jobFunction || u.job_function} {u.department ? `(${u.department})` : ''}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <span className="text-[10px] text-emerald-300 font-extrabold px-2.5 py-1 rounded-lg bg-emerald-950/80 border border-emerald-600/50 uppercase tracking-wider">
+              Azure AD Directory Target
             </span>
           </div>
 

@@ -54,6 +54,9 @@ export function FredSDBIPExtractor({
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [pasteContent, setPasteContent] = useState('');
+  const [targetDestination, setTargetDestination] = useState<'nkangala_top_layer' | 'nkangala_dept_2_3' | 'neda_sdbip'>(
+    activeTenantId === 'neda' || activeTenantId === 'tenant-neda' ? 'neda_sdbip' : 'nkangala_top_layer'
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -252,9 +255,14 @@ export function FredSDBIPExtractor({
     }
 
     setIsPushing(true);
+
+    const destLabel = targetDestination === 'nkangala_top_layer' ? 'Nkangala SDBIP Top Layer & Top Layer Reporting Tables' :
+                     targetDestination === 'nkangala_dept_2_3' ? 'Nkangala SDBIP 2nd & 3rd Layer Table (Departmental SDBIP)' :
+                     'NEDA Entity SDBIP Scorecard';
+
     setStatusMessage({
       type: 'info',
-      text: `Pushing ${selected.length} items directly into SDBIP Top Layer and SDBIP Top Layer Reporting tables in OPMS...`
+      text: `Pushing ${selected.length} items directly into ${destLabel}...`
     });
 
     try {
@@ -279,7 +287,6 @@ export function FredSDBIPExtractor({
           sr: 'Spatial Rationale (SR)'
         };
 
-        // Verbatim source document POE description reflects across all four quarters (non-editable)
         const sourcePoe = (item.poeStatus || item.q1PoeDesc || item.q2PoeDesc || item.q3PoeDesc || item.q4PoeDesc || 'Portfolio of Evidence required').trim();
         const kpiText = (item.kpi || item.operationalActivity || (item as any).KPI || (item as any).Description || (item as any).kpiDescription || '').trim();
         const activityText = (item.operationalActivity || item.kpi || (item as any).Description || (item as any).KPI || '').trim();
@@ -316,7 +323,6 @@ export function FredSDBIPExtractor({
           isPlaceholder: false,
           _isPlaceholder: false,
           source: 'extractor',
-          // SDBIP Top Layer Reporting fields: Overwritten directly with extracted data
           q1Actual: item.q1Actual || '',
           q1Variance: item.q1Variance || '',
           q1Corrective: item.q1Corrective || '',
@@ -345,8 +351,14 @@ export function FredSDBIPExtractor({
         };
       });
 
-      // Completely overwrite the SDBIP endpoint for active tenant and core aliases
-      const res = await fetch(`/api/tenant/${activeTenantId}/sdbip`, {
+      let endpointUrl = `/api/tenant/tenant-229/sdbip`;
+      if (targetDestination === 'nkangala_dept_2_3') {
+        endpointUrl = `/api/tenant/tenant-229/sdbip23`;
+      } else if (targetDestination === 'neda_sdbip') {
+        endpointUrl = `/api/tenant/neda/sdbip`;
+      }
+
+      const res = await fetch(endpointUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: sdbipPayload, overwrite: true })
@@ -356,24 +368,9 @@ export function FredSDBIPExtractor({
         throw new Error(`Server returned error status ${res.status}`);
       }
 
-      // Also ensure background sync across standard tenant aliases without crossing NEDA boundary
-      const isNedaSdbip = activeTenantId === 'neda' || activeTenantId === 'tenant-neda';
-      const syncTenants = isNedaSdbip
-        ? ['tenant-neda'].filter(t => t !== activeTenantId)
-        : ['tenant-229', 'nkangala_auto', 'nkangala', 'default', 'global', 'tenant-demo'].filter(t => t !== activeTenantId);
-      for (const tId of syncTenants) {
-        try {
-          await fetch(`/api/tenant/${tId}/sdbip`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: sdbipPayload })
-          });
-        } catch (e) {}
-      }
-
       setStatusMessage({
         type: 'success',
-        text: `Successfully pushed ${selected.length} KPIs into SDBIP Top Layer and SDBIP Top Layer Reporting tables in OPMS!`
+        text: `Successfully pushed ${selected.length} items directly into ${destLabel}!`
       });
 
       // Dispatch event to refresh SDBIP views if currently open
@@ -525,19 +522,28 @@ export function FredSDBIPExtractor({
                 ) : (
                   <ArrowRight className="w-4 h-4 text-white" />
                 )}
-                <span>Push to SDBIP Top Layer & Reporting Table ({selectedCount})</span>
+                <span>Push to SDBIP Selected Target ({selectedCount})</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* OPMS SDBIP Destination Bar */}
+        {/* OPMS SDBIP Target Destination Choice Selector */}
         <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3 text-slate-300">
-            <span className="text-slate-400 font-medium">Target Destination:</span>
-            <span className="font-bold text-emerald-300 bg-slate-800/90 px-2.5 py-1 rounded-lg border border-slate-700">
-              OPMS SDBIP Top Layer Matrix & Quarterly Reporting Table
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+              SDBIP Push Target:
             </span>
+            <select
+              value={targetDestination}
+              onChange={(e) => setTargetDestination(e.target.value as any)}
+              className="px-3 py-1.5 bg-slate-900 text-emerald-300 border border-slate-700 rounded-lg text-xs font-bold shadow-inner focus:ring-2 focus:ring-emerald-500 focus:outline-none cursor-pointer"
+            >
+              <option value="nkangala_top_layer">Nkangala SDBIP Top Layer & Reporting Table</option>
+              <option value="nkangala_dept_2_3">Nkangala SDBIP 2nd & 3rd Layer Table (Departmental SDBIP)</option>
+              <option value="neda_sdbip">NEDA Entity SDBIP Scorecard</option>
+            </select>
             {mCount > 0 && (
               <span className="bg-emerald-950/70 border border-emerald-600/40 text-emerald-300 px-2 py-0.5 rounded text-[11px] font-mono">
                 Municipal KPIs: {mCount}

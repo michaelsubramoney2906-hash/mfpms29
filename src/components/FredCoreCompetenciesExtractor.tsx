@@ -56,6 +56,12 @@ export function FredCoreCompetenciesExtractor({
   const [targetScope, setTargetScope] = useState<'community_services' | 'technical_services' | 'cfo' | 'mm' | 'ped' | 'corp' | 'standard' | 'directors'>('community_services');
   const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser.email || '');
 
+  // Azure AD Directory Picker State
+  const [azureUsers, setAzureUsers] = useState<User[]>([]);
+  const [selectedTargetUser, setSelectedTargetUser] = useState<User | null>(null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Calculate total weighting
@@ -63,12 +69,38 @@ export function FredCoreCompetenciesExtractor({
     .filter(it => it._selected !== false)
     .reduce((acc, it) => acc + (parseFloat(it.weighting) || 0), 0);
 
-  // Update target employee when currentUser changes
+  // Load all Azure AD Directory Officials (Nkangala and NEDA)
   useEffect(() => {
-    if (currentUser?.email) {
-      setTargetEmployeeEmail(currentUser.email);
-    }
-  }, [currentUser]);
+    const fetchAzureDirectory = async () => {
+      try {
+        const [resNkangala, resNeda] = await Promise.all([
+          fetch(`/api/tenant/tenant-229/users`),
+          fetch(`/api/tenant/neda/users`)
+        ]);
+        let combined: User[] = [];
+        if (resNkangala.ok) {
+          const nk = await resNkangala.json();
+          if (Array.isArray(nk)) combined = [...combined, ...nk];
+        }
+        if (resNeda.ok) {
+          const nd = await resNeda.json();
+          if (Array.isArray(nd)) combined = [...combined, ...nd];
+        }
+        // Deduplicate by email
+        const unique = Array.from(new Map(combined.map(u => [u.email.toLowerCase().trim(), u])).values());
+        if (unique.length > 0) {
+          setAzureUsers(unique);
+          const currentEmail = currentUser?.email?.toLowerCase().trim();
+          const match = unique.find(u => u.email.toLowerCase().trim() === currentEmail) || unique[0];
+          setSelectedTargetUser(match);
+          setTargetEmployeeEmail(match.email);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch Azure AD directory users in Core Competencies Extractor:", err);
+      }
+    };
+    fetchAzureDirectory();
+  }, [currentUser?.email]);
 
   // Load existing extraction snapshot if available
   useEffect(() => {
@@ -375,16 +407,69 @@ export function FredCoreCompetenciesExtractor({
 
         {/* Action Controls & Navigation */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs">
-            <UserIcon className="w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={targetEmployeeEmail}
-              onChange={(e) => setTargetEmployeeEmail(e.target.value)}
-              placeholder="Target official email..."
-              className="bg-transparent text-slate-200 outline-none w-48 font-mono text-[11px]"
-              title="Official email profile to associate this Core Competencies extraction snapshot with"
-            />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsPickerOpen(!isPickerOpen)}
+              className="bg-slate-900 border border-slate-700 hover:border-emerald-500 text-emerald-300 text-xs font-bold rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400 cursor-pointer shadow-inner flex items-center gap-2 min-w-[260px] justify-between"
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <UserIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">
+                  {selectedTargetUser?.fullName || (selectedTargetUser as any)?.full_name || targetEmployeeEmail || 'Select Target Official'}
+                </span>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            </button>
+
+            {isPickerOpen && (
+              <div className="absolute right-0 mt-2 w-96 bg-slate-950 border border-slate-700 rounded-xl shadow-2xl z-50 p-3 space-y-2 text-left">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search Azure AD directory by name, email, department..."
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg text-xs text-white pl-8 pr-3 py-1.5 focus:outline-none focus:border-emerald-500 font-medium"
+                  />
+                </div>
+                <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/60">
+                  {azureUsers
+                    .filter(u => {
+                      if (!userSearchTerm) return true;
+                      const q = userSearchTerm.toLowerCase();
+                      return (
+                        (u.fullName || (u as any).full_name || '').toLowerCase().includes(q) ||
+                        (u.email || '').toLowerCase().includes(q) ||
+                        (u.jobFunction || (u as any).job_function || '').toLowerCase().includes(q) ||
+                        (u.department || '').toLowerCase().includes(q)
+                      );
+                    })
+                    .map((u, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTargetUser(u);
+                          setTargetEmployeeEmail(u.email);
+                          setIsPickerOpen(false);
+                          setUserSearchTerm('');
+                        }}
+                        className="w-full text-left p-2 hover:bg-slate-900 transition flex flex-col gap-0.5 cursor-pointer rounded-lg"
+                      >
+                        <span className="font-bold text-white text-xs">{u.fullName || (u as any).full_name}</span>
+                        <span className="text-[10px] text-emerald-400 font-mono">{u.email}</span>
+                        {(u.jobFunction || (u as any).job_function || u.department) && (
+                          <span className="text-[10px] text-slate-400">
+                            {u.jobFunction || (u as any).job_function} {u.department ? `(${u.department})` : ''}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {onNavigateToIPMS && (
