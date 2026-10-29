@@ -2261,10 +2261,10 @@ export async function resolveTenantId(reqTenantId: string, userEmail?: string): 
   if (cleanEmail.endsWith('@nkangaladm.gov.za') || cleanEmail.includes('nkangaladm.gov.za')) {
     return 'tenant-229';
   }
-  if (cleanRoute === 'tenant-229' || cleanRoute === 'nkangala_auto') {
+  if (cleanRoute === 'tenant-229' || cleanRoute === 'nkangala_auto' || cleanRoute === 'global' || !cleanRoute) {
     return 'tenant-229';
   }
-  return reqTenantId || 'global';
+  return reqTenantId || 'tenant-229';
 }
 
 async function startServer() {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Unlock, ShieldAlert, X, AlertTriangle } from 'lucide-react';
 import type { User } from '../types';
-import { isUserUnrestricted } from '../utils/unrestrictedHelper';
+import { isUserUnrestricted, isGlobalAdminEmail } from '../utils/unrestrictedHelper';
 
 interface RestrictedModuleWrapperProps {
   currentUser: User;
@@ -65,16 +65,11 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const isNkangalaUser = userEmail.endsWith('@nkangaladm.gov.za') || userEmail.includes('@nkangaladm.gov.za');
   const isMzansiFlowUser = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
 
-  // Explicitly allow all @nkangaladm.gov.za users, delphine@mzansiflow.co.za and audrey@mzansiflow.co.za for extractor modules
-  const isExtractorAuthorizedUser = 
-    isNkangalaUser ||
-    userEmail.endsWith('@nkangaladm.gov.za') ||
-    userEmail.includes('nkangaladm') ||
-    userEmail === 'delphine@mzansiflow.co.za' || 
-    userEmail === 'audrey@mzansiflow.co.za' || 
-    userEmail === 'mike@mzansiflow.co.za' || 
-    userEmail === 'mike@massivedynamixdistributors.com' ||
-    isMzansiFlowUser;
+  // Immediately bypass password locks & restriction screens for Unrestricted Users / Global Administrators / MzansiFlow Administrators
+  const isUnrestricted = isUserUnrestricted(currentUser) || isMzansiFlowUser || isGlobalAdminEmail(userEmail);
+  if (isUnrestricted) {
+    return <>{children}</>;
+  }
 
   // Check if target module is password locked (Prior System Archive 'psa', System Ledger Audit Trail 'slat', Audit Logs 'al', or PA Templates 'pa-templates')
   const isPasswordLockedModule = item.id === 'psa' || item.id === 'slat' || item.id === 'al' || item.id === 'pa-templates';
@@ -152,10 +147,7 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
     );
   }
 
-  const isUnrestricted = isUserUnrestricted(currentUser);
-  if (isUnrestricted) {
-    return <>{children}</>;
-  }
+
 
   // IPMS and Support modules are permanently unlocked with all maintenance locks removed
   if (parentId === 'ipms' || parentId === 'support') {
@@ -168,6 +160,7 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   }
 
   // Restrict specific extractor modules in More for all @nkangaladm.gov.za users unless authorized
+  const isExtractorAuthorizedUser = isNkangalaUser || isMzansiFlowUser;
   const isRestrictedMoreModule = ['fred', 'fred-ipp', 'fred-gm', 'fred-sdbip', 'fred-ccomp', 'fred-core-competencies'].includes(item.id);
   if (isRestrictedMoreModule && isNkangalaUser && !isExtractorAuthorizedUser) {
     return (

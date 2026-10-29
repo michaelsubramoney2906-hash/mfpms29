@@ -136,6 +136,7 @@ export function DraftingSuiteTeam({
   defaultRows, 
   defaultHeaders = ['No.', 'Full Name (Team Members)', 'Employee Number / Designation'] 
 }: PADraftingSuiteTeamProps) {
+  const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) ? 'tenant-229' : activeTenantId;
   const [logoUrl, setLogoUrl] = useState<string>(NKANGALA_LOGO_BASE64);
 
   // Initialize 10 Teams Configuration from module defaults
@@ -856,9 +857,9 @@ export function DraftingSuiteTeam({
 
   // Fetch historical dispatched team reports from Supabase
   const loadDispatchedReports = async () => {
-    if (!activeTenantId) return;
+    if (!effectiveTenantId) return;
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-reporting?documentIdSuffix=${documentIdSuffix}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/team-reporting?documentIdSuffix=${documentIdSuffix}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.reports)) {
@@ -873,7 +874,7 @@ export function DraftingSuiteTeam({
 
   useEffect(() => {
     loadDispatchedReports();
-  }, [activeTenantId, activeTeamIndex, documentIdSuffix]);
+  }, [effectiveTenantId, activeTeamIndex, documentIdSuffix]);
 
   // Dispatch Team Reporting & Notify All Azure AD Team Members on their individual profiles
   const handleDispatchTeamReport = async () => {
@@ -888,7 +889,7 @@ export function DraftingSuiteTeam({
 
     setIsDispatchingReport(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-reporting`, {
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/team-reporting`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1040,7 +1041,7 @@ export function DraftingSuiteTeam({
     setPullingFilteredPplan(true);
     try {
       const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.items) && data.items.length > 0) {
@@ -1078,7 +1079,7 @@ export function DraftingSuiteTeam({
           : [emailToUse];
 
       for (const candidateEmail of candidateEmails) {
-        const res = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=${encodeURIComponent(candidateEmail)}&t=${Date.now()}`);
+        const res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(candidateEmail)}&t=${Date.now()}`);
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.items) && data.items.length > 0) {
@@ -1091,7 +1092,7 @@ export function DraftingSuiteTeam({
         }
       }
       // Try tenant all fallback
-      const allRes = await fetch(`/api/tenant/${activeTenantId}/team-pplan?userId=all&t=${Date.now()}`);
+      const allRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=all&t=${Date.now()}`);
       if (allRes.ok) {
         const allData = await allRes.json();
         if (allData && Array.isArray(allData.items) && allData.items.length > 0) {
@@ -1121,7 +1122,7 @@ export function DraftingSuiteTeam({
     setPullingPdp(true);
     try {
       const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.items) && data.items.length > 0) {
@@ -1152,7 +1153,7 @@ export function DraftingSuiteTeam({
     setPullingJsc(true);
     try {
       const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/job-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
@@ -1183,7 +1184,7 @@ export function DraftingSuiteTeam({
     setPullingTeamPdp(true);
     try {
       const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/team-pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.items) && data.items.length > 0) {
@@ -1191,7 +1192,7 @@ export function DraftingSuiteTeam({
           setIsPdpAdopted(true);
           triggerNotification(`Successfully adopted ${data.items.length} items from Team PDP table!`, "success");
         } else {
-          const genericRes = await fetch(`/api/tenant/${activeTenantId}/team-pdp?userId=default&t=${Date.now()}`);
+          const genericRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pdp?userId=default&t=${Date.now()}`);
           const genericData = genericRes.ok ? await genericRes.json() : null;
           if (genericData && Array.isArray(genericData.items) && genericData.items.length > 0) {
             setPulledPdpItems(genericData.items);
@@ -1222,7 +1223,7 @@ export function DraftingSuiteTeam({
     setPullingTeamJsc(true);
     try {
       const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/team-job-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/team-job-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
@@ -1230,7 +1231,7 @@ export function DraftingSuiteTeam({
           setIsJscAdopted(true);
           triggerNotification(`Successfully adopted ${data.competencies.length} competencies from Team JSC table!`, "success");
         } else {
-          const genericRes = await fetch(`/api/tenant/${activeTenantId}/team-job-competencies?userId=default&t=${Date.now()}`);
+          const genericRes = await fetch(`/api/tenant/${effectiveTenantId}/team-job-competencies?userId=default&t=${Date.now()}`);
           const genericData = genericRes.ok ? await genericRes.json() : null;
           if (genericData && Array.isArray(genericData.competencies) && genericData.competencies.length > 0) {
             setPulledJscRows(genericData.competencies);
@@ -1261,10 +1262,10 @@ export function DraftingSuiteTeam({
     setPullingFilteredTeamPA2(true);
     try {
       const emailToUse = currentUser?.email || 'dimpems@nkangaladm.gov.za';
-      let res = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      let res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (!res.ok) {
         const scopedEmail = getEmailScope(currentUser?.email || 'dimpems@nkangaladm.gov.za');
-        res = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
+        res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
       }
       if (res.ok) {
         const data = await res.json();
@@ -1276,7 +1277,7 @@ export function DraftingSuiteTeam({
         }
       }
       // Try tenant all fallback
-      const allRes = await fetch(`/api/tenant/${activeTenantId}/team-pplan-2?userId=all&t=${Date.now()}`);
+      const allRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan-2?userId=all&t=${Date.now()}`);
       if (allRes.ok) {
         const allData = await allRes.json();
         if (allData && Array.isArray(allData.items) && allData.items.length > 0) {
@@ -1303,10 +1304,10 @@ export function DraftingSuiteTeam({
     setPullingTeamPdp2(true);
     try {
       const emailToUse = currentUser?.email || 'dimpems@nkangaladm.gov.za';
-      let res = await fetch(`/api/tenant/${activeTenantId}/team-pdp-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      let res = await fetch(`/api/tenant/${effectiveTenantId}/team-pdp-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (!res.ok) {
         const scopedEmail = getEmailScope(currentUser?.email || 'dimpems@nkangaladm.gov.za');
-        res = await fetch(`/api/tenant/${activeTenantId}/team-pdp-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
+        res = await fetch(`/api/tenant/${effectiveTenantId}/team-pdp-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
       }
       if (res.ok) {
         const data = await res.json();
@@ -1317,7 +1318,7 @@ export function DraftingSuiteTeam({
           return;
         }
       }
-      const genericRes = await fetch(`/api/tenant/${activeTenantId}/team-pdp-2?userId=default&t=${Date.now()}`);
+      const genericRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pdp-2?userId=default&t=${Date.now()}`);
       const genericData = genericRes.ok ? await genericRes.json() : null;
       if (genericData && Array.isArray(genericData.items) && genericData.items.length > 0) {
         setPulledPdpItems(genericData.items);
@@ -1342,10 +1343,10 @@ export function DraftingSuiteTeam({
     setPullingTeamJsc2(true);
     try {
       const emailToUse = currentUser?.email || 'dimpems@nkangaladm.gov.za';
-      let res = await fetch(`/api/tenant/${activeTenantId}/team-jsc-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      let res = await fetch(`/api/tenant/${effectiveTenantId}/team-jsc-2?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (!res.ok) {
         const scopedEmail = getEmailScope(currentUser?.email || 'dimpems@nkangaladm.gov.za');
-        res = await fetch(`/api/tenant/${activeTenantId}/team-jsc-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
+        res = await fetch(`/api/tenant/${effectiveTenantId}/team-jsc-2?userId=${encodeURIComponent(scopedEmail)}&t=${Date.now()}`);
       }
       if (res.ok) {
         const data = await res.json();
@@ -1356,7 +1357,7 @@ export function DraftingSuiteTeam({
           return;
         }
       }
-      const genericRes = await fetch(`/api/tenant/${activeTenantId}/team-job-competencies-2?userId=default&t=${Date.now()}`);
+      const genericRes = await fetch(`/api/tenant/${effectiveTenantId}/team-job-competencies-2?userId=default&t=${Date.now()}`);
       const genericData = genericRes.ok ? await genericRes.json() : null;
       if (genericData && Array.isArray(genericData.competencies) && genericData.competencies.length > 0) {
         setPulledJscRows(genericData.competencies);
@@ -1424,7 +1425,7 @@ export function DraftingSuiteTeam({
     setPullingPerfAssessment(true);
     try {
       const emailToUse = getEmailScope(currentUser?.email || 'khuboniy@nkangaladm.gov.za');
-      const res = await fetch(`/api/tenant/${activeTenantId}/performance-assessment-config?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/performance-assessment-config?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.rows) && data.rows.length > 0) {
@@ -1508,7 +1509,7 @@ export function DraftingSuiteTeam({
     setPullingStandardCompetenciesAnnexC(true);
     try {
       const emailToUse = (currentUser?.email || '').toLowerCase().trim();
-      const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/core-competencies?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         const itemsList = data && Array.isArray(data.items) && data.items.length > 0
@@ -1746,9 +1747,9 @@ export function DraftingSuiteTeam({
   // Fetch Tenant System Logo
   useEffect(() => {
     const fetchSystemLogo = async () => {
-      if (!activeTenantId) return;
+      if (!effectiveTenantId) return;
       try {
-        const sharedLogoRes = await fetch(`/api/tenant/${activeTenantId}/logo?t=${Date.now()}`);
+        const sharedLogoRes = await fetch(`/api/tenant/${effectiveTenantId}/logo?t=${Date.now()}`);
         if (sharedLogoRes.ok) {
           const sLogo = await sharedLogoRes.json();
           if (sLogo && sLogo.logoUrl) {
@@ -1761,13 +1762,13 @@ export function DraftingSuiteTeam({
       }
     };
     fetchSystemLogo();
-  }, [activeTenantId]);
+  }, [effectiveTenantId]);
 
   // Fetch Tenant Users
   const fetchTenantUsers = async () => {
-    if (!activeTenantId) return;
+    if (!effectiveTenantId) return;
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/users`);
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/users`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -1781,7 +1782,7 @@ export function DraftingSuiteTeam({
 
   useEffect(() => {
     fetchTenantUsers();
-  }, [activeTenantId]);
+  }, [effectiveTenantId]);
 
   // Live Auto-Update Signatures from User Base / User Management
   const syncSignaturesFromDirectory = async (usersList?: User[]) => {
@@ -1879,21 +1880,32 @@ export function DraftingSuiteTeam({
   // Document ID generator per team
   const getDocumentIdForTeam = (teamIdx: number) => {
     const teamNum = teamIdx + 1;
-    return `draft_doc_${documentIdSuffix}_team_${teamNum}_${activeTenantId}`;
+    return `draft_doc_${documentIdSuffix}_team_${teamNum}_${effectiveTenantId}`;
   };
 
   // Load Saved Draft for Selected Team from Supabase
   const loadDraftForTeam = async (teamIdx: number) => {
-    if (!activeTenantId) return;
+    if (!effectiveTenantId) return;
     try {
       const docId = getDocumentIdForTeam(teamIdx);
+      const userScope = getEmailScope(currentUser?.email || 'default');
       // For Team 1 (idx 0), also check fallback legacy doc ID
-      let res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser?.email || 'default'}&documentId=${docId}&t=${Date.now()}`);
+      let res = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=${encodeURIComponent(userScope)}&documentId=${docId}&t=${Date.now()}`);
       let data = res.ok ? await res.json() : null;
 
+      if ((!data || !data.html) && currentUser?.email) {
+        const rawEmail = currentUser.email.toLowerCase().trim();
+        if (rawEmail !== userScope) {
+          const rawRes = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=${encodeURIComponent(rawEmail)}&documentId=${docId}&t=${Date.now()}`);
+          if (rawRes.ok) {
+            data = await rawRes.json();
+          }
+        }
+      }
+
       if ((!data || !data.html) && teamIdx === 0) {
-        const legacyDocId = `draft_doc_${documentIdSuffix}_${activeTenantId}`;
-        const legacyRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser?.email || 'default'}&documentId=${legacyDocId}&t=${Date.now()}`);
+        const legacyDocId = `draft_doc_${documentIdSuffix}_${effectiveTenantId}`;
+        const legacyRes = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=${encodeURIComponent(userScope)}&documentId=${legacyDocId}&t=${Date.now()}`);
         if (legacyRes.ok) {
           data = await legacyRes.json();
         }
@@ -1917,10 +1929,10 @@ export function DraftingSuiteTeam({
               'mashiloanedt@nkangaladm.gov.za',
               'selobamc@nkangaladm.gov.za'
             ];
-        const fallbackDocId = documentIdSuffix === 'cds' ? `draft_doc_cds_team_1_${activeTenantId}` : docId;
+        const fallbackDocId = documentIdSuffix === 'cds' ? `draft_doc_cds_team_1_${effectiveTenantId}` : docId;
         for (const uScope of candidateUserScopes) {
           try {
-            const zuluRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(uScope)}&documentId=${fallbackDocId}&force=true&t=${Date.now()}`);
+            const zuluRes = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=${encodeURIComponent(uScope)}&documentId=${fallbackDocId}&force=true&t=${Date.now()}`);
             if (zuluRes.ok) {
               const uData = await zuluRes.json();
               if (uData && uData.html) {
@@ -2100,7 +2112,7 @@ export function DraftingSuiteTeam({
   // Load draft on team switch
   useEffect(() => {
     loadDraftForTeam(activeTeamIndex);
-  }, [activeTeamIndex, documentIdSuffix, activeTenantId]);
+  }, [activeTeamIndex, documentIdSuffix, effectiveTenantId]);
 
   useEffect(() => {
     const handlePmsTeamPaUpdated = (e: any) => {
@@ -2146,7 +2158,7 @@ export function DraftingSuiteTeam({
 
   // Save Current Team to Supabase
   const saveToProfile = async () => {
-    if (!activeTenantId) return;
+    if (!effectiveTenantId) return;
     setSaving(true);
     setSaveStatus('idle');
     try {
@@ -2231,7 +2243,8 @@ export function DraftingSuiteTeam({
       };
 
       const docId = getDocumentIdForTeam(activeTeamIndex);
-      const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser?.email || 'default'}&documentId=${docId}`, {
+      const userScope = getEmailScope(currentUser?.email || 'default');
+      const res = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=${encodeURIComponent(userScope)}&documentId=${docId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2345,7 +2358,8 @@ export function DraftingSuiteTeam({
         updatedAt: new Date().toISOString()
       };
       const docId = getDocumentIdForTeam(activeTeamIndex);
-      await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${currentUser?.email || 'default'}&documentId=${docId}`, {
+      const userScope = getEmailScope(currentUser?.email || 'default');
+      await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=${encodeURIComponent(userScope)}&documentId=${docId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ html: stateObj, htmlDocumentId: docId })

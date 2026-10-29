@@ -501,9 +501,9 @@ export function FredPerformancePlanExtractor({
       };
 
       const normTarget = targetEmail.toLowerCase().trim();
-      const effectiveTenantId = (activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) && normTarget.includes('nkangala')
-        ? 'tenant-229'
-        : activeTenantId;
+      const effectiveTenantId = (normTarget.endsWith('@neda.gov.za') || normTarget.includes('neda.gov.za'))
+        ? 'neda'
+        : ((activeTenantId === 'global' || activeTenantId === 'nkangala_auto' || !activeTenantId) ? 'tenant-229' : activeTenantId);
 
       let res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(targetEmail)}`, {
         method: 'POST',
