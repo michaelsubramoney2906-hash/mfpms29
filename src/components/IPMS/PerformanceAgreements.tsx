@@ -2578,9 +2578,109 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     }
   };
 
-  const renderHeader = () => (
-    <>
-    <div id="pa-nav-ribbon" className="bg-slate-900 border-b border-slate-950 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+  const renderHeader = () => {
+    const paUserEmail = (currentUser?.email || '').toLowerCase().trim();
+    return (
+      <>
+      {/* INLINE DUAL-POSITION PERFORMANCE PLAN SWITCHER FOR THANDIWE M. LENGWATE */}
+      {(paUserEmail.includes('lengwatetm') || paUserEmail.includes('lengwatertm')) && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/40 px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-black">
+              🔄 Dual-Position Performance Plan
+            </span>
+            <div className="text-xs">
+              <span className="font-black text-indigo-200">Active Performance Plan:</span>{' '}
+              <span className="font-bold text-white">
+                {paUserEmail.includes('_gm_cds') 
+                  ? '🏛️ Acting General Manager: Community Development Services (56 KPIs)' 
+                  : '💼 Municipal Accountant (Finance — 25 KPIs)'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_lengwate_active_capacity', 'accountant');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'lengwate', capacity: 'accountant' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                !paUserEmail.includes('_gm_cds') ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>💼 1. Municipal Accountant (25 KPIs)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_lengwate_active_capacity', 'acting_gm_cds');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'lengwate', capacity: 'acting_gm_cds' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                paUserEmail.includes('_gm_cds') ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>🏛️ 2. Acting GM: CDS (56 KPIs)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* INLINE DUAL-POSITION PERFORMANCE PLAN SWITCHER FOR ALVIN BVUMA */}
+      {paUserEmail.includes('bvuma') && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/40 px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-black">
+              🔄 Dual-Position Performance Plan
+            </span>
+            <div className="text-xs">
+              <span className="font-black text-indigo-200">Active Performance Plan:</span>{' '}
+              <span className="font-bold text-white">
+                {(paUserEmail.includes('-mgr') || paUserEmail.includes('_manager'))
+                  ? '💼 Manager: Planning & Economic Development (24 KPIs)'
+                  : '🏛️ Acting General Manager: Planning & Economic Development (22 Section 56/57 KPIs)'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_bvuma_active_capacity', 'acting_gm_ped');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'bvuma', capacity: 'acting_gm_ped' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                (!paUserEmail.includes('-mgr') && !paUserEmail.includes('_manager')) ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>🏛️ 1. Acting GM: PED (22 KPIs)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_bvuma_active_capacity', 'manager_ped');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'bvuma', capacity: 'manager_ped' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                (paUserEmail.includes('-mgr') || paUserEmail.includes('_manager')) ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>💼 2. Manager: PED (24 KPIs)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div id="pa-nav-ribbon" className="bg-slate-900 border-b border-slate-950 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-green-600 text-white flex items-center justify-center border border-green-500 shadow-md">
           <FileText className="w-5 h-5 text-white" />
@@ -2696,6 +2796,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     )}
   </>
   );
+  };
 
   const empUser = users.find(u => u.email?.toLowerCase() === (metadata.email || currentUser.email)?.toLowerCase()) || currentUser;
   const mgrUser = users.find(u => 

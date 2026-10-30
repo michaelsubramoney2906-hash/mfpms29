@@ -469,6 +469,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
   const q4ActivePeriod = "April - June (Active & Unlocked)";
   const isAnnualTimeLocked = false;
   const annualActivePeriod = "July - September (Post-Q4) (Active & Unlocked)";
+  const evalRawEmail = (currentUser?.email || '').toLowerCase().trim();
 
   const renderTimeLockBanner = (isLocked: boolean, periodName: string) => {
     return (
@@ -819,6 +820,14 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
       } else if (userEmailForMgr === 'joubertm@nkangaladm.gov.za' || userEmailForMgr === 'tloujmt@nkangaladm.gov.za') {
         resolvedMgr = { manager: 'Solly Links', managerEmail: 'linkss@nkangaladm.gov.za', reportTo: 'Solly Links' };
       } else if (userEmailForMgr.includes('shabangusm') || userEmailForMgr.includes('shabangugm')) {
+        resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
+      } else if (userEmailForMgr.includes('lengwatetm_gm_cds')) {
+        resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
+      } else if (userEmailForMgr.includes('lengwatetm') || userEmailForMgr.includes('lengwatertm')) {
+        resolvedMgr = { manager: 'Alice L. Stander', managerEmail: 'standeral@nkangaladm.gov.za', reportTo: 'Alice L. Stander' };
+      } else if (userEmailForMgr === 'bvumaa-mgr@nkangaladm.gov.za') {
+        resolvedMgr = { manager: 'Alvin Bvuma (Acting GM: PED)', managerEmail: 'bvumaa@nkangaladm.gov.za', reportTo: 'Alvin Bvuma' };
+      } else if (userEmailForMgr === 'bvumaa@nkangaladm.gov.za') {
         resolvedMgr = { manager: 'Mandla L. Mahlangu', managerEmail: 'mahlanguml@nkangaladm.gov.za', reportTo: 'Mandla L. Mahlangu' };
       }
 
@@ -1607,6 +1616,104 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           </div>
         </div>
       )}
+      {/* INLINE DUAL-POSITION REPORTING SWITCHER FOR THANDIWE M. LENGWATE */}
+      {(evalRawEmail.includes('lengwatetm') || evalRawEmail.includes('lengwatertm')) && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/40 px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-black">
+              🔄 Dual-Position Reporting
+            </span>
+            <div className="text-xs">
+              <span className="font-black text-indigo-200">Active Reporting Position:</span>{' '}
+              <span className="font-bold text-white">
+                {evalRawEmail.includes('_gm_cds') 
+                  ? '🏛️ Acting General Manager: Community Development Services (56 KPIs + Executive Core Competencies)' 
+                  : '💼 Municipal Accountant (Finance — 25 KPIs + JSCs)'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_lengwate_active_capacity', 'accountant');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'lengwate', capacity: 'accountant' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                !evalRawEmail.includes('_gm_cds') ? 'bg-blue-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>💼 1. Municipal Accountant (25 KPIs)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_lengwate_active_capacity', 'acting_gm_cds');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'lengwate', capacity: 'acting_gm_cds' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                evalRawEmail.includes('_gm_cds') ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>🏛️ 2. Acting GM: CDS (56 KPIs)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* INLINE DUAL-POSITION REPORTING SWITCHER FOR ALVIN BVUMA */}
+      {evalRawEmail.includes('bvuma') && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-b border-indigo-500/40 px-6 py-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-black">
+              🔄 Dual-Position Reporting
+            </span>
+            <div className="text-xs">
+              <span className="font-black text-indigo-200">Active Reporting Position:</span>{' '}
+              <span className="font-bold text-white">
+                {(evalRawEmail.includes('-mgr') || evalRawEmail.includes('_manager'))
+                  ? '💼 Manager: Planning & Economic Development (24 KPIs + JSCs)'
+                  : '🏛️ Acting General Manager: Planning & Economic Development (22 Section 56/57 KPIs + Core Competencies)'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_bvuma_active_capacity', 'acting_gm_ped');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'bvuma', capacity: 'acting_gm_ped' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                (!evalRawEmail.includes('-mgr') && !evalRawEmail.includes('_manager')) ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>🏛️ 1. Acting GM: PED (22 KPIs)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('mzansi_bvuma_active_capacity', 'manager_ped');
+                window.dispatchEvent(new CustomEvent('dual-position-changed', {
+                  detail: { userType: 'bvuma', capacity: 'manager_ped' }
+                }));
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition cursor-pointer flex items-center gap-1.5 ${
+                (evalRawEmail.includes('-mgr') || evalRawEmail.includes('_manager')) ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-300 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <span>💼 2. Manager: PED (24 KPIs)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="px-6 py-6 pb-4 bg-white border-b border-gray-250 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0 relative z-10">
         <div>
           <h1 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-3">

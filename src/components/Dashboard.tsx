@@ -301,10 +301,31 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     }
   }, [rawUserEmailLower]);
 
+  // Global listener for dual-position changes triggered from inside submodules (Evaluation, Performance Plan, etc.)
+  useEffect(() => {
+    const handleDualChange = (e: any) => {
+      const { userType, capacity } = e?.detail || {};
+      if (userType === 'lengwate' && (capacity === 'accountant' || capacity === 'acting_gm_cds')) {
+        setLengwateRoleCapacity(capacity);
+        localStorage.setItem('mzansi_lengwate_active_capacity', capacity);
+      }
+      if (userType === 'bvuma' && (capacity === 'manager_ped' || capacity === 'acting_gm_ped')) {
+        setBvumaRoleCapacity(capacity);
+        localStorage.setItem('mzansi_bvuma_active_capacity', capacity);
+      }
+    };
+    window.addEventListener('dual-position-changed', handleDualChange);
+    return () => window.removeEventListener('dual-position-changed', handleDualChange);
+  }, []);
+
   const handleSwitchLengwateCapacity = (nextCap: 'accountant' | 'acting_gm_cds') => {
     setLengwateRoleCapacity(nextCap);
     localStorage.setItem('mzansi_lengwate_active_capacity', nextCap);
-    if (nextCap === 'acting_gm_cds' && activeSubModule && (activeSubModule.id === 'jsc' || activeSubModule.id === 'pdp' || activeSubModule.id === 'ipms-evaluation')) {
+    window.dispatchEvent(new CustomEvent('dual-position-changed', {
+      detail: { userType: 'lengwate', capacity: nextCap }
+    }));
+    // Note: Do not close ipms-evaluation or pplan! Both positions report and self-evaluate!
+    if (nextCap === 'acting_gm_cds' && activeSubModule && (activeSubModule.id === 'jsc' || activeSubModule.id === 'pdp')) {
       setActiveSubModule(null);
     }
     if (nextCap === 'accountant' && activeSubModule && activeSubModule.id === 'ccomp') {
@@ -315,40 +336,12 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const handleSwitchBvumaCapacity = (nextCap: 'acting_gm_ped' | 'manager_ped') => {
     setBvumaRoleCapacity(nextCap);
     localStorage.setItem('mzansi_bvuma_active_capacity', nextCap);
-    const targetUser: User = nextCap === 'manager_ped'
-      ? {
-          ...fullUserProfile,
-          id: 'user_bvumaa_manager_ped',
-          email: 'bvumaa-mgr@nkangaladm.gov.za',
-          fullName: 'Alvin Bvuma',
-          jobFunction: 'Manager: Planning & Economic Development',
-          department: 'Planning & Economic Development (PED)',
-          directorate: 'Planning & Economic Development (PED)',
-          role: 'Manager' as any,
-          manager: 'Alvin Bvuma',
-          reportTo: 'Alvin Bvuma',
-          managerEmail: 'bvumaa@nkangaladm.gov.za',
-          tenantId: 'tenant-229'
-        }
-      : {
-          ...fullUserProfile,
-          id: 'user_bvumaa_acting_gm',
-          email: 'bvumaa@nkangaladm.gov.za',
-          fullName: 'Alvin Bvuma',
-          jobFunction: 'Acting General Manager: Planning & Economic Development (PED)',
-          department: 'Planning & Economic Development (PED)',
-          directorate: 'Planning & Economic Development',
-          role: 'General Manager' as any,
-          manager: 'Mandla L. Mahlangu',
-          reportTo: 'Mandla L. Mahlangu',
-          managerEmail: 'mahlanguml@nkangaladm.gov.za',
-          tenantId: 'tenant-229'
-        };
-    setFullUserProfile(targetUser);
-    localStorage.setItem('currentUser', JSON.stringify(targetUser));
-    sessionStorage.setItem('currentUser', JSON.stringify(targetUser));
-    if (onImpersonate) {
-      onImpersonate(targetUser);
+    window.dispatchEvent(new CustomEvent('dual-position-changed', {
+      detail: { userType: 'bvuma', capacity: nextCap }
+    }));
+    // Note: Do not close ipms-evaluation or pplan! Both positions report and self-evaluate!
+    if (nextCap === 'acting_gm_ped' && activeSubModule && (activeSubModule.id === 'jsc' || activeSubModule.id === 'pdp')) {
+      setActiveSubModule(null);
     }
   };
 
@@ -369,11 +362,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           }
         : {
             ...fullUserProfile,
+            id: '8114f475-403d-49d7-84bc-2a554a93a525',
             email: 'lengwatetm@nkangaladm.gov.za',
             fullName: 'Thandiwe M. Lengwate',
             jobFunction: 'Municipal Accountant',
             department: 'Finance',
             directorate: 'Finance',
+            role: 'Standard User' as any,
             manager: 'Alice L. Stander',
             reportTo: 'Alice L. Stander',
             managerEmail: 'standeral@nkangaladm.gov.za'
@@ -382,7 +377,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
       ? (bvumaRoleCapacity === 'manager_ped'
           ? {
               ...fullUserProfile,
-              id: 'user_bvumaa_manager_ped',
+              id: 'nk-user-bvumaa-mgr',
               email: 'bvumaa-mgr@nkangaladm.gov.za',
               fullName: 'Alvin Bvuma',
               jobFunction: 'Manager: Planning & Economic Development',
@@ -396,7 +391,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
             }
           : {
               ...fullUserProfile,
-              id: 'user_bvumaa_acting_gm',
+              id: '8f7629e7-aeb1-406c-b2f8-47cd229a8c51',
               email: 'bvumaa@nkangaladm.gov.za',
               fullName: 'Alvin Bvuma',
               jobFunction: 'Acting General Manager: Planning & Economic Development (PED)',
@@ -745,9 +740,20 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           }
           if (isLengwateDualUser) {
             if (lengwateRoleCapacity === 'acting_gm_cds') {
-              if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation') return false;
+              if (sub.id === 'jsc' || sub.id === 'pdp') return false;
+              if (sub.id === 'ccomp' || sub.id === 'pa' || sub.id === 'pplan' || sub.id === 'ipms-evaluation') return true;
             } else {
               if (sub.id === 'ccomp') return false;
+              if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation' || sub.id === 'pa' || sub.id === 'pplan') return true;
+            }
+          }
+          if (isBvumaDualUser) {
+            if (bvumaRoleCapacity === 'acting_gm_ped') {
+              if (sub.id === 'jsc' || sub.id === 'pdp') return false;
+              if (sub.id === 'ccomp' || sub.id === 'pa' || sub.id === 'pplan' || sub.id === 'ipms-evaluation') return true;
+            } else {
+              if (sub.id === 'ccomp') return false;
+              if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation' || sub.id === 'pa' || sub.id === 'pplan') return true;
             }
           }
           return true;
@@ -821,8 +827,18 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
 
       if (isLengwateDualUser) {
         if (lengwateRoleCapacity === 'acting_gm_cds') {
-          if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation') return false;
-          if (sub.id === 'ccomp' || sub.id === 'pa' || sub.id === 'pplan') return true;
+          if (sub.id === 'jsc' || sub.id === 'pdp') return false;
+          if (sub.id === 'ccomp' || sub.id === 'pa' || sub.id === 'pplan' || sub.id === 'ipms-evaluation') return true;
+        } else {
+          if (sub.id === 'ccomp') return false;
+          if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation' || sub.id === 'pa' || sub.id === 'pplan') return true;
+        }
+      }
+
+      if (isBvumaDualUser) {
+        if (bvumaRoleCapacity === 'acting_gm_ped') {
+          if (sub.id === 'jsc' || sub.id === 'pdp') return false;
+          if (sub.id === 'ccomp' || sub.id === 'pa' || sub.id === 'pplan' || sub.id === 'ipms-evaluation') return true;
         } else {
           if (sub.id === 'ccomp') return false;
           if (sub.id === 'jsc' || sub.id === 'pdp' || sub.id === 'ipms-evaluation' || sub.id === 'pa' || sub.id === 'pplan') return true;
@@ -1216,8 +1232,8 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                   </h4>
                   <p className="text-xs text-slate-300 mt-0.5">
                     {lengwateRoleCapacity === 'acting_gm_cds'
-                      ? 'Active Role: Acting General Manager: Community Development Services — Includes separate Performance Agreement, Performance Plan (56 KPIs), and Core Competencies (No JSCs, PDPs, or Self-Evaluation).'
-                      : 'Active Role: Municipal Accountant (Finance) — Includes separate Performance Agreement, Performance Plan, Job Specific Competencies (JSCs), Personal Development Plan (PDP), and Self-Evaluation (No Core Competencies).'}
+                      ? 'Active Role: Acting General Manager: Community Development Services — Reporting on 56 Director KPIs, Performance Agreement, Performance Plan, Executive Core Competencies, and Quarterly Self-Evaluation.'
+                      : 'Active Role: Municipal Accountant (Finance) — Reporting on 25 Municipal Accountant KPIs, Performance Agreement, Performance Plan, JSCs, PDP, and Quarterly Self-Evaluation.'}
                   </p>
                 </div>
               </div>
@@ -1500,6 +1516,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           ) : activeSubModule.id === 'jsc' || activeSubModule.id === 'team-jsc' || activeSubModule.id === 'team-jsc-2' ? (
               <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
                  <JobSpecificCompetencies 
+                   key={`jsc_${effectiveIpmsUser?.email || ""}_${activeTenantId}`}
                    currentUser={effectiveIpmsUser} 
                    activeTenantId={activeTenantId} 
                    isTeamJSC={activeSubModule.id === 'team-jsc'} 
