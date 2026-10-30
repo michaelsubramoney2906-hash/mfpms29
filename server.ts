@@ -9747,8 +9747,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       let userRole = u.role;
       const emailLower = (u.email || '').toLowerCase().trim();
-      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(emailLower) ||
-                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep');
+      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za'].includes(emailLower) ||
+                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs');
       if (isTargetManager) {
         userRole = 'Manager';
       }
@@ -9784,10 +9784,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Yolanda Segami';
         dynamicReportTo = 'Yolanda Segami';
         dynamicManagerEmail = 'segamiy@nkangaladm.gov.za';
-      } else if (emailLower.includes('rakauj') || emailLower.includes('gakwamf') || emailLower.includes('mahlangude') || emailLower.includes('mankopanamm') || emailLower.includes('moepis') || emailLower.includes('molefeki') || emailLower.includes('mthimunye')) {
+      } else if (emailLower.includes('rakauj') || emailLower.includes('gakwamf') || emailLower.includes('mahlangude') || emailLower.includes('mankopanamm') || emailLower.includes('moepis') || emailLower.includes('molefeki') || emailLower.includes('mthimunyepm')) {
         dynamicManager = 'Johannes MT. Tlou';
         dynamicReportTo = 'Johannes MT. Tlou';
         dynamicManagerEmail = 'tloujmt@nkangaladm.gov.za';
+      } else if (emailLower.includes('mthimunyedmn') || emailLower.includes('serememj') || emailLower.includes('sitholedm') || emailLower.includes('shongwesb') || emailLower.includes('mokwenarm') || emailLower.includes('mtswenins') || (emailLower.includes('mthimunye') && !emailLower.includes('mthimunyepm'))) {
+        dynamicManager = 'Bongani S. Khumalo';
+        dynamicReportTo = 'Bongani S. Khumalo';
+        dynamicManagerEmail = 'khumalobs@nkangaladm.gov.za';
       } else if (emailLower.includes('dlaminiss') || emailLower.includes('khozahf') || emailLower.includes('mafodim') || emailLower.includes('mashilesm') || emailLower.includes('moreroaml') || emailLower.includes('thumbathi') || emailLower.includes('mthethwa')) {
         dynamicManager = 'Priscilla Fenyane';
         dynamicReportTo = 'Priscilla Fenyane';
@@ -10416,16 +10420,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
 
     // Ensure Bongani S. Khumalo appears under both nkosibs@nkangaladm.gov.za and khumalobs@nkangaladm.gov.za in User Management Current Directory
+    const ictSubordinateEmails = [
+      'mthimunyedmn@nkangaladm.gov.za',
+      'serememj@nkangaladm.gov.za',
+      'sitholedm@nkangaladm.gov.za',
+      'shongwesb@nkangaladm.gov.za',
+      'mokwenarm@nkangaladm.gov.za',
+      'mtswenins@nkangaladm.gov.za'
+    ];
     const primaryNkosi = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'nkosibs@nkangaladm.gov.za');
     if (primaryNkosi) {
       primaryNkosi.fullName = 'Bongani S. Khumalo';
       primaryNkosi.jobFunction = primaryNkosi.jobFunction || 'Divisional Manager: ICT';
       primaryNkosi.department = primaryNkosi.department || 'Information and Communication Technology';
       primaryNkosi.directorate = primaryNkosi.directorate || 'Office of the Municipal Manager';
+      primaryNkosi.role = 'Manager';
       primaryNkosi.manager = 'Mandla L. Mahlangu';
       primaryNkosi.reportTo = 'Mandla L. Mahlangu';
       primaryNkosi.managerEmail = 'mahlanguml@nkangaladm.gov.za';
       primaryNkosi.level = primaryNkosi.level || '3';
+      primaryNkosi.hasSubordinates = true;
+      primaryNkosi.subordinateCount = ictSubordinateEmails.length;
+      primaryNkosi.subordinateEmails = ictSubordinateEmails;
     }
     const existingKhumalo = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'khumalobs@nkangaladm.gov.za');
     if (existingKhumalo) {
@@ -10433,10 +10449,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       existingKhumalo.jobFunction = existingKhumalo.jobFunction || primaryNkosi?.jobFunction || 'Divisional Manager: ICT';
       existingKhumalo.department = existingKhumalo.department || primaryNkosi?.department || 'Information and Communication Technology';
       existingKhumalo.directorate = existingKhumalo.directorate || primaryNkosi?.directorate || 'Office of the Municipal Manager';
+      existingKhumalo.role = 'Manager';
       existingKhumalo.manager = 'Mandla L. Mahlangu';
       existingKhumalo.reportTo = 'Mandla L. Mahlangu';
       existingKhumalo.managerEmail = 'mahlanguml@nkangaladm.gov.za';
       existingKhumalo.level = existingKhumalo.level || primaryNkosi?.level || '3';
+      existingKhumalo.hasSubordinates = true;
+      existingKhumalo.subordinateCount = ictSubordinateEmails.length;
+      existingKhumalo.subordinateEmails = ictSubordinateEmails;
       existingKhumalo.signatureType = existingKhumalo.signatureType || primaryNkosi?.signatureType || 'draw';
       existingKhumalo.signatureData = existingKhumalo.signatureData || primaryNkosi?.signatureData || '';
     } else if (normTenant === 'nkangala_master' || normTenant === 'tenant-229' || normTenant === 'nkangala_auto') {
@@ -10447,7 +10467,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         jobFunction: primaryNkosi?.jobFunction || 'Divisional Manager: ICT',
         department: primaryNkosi?.department || 'Information and Communication Technology',
         source: primaryNkosi?.source || 'azure_ad',
-        role: primaryNkosi?.role || 'Standard User',
+        role: 'Manager',
         tenantId: normTenant === 'nkangala_master' ? 'tenant-229' : normTenant,
         manager: 'Mandla L. Mahlangu',
         directorate: primaryNkosi?.directorate || 'Office of the Municipal Manager',
@@ -10456,9 +10476,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         signatureType: primaryNkosi?.signatureType || 'draw',
         signatureData: primaryNkosi?.signatureData || '',
         managerEmail: 'mahlanguml@nkangaladm.gov.za',
-        hasSubordinates: Boolean(primaryNkosi?.hasSubordinates),
-        subordinateCount: primaryNkosi?.subordinateCount || 0,
-        subordinateEmails: primaryNkosi?.subordinateEmails || []
+        hasSubordinates: true,
+        subordinateCount: ictSubordinateEmails.length,
+        subordinateEmails: ictSubordinateEmails
       });
     }
 
@@ -18386,7 +18406,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'nkosis': ['wakenis@nkangaladm.gov.za', 'mokgolomothome@nkangaladm.gov.za'],
             'nkosije': ['myenispl@nkangaladm.gov.za'],
             'motshwenenm': ['mazwitc@nkangaladm.gov.za'],
-            'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za']
+            'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za'],
+            'khumalobs': [
+              'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
+              'shongwesb@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za'
+            ],
+            'nkosibs': [
+              'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
+              'shongwesb@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za'
+            ]
           };
 
           const normMgrUser = normMgr.split('@')[0];
@@ -18449,7 +18477,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 (normMgr.includes('magampe') && mName.includes('magampe')) ||
                 (normMgr.includes('segami') && mName.includes('segami')) ||
                 (normMgr.includes('tlou') && mName.includes('tlou')) ||
-                (normMgr.includes('fenyane') && mName.includes('fenyane'));
+                (normMgr.includes('fenyane') && mName.includes('fenyane')) ||
+                ((normMgr.includes('khumalo') || normMgr.includes('nkosibs')) && (mName.includes('khumalo') || mName.includes('bongani')));
             })
             .map((u: any) => (u.email || '').toLowerCase().trim())
             .filter(Boolean);

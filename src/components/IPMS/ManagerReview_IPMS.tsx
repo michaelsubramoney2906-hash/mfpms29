@@ -665,6 +665,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         msizaSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Bongani S. Khumalo (khumalobs@nkangaladm.gov.za / nkosibs@nkangaladm.gov.za)
+      const khumaloSubordinates = [
+        'mthimunyedmn@nkangaladm.gov.za',
+        'serememj@nkangaladm.gov.za',
+        'sitholedm@nkangaladm.gov.za',
+        'shongwesb@nkangaladm.gov.za',
+        'mokwenarm@nkangaladm.gov.za',
+        'mtswenins@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) {
+        khumaloSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // 1. Fetch all users to determine dynamic relationships for ALL managers who have subordinates
       if (Array.isArray((currentUser as any)?.subordinateEmails)) {
         (currentUser as any).subordinateEmails.forEach((sEmail: string) => {
@@ -683,6 +696,10 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           const uPrefix = uManagerEmail.split('@')[0];
           const curPrefix = normCurrentEmail.split('@')[0];
           if (uManagerEmail === normCurrentEmail || uPrefix === curPrefix) {
+            return true;
+          }
+          // Special alias: khumalobs and nkosibs represent the same manager (Bongani S. Khumalo)
+          if ((normCurrentEmail.includes('khumalobs') || normCurrentEmail.includes('nkosibs')) && (uManagerEmail.includes('khumalobs') || uManagerEmail.includes('nkosibs'))) {
             return true;
           }
           // Explicit non-matching manager email -> reject to avoid surname collisions
@@ -835,6 +852,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           ((managerEmail.includes('mazwit') || normCurrent.includes('mazwi') || normCurrent.includes('thandiwe')) && (mazwiSubordinates.includes(targetEmail) || pManager.includes('mazwi'))) ||
           ((managerEmail.includes('msiza') || normCurrent.includes('msiza') || normCurrent.includes('ali')) && (msizaSubordinates.includes(targetEmail) || pManager.includes('msiza'))) ||
           (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
+          ((managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) && (khumaloSubordinates.includes(targetEmail) || pManager.includes('khumalo') || pManager.includes('bongani') || pManagerEmail.includes('khumalobs') || pManagerEmail.includes('nkosibs'))) ||
           ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||
           ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))
         );
