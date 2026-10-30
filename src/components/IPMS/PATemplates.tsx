@@ -39,6 +39,7 @@ interface DynamicSection {
   heading: string;
   content1: string;
   content2: string;
+  content?: string;
 }
 
 interface PATemplate {
@@ -203,7 +204,16 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
   };
 
   const updateDynamicSection = (id: string, updates: Partial<DynamicSection>) => {
-    setDynamicSections(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    setDynamicSections(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      const next = { ...s, ...updates };
+      if (updates.content1 !== undefined) {
+        (next as any).content = updates.content1;
+      } else if ((updates as any).content !== undefined) {
+        next.content1 = (updates as any).content;
+      }
+      return next;
+    }));
   };
   
   const removeDynamicSection = (id: string) => {
@@ -3059,7 +3069,16 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
         name: isMandlaMahlangu ? 'MM: Municipal Manager Premium Agreement' : templateName,
         headingCover,
         headingRegulatoryInfo,
-        dynamicSections,
+        dynamicSections: dynamicSections.map(sec => {
+          const text = (sec.content1 !== undefined && sec.content1 !== null) ? sec.content1 : ((sec as any).content || '');
+          return {
+            ...sec,
+            heading: sec.heading || sec.title || 'Section',
+            content1: text,
+            content: text,
+            content2: sec.content2 || ''
+          };
+        }),
         headingPurpose,
         headingValidity,
         headingReporting,
@@ -3188,15 +3207,22 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
     if (tpl.dynamicSections) {
       const cleaned = tpl.dynamicSections.map(sec => {
         const isSec15 = sec.id === "section-1782677903090" || sec.heading.trim().startsWith("15") || sec.heading.toLowerCase().includes("15.");
-        if (isMandlaMahlangu && isSec15) {
-          const regex = /(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi;
-          return {
-            ...sec,
-            content1: (sec.content1 || '').replace(regex, '').trim(),
-            content2: (sec.content2 || '').replace(regex, '').trim()
-          };
-        }
-        return sec;
+        const rawContent = (sec.content1 !== undefined && sec.content1 !== null && sec.content1 !== '')
+          ? sec.content1
+          : ((sec as any).content || '');
+        const cleanContent1 = (isMandlaMahlangu && isSec15)
+          ? rawContent.replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
+          : rawContent;
+        const cleanContent2 = (isMandlaMahlangu && isSec15)
+          ? (sec.content2 || '').replace(/(thus,?\s*done\s*and\s*signed\s*on\s*this[\s\S]*|thus,?\s*co-signed[\s\S]*)$/gi, '').trim()
+          : (sec.content2 || '');
+        return {
+          ...sec,
+          heading: sec.heading || sec.title || 'Section',
+          content1: cleanContent1,
+          content: cleanContent1,
+          content2: cleanContent2
+        };
       });
       setDynamicSections(cleaned);
     }
@@ -4787,12 +4813,25 @@ export function PATemplates({ currentUser, activeTenantId }: PATemplatesProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold text-slate-500 font-mono">Edit Section Text content</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] uppercase font-bold text-slate-500 font-mono">Edit Section Text content</label>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={handleSaveTemplate}
+                      className="inline-flex items-center gap-1 text-[9.5px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded shadow-xs cursor-pointer transition"
+                      title="Save words and clauses to Supabase immediately"
+                    >
+                      <Save className="w-2.5 h-2.5 text-emerald-600" />
+                      <span>{saving ? 'Saving...' : 'Save Section to Supabase'}</span>
+                    </button>
+                  </div>
                   <textarea
-                    value={section.content1}
-                    onChange={(e) => updateDynamicSection(section.id, { content1: e.target.value })}
-                    rows={3}
-                    className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 text-slate-700"
+                    value={section.content1 ?? (section as any).content ?? ''}
+                    onChange={(e) => updateDynamicSection(section.id, { content1: e.target.value, content: e.target.value })}
+                    rows={4}
+                    placeholder="Enter section words, clauses, and performance expectations..."
+                    className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none focus:border-emerald-500 text-slate-700 shadow-inner"
                   />
                 </div>
 

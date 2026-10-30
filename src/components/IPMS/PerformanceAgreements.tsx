@@ -381,6 +381,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   const [isSaving, setIsSaving] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [hasSavedOnce, setHasSavedOnce] = useState(false);
+  const [supabaseSaveBanner, setSupabaseSaveBanner] = useState<{ message: string; timestamp: string } | null>(null);
   const [showRestrictedFieldsOverride, setShowRestrictedFieldsOverride] = useState(true);
   const [activeTab, setActiveTab] = useState<'brief' | 'templates' | 'drafting_suite' | 'lead_fire_fighter' | 'drafting_suite_firefighters' | 'drafting_suite_technical_services' | 'drafting_suite_corporate_services' | 'drafting_suite_pms_team'>('drafting_suite');
   const [users, setUsers] = useState<any[]>([]);
@@ -1040,9 +1041,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
       }
       setHasSavedOnce(true);
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: targetEmail } }));
-      if (showFeedback) {
-        alert(`${headingTitle} in its entirety has been successfully saved to DB!`);
-      }
+      const timeStr = new Date().toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setSupabaseSaveBanner({
+        message: `${headingTitle} (${customItems.length} KPIs) successfully saved and persisted to Supabase!`,
+        timestamp: timeStr
+      });
     } catch (err: any) {
       console.error(`Save ${headingTitle} Database Error:`, err);
     } finally {
@@ -2576,7 +2579,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
   };
 
   const renderHeader = () => (
-
+    <>
     <div id="pa-nav-ribbon" className="bg-slate-900 border-b border-slate-950 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-green-600 text-white flex items-center justify-center border border-green-500 shadow-md">
@@ -2669,6 +2672,29 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         )}
       </div>
     </div>
+    {/* Supabase Save Confirmation Banner */}
+    {supabaseSaveBanner && (
+      <div className="bg-emerald-950/95 border-b border-emerald-500/50 text-emerald-100 px-6 py-2.5 flex items-center justify-between text-xs font-medium">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>
+            <strong>Supabase Persistence Confirmed:</strong> {supabaseSaveBanner.message} [Tenant: <span className="font-mono text-emerald-300 font-bold uppercase">{activeTenantId}</span>]
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-emerald-300 bg-emerald-900/60 border border-emerald-700/60 px-2 py-0.5 rounded font-mono font-bold">
+            Verified at {supabaseSaveBanner.timestamp}
+          </span>
+          <button
+            onClick={() => setSupabaseSaveBanner(null)}
+            className="text-[10px] text-emerald-400 hover:text-emerald-200 font-bold cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    )}
+  </>
   );
 
   const empUser = users.find(u => u.email?.toLowerCase() === (metadata.email || currentUser.email)?.toLowerCase()) || currentUser;

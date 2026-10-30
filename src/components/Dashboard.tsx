@@ -167,12 +167,27 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     ? [{ id: 'global', name: 'Global Administrator Space' }, ...tenants]
     : tenants;
 
-  const resolvedUserTenant = (user.tenantId === 'nkangala_auto' || (!user.tenantId && user.email?.toLowerCase().includes('nkangala')) || user.email?.toLowerCase().includes('shabangu'))
+  const cleanUserEmail = (user.email || '').toLowerCase().trim();
+  const isUserNeda = Boolean(
+    user.portalMode === 'neda' ||
+    user.tenantId === 'neda' ||
+    cleanUserEmail.includes('mangani') ||
+    cleanUserEmail.includes('chaukenh') ||
+    cleanUserEmail.includes('chaukekc') ||
+    cleanUserEmail.includes('sehlakols') ||
+    cleanUserEmail.includes('ngomanennc') ||
+    cleanUserEmail.endsWith('@neda.gov.za') ||
+    cleanUserEmail.includes('neda.gov.za')
+  );
+
+  const resolvedUserTenant = isUserNeda
+    ? 'neda'
+    : (user.tenantId === 'nkangala_auto' || (!user.tenantId && user.email?.toLowerCase().includes('nkangala')) || user.email?.toLowerCase().includes('shabangu'))
     ? 'tenant-229'
     : (user.tenantId || tenants[0].id);
 
   const [activeTenantId, setActiveTenantId] = useState<string>(
-    (user.role === 'admin' && !isCurrentlyImpersonating && !isNkangalaUser) ? 'global' : resolvedUserTenant
+    isUserNeda ? 'neda' : (user.role === 'admin' && !isCurrentlyImpersonating && !isNkangalaUser) ? 'global' : resolvedUserTenant
   );
 
   const currentTenant = availableTenants.find(t => 
@@ -185,15 +200,19 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   useEffect(() => {
     setFullUserProfile(user);
     if (user) {
-      const isUserNkangala = Boolean(user.email?.toLowerCase().includes('nkangala') || user.email?.toLowerCase().includes('shabangu') || user.tenantId === 'nkangala_auto' || user.tenantId === 'tenant-229');
-      const isImpersonatedSession = typeof window !== 'undefined' && !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
-      if (isUserNkangala) {
-        setActiveTenantId('tenant-229');
-      } else if (isImpersonatedSession || user.role !== 'admin') {
-        setActiveTenantId(user.tenantId || tenants[0].id);
+      if (isUserNeda) {
+        setActiveTenantId('neda');
+      } else {
+        const isUserNkangala = Boolean(user.email?.toLowerCase().includes('nkangala') || user.email?.toLowerCase().includes('shabangu') || user.tenantId === 'nkangala_auto' || user.tenantId === 'tenant-229');
+        const isImpersonatedSession = typeof window !== 'undefined' && !!(localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser'));
+        if (isUserNkangala) {
+          setActiveTenantId('tenant-229');
+        } else if (isImpersonatedSession || user.role !== 'admin') {
+          setActiveTenantId(user.tenantId || tenants[0].id);
+        }
       }
     }
-  }, [user]);
+  }, [user, isUserNeda]);
 
   useEffect(() => {
     const fetchProgress = async () => {

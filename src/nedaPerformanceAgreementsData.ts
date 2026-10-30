@@ -161,10 +161,12 @@ export const NEDA_EXTRACTED_PACKAGES: NedaExtractedUserPackage[] = [
   // ============================================================================
   {
     userId: 'neda-user-manganijp',
-    primaryEmail: 'manganijp@neda.gov.za',
+    primaryEmail: 'manganijp@nkangaladm.gov.za',
     aliases: [
-      'manganijp@neda.gov.za',
       'manganijp@nkangaladm.gov.za',
+      'manganijp@neda.gov.za',
+      'Manganijp@nkangaladm.gov.za',
+      'ManganiJP@nkangaladm.gov.za',
       'Manganijp@neda.gov.za',
       'ManganiJP@neda.gov.za'
     ],
@@ -295,7 +297,7 @@ export const NEDA_EXTRACTED_PACKAGES: NedaExtractedUserPackage[] = [
     role: 'Senior Management',
     supervisorName: 'Johan P. Mangani',
     supervisorTitle: 'Acting Chief Executive Officer',
-    supervisorEmail: 'manganijp@neda.gov.za',
+    supervisorEmail: 'manganijp@nkangaladm.gov.za',
     financialYear: '2026/2027',
     period: '01 July 2026 – 30 June 2027',
     pdfAssetUrl: '/assets/aistudio/2026-2027_Performance_Agreement_-_Chauke_853da60e.pdf',
@@ -615,7 +617,7 @@ export const NEDA_EXTRACTED_PACKAGES: NedaExtractedUserPackage[] = [
     role: 'Manager',
     supervisorName: 'Johan Prince Mangani',
     supervisorTitle: 'Acting Chief Executive Officer',
-    supervisorEmail: 'manganijp@neda.gov.za',
+    supervisorEmail: 'manganijp@nkangaladm.gov.za',
     financialYear: '2026/2027',
     period: '01 July 2026 – 30 June 2027',
     pdfAssetUrl: '/assets/aistudio/Ngomane_N__2026-2027_Performance_Agreement_NEDA_Company_Sec_9b3d8c69.pdf',

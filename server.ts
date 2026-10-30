@@ -1593,7 +1593,35 @@ export async function syncNedaPerformanceAgreements() {
         definition: j.definition
       }));
 
-      const draftDocInner = {
+      // Check if an existing draft document already exists for this user in targetTenants to preserve captured sections
+      const existingDraftKeys = targetTenants.flatMap(t => allEmails.map(em => `draft_doc_${t}_${em}`));
+      const { data: existingDraftRows } = await supabase.from('messages').select('id, content, created_at').in('id', existingDraftKeys);
+      let existingCustomDraft: any = null;
+      if (Array.isArray(existingDraftRows) && existingDraftRows.length > 0) {
+        existingDraftRows.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        for (const dr of existingDraftRows) {
+          try {
+            const parsedDr = JSON.parse(dr.content);
+            const drHtml = (parsedDr.html && typeof parsedDr.html === 'object') ? parsedDr.html : parsedDr;
+            if (drHtml && (drHtml.dynamicSections?.length > 0 || drHtml.coverPage)) {
+              existingCustomDraft = parsedDr;
+              break;
+            }
+          } catch {}
+        }
+      }
+
+      const draftDocInner = existingCustomDraft?.html ? {
+        ...existingCustomDraft.html,
+        pulledPplanItems: mergedKpis,
+        pulledCompetencyRows: pkg.coreCompetencies,
+        pulledMmCompetencyRows: pkg.competencyType === 'mm' ? pkg.coreCompetencies : null,
+        pulledCfoCompetencyRows: pkg.competencyType === 'cfo' ? pkg.coreCompetencies : null,
+        pulledKhuboniJscRows: mappedJscRows,
+        pulledPdpItems: pkg.pdps,
+        disclosures: existingCustomDraft.html.disclosures || pkg.disclosures,
+        metadata: { ...pplanPayloadObj.metadata, ...(existingCustomDraft.html.metadata || {}) }
+      } : {
         id: `draft_doc_neda_${pkg.primaryEmail.toLowerCase()}`,
         name: `${pkg.fullName} — NEDA Performance Agreement (${pkg.financialYear})`,
         employeeName: pkg.fullName,
@@ -1622,7 +1650,18 @@ export async function syncNedaPerformanceAgreements() {
         metadata: pplanPayloadObj.metadata
       };
 
-      const draftDocObj = {
+      const draftDocObj = existingCustomDraft ? {
+        ...existingCustomDraft,
+        html: draftDocInner,
+        pulledPplanItems: mergedKpis,
+        pulledCompetencyRows: pkg.coreCompetencies,
+        pulledMmCompetencyRows: pkg.competencyType === 'mm' ? pkg.coreCompetencies : null,
+        pulledCfoCompetencyRows: pkg.competencyType === 'cfo' ? pkg.coreCompetencies : null,
+        pulledKhuboniJscRows: mappedJscRows,
+        pulledPdpItems: pkg.pdps,
+        pdfUrl: pkg.pdfAssetUrl,
+        metadata: { ...pplanPayloadObj.metadata, ...(existingCustomDraft.metadata || {}) }
+      } : {
         html: draftDocInner,
         pulledPplanItems: mergedKpis,
         pulledCompetencyRows: pkg.coreCompetencies,
@@ -2252,11 +2291,20 @@ export async function syncBvumaDualPositionProfile() {
 export async function resolveTenantId(reqTenantId: string, userEmail?: string): Promise<string> {
   const cleanRoute = (reqTenantId || '').toLowerCase().trim();
   const cleanEmail = (userEmail || '').toLowerCase().trim();
-  if (cleanRoute === 'neda' || cleanRoute === 'tenant-neda' || cleanRoute === 'neda_auto') {
-    return cleanRoute;
-  }
-  if (cleanEmail.endsWith('@neda.gov.za') || cleanEmail.includes('neda.gov.za') || Boolean(findNedaPackageByEmailOrName(cleanEmail))) {
-    return cleanRoute || 'neda';
+  if (
+    cleanRoute === 'neda' ||
+    cleanRoute === 'tenant-neda' ||
+    cleanRoute === 'neda_auto' ||
+    cleanEmail.includes('mangani') ||
+    cleanEmail.includes('chaukenh') ||
+    cleanEmail.includes('chaukekc') ||
+    cleanEmail.includes('sehlakols') ||
+    cleanEmail.includes('ngomanennc') ||
+    cleanEmail.endsWith('@neda.gov.za') ||
+    cleanEmail.includes('neda.gov.za') ||
+    Boolean(findNedaPackageByEmailOrName(cleanEmail))
+  ) {
+    return 'neda';
   }
   if (cleanEmail.endsWith('@nkangaladm.gov.za') || cleanEmail.includes('nkangaladm.gov.za')) {
     return 'tenant-229';
@@ -7855,15 +7903,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (isGlobalAdmin) {
         if (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') {
           isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
-        } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
-          // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za, bongani@mzansiflow.co.za, ryanw@mzansiflow.co.za
-          isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
+        } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'delpjhine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
+          // Accept Deskjet01*, manager override, or 8655M9sznnes01*
+          isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         } else {
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         }
-      } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
-        // Strictly enforce Deskjet01* for delphine@mzansiflow.co.za and bongani@mzansiflow.co.za
-        isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword);
+      } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'delpjhine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
+        isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
       } else if (isNkangala || isTestAccount || isAzureAd) {
         // For Nkangala, Azure AD, and test accounts, passwords are managed via Azure AD / directory credentials
         if (cleanPassword.length >= 1) {
@@ -7897,7 +7944,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       } else {
         // Other verified accounts
-        isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === 'Deskjet01*' || cleanPassword.length >= 3);
+        isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === 'Deskjet01*' || cleanPassword === '8655M9sznnes01*' || cleanPassword.length >= 3);
       }
 
       if (!isPasswordValid) {
@@ -7906,26 +7953,57 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         });
       }
 
-      // Find user profile from local cache or Supabase
-      const allUsers = await getConsolidatedUsersList('nkangala_auto');
-      const internalProfile = allUsers.find((u: any) => u.email?.toLowerCase() === lowerEmail);
+      // Fast-Path: Resolve profile with safe fallback so login never hangs or crashes
+      let internalProfile: any = null;
+      if (!isGlobalAdmin) {
+        try {
+          const fetchPromise = getConsolidatedUsersList(tenantId || 'nkangala_auto');
+          const timeoutPromise = new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000));
+          const allUsers = await Promise.race([fetchPromise, timeoutPromise]);
+          internalProfile = (allUsers || []).find((u: any) => u.email?.toLowerCase() === lowerEmail);
+        } catch (uErr: any) {
+          console.warn("[/api/auth/login] Profile lookup notice (using resilient deterministic fallback):", uErr?.message || uErr);
+        }
+      }
 
       const userRole = (isGlobalAdmin || internalProfile?.role === 'admin' || internalProfile?.role === 'Global Administrator' || internalProfile?.role === 'Systems Administrator') ? 'admin' : 'tenant_user';
+
+      // Always assign a concrete tenantId: 'neda' for NEDA subsidiary portal mode, never undefined
+      const resolvedTenantId = portalMode === 'neda'
+        ? 'neda'
+        : (isGlobalAdmin ? (tenantId || 'tenant-229') : (internalProfile?.tenantId || internalProfile?.tenant_id || tenantId || 'tenant-229'));
+
+      let defaultAdminFullName = lowerEmail.split('@')[0];
+      if (lowerEmail.startsWith('delphine') || lowerEmail.startsWith('delpjhine')) {
+        defaultAdminFullName = 'Delphine (MzansiFlow Administrator)';
+      } else if (lowerEmail.startsWith('mike')) {
+        defaultAdminFullName = 'Mike (Global Administrator)';
+      } else if (lowerEmail.startsWith('audrey')) {
+        defaultAdminFullName = 'Audrey (MzansiFlow Administrator)';
+      } else if (lowerEmail.startsWith('ryanw')) {
+        defaultAdminFullName = 'Ryan W. (MzansiFlow Administrator)';
+      } else if (lowerEmail.startsWith('bongani')) {
+        defaultAdminFullName = 'Bongani M. (MzansiFlow Administrator)';
+      } else if (lowerEmail.startsWith('qiniso')) {
+        defaultAdminFullName = 'Qiniso (MzansiFlow Administrator)';
+      } else if (lowerEmail.startsWith('marlan')) {
+        defaultAdminFullName = 'Marlan (MzansiFlow Administrator)';
+      }
 
       const finalUser = {
         email: lowerEmail,
         role: userRole,
         isReadOnly: Boolean(internalProfile?.isReadOnly),
-        tenantId: isGlobalAdmin ? undefined : (internalProfile?.tenantId || internalProfile?.tenant_id || tenantId || 'tenant-229'),
-        fullName: internalProfile?.fullName || internalProfile?.full_name || (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0]),
+        tenantId: resolvedTenantId,
+        fullName: internalProfile?.fullName || internalProfile?.full_name || (isGlobalAdmin ? defaultAdminFullName : (lowerEmail.includes('bongani') ? 'Bongani M.' : lowerEmail.split('@')[0])),
         jobFunction: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.jobFunction || internalProfile?.job_function || 'Department Manager'),
-        department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : undefined),
+        department: internalProfile?.department || (isGlobalAdmin ? 'Administration' : 'District Administration'),
         manager: internalProfile?.manager || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         managerEmail: internalProfile?.managerEmail || (lowerEmail.includes('shabangusm') ? 'mahlanguml@nkangaladm.gov.za' : undefined),
         reportTo: internalProfile?.reportTo || (lowerEmail.includes('shabangusm') ? 'Mandla L. Mahlangu' : undefined),
         level: internalProfile?.level || (isGlobalAdmin ? 'L1 Executive' : undefined),
         systemRole: isGlobalAdmin ? 'Global Administrator' : (internalProfile?.systemRole || internalProfile?.role || 'Standard User'),
-        portalMode: portalMode || 'municipality'
+        portalMode: portalMode || (resolvedTenantId === 'neda' ? 'neda' : 'municipality')
       };
 
       // Record live audit login event in Supabase for all users (strictly excluding mike@mzansiflow.co.za)
@@ -7935,7 +8013,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         recordAuditEntry({
           userEmail: finalUser.email,
           userName: finalUser.fullName,
-          tenantId: finalUser.tenantId || 'nkangala_auto',
+          tenantId: finalUser.tenantId || (finalUser.portalMode === 'neda' ? 'neda' : 'nkangala_auto'),
           role: finalUser.role || finalUser.systemRole,
           department: finalUser.department || 'Administration & Operational Services',
           action: 'User Authentication',
@@ -7948,6 +8026,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           userAgent: userAgent
         }).catch(() => {});
       }
+
+      // Track active concurrent session
+      activeConcurrentSessions.set(lowerEmail, {
+        email: lowerEmail,
+        tenantId: finalUser.tenantId,
+        fullName: finalUser.fullName,
+        lastPing: Date.now()
+      });
 
       res.json({
         success: true,
@@ -10477,6 +10563,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         u.role = 'Senior Management';
         u.level = '1';
         u.tenantId = 'neda';
+        u.portalMode = 'neda';
       }
     }
 
@@ -14100,10 +14187,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       cleanRoute === 'neda' ||
       cleanRoute === 'tenant-neda' ||
       cleanRoute === 'neda_auto' ||
+      cleanUser.includes('mangani') ||
+      cleanUser.includes('chaukenh') ||
+      cleanUser.includes('chaukekc') ||
+      cleanUser.includes('sehlakols') ||
+      cleanUser.includes('ngomanennc') ||
       cleanUser.includes('@neda.gov.za') ||
       Boolean(findNedaPackageByEmailOrName(cleanUser))
     ) {
-      return cleanRoute === 'tenant-neda' || cleanRoute === 'neda_auto' ? cleanRoute : 'neda';
+      return 'neda';
     }
     if (
       cleanRoute === 'tenant-229' ||
@@ -21174,6 +21266,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 annexureC: (html.annexureC && html.annexureC.trim()) ? html.annexureC : existingState.annexureC,
                 frameworkBelowJsc: (html.frameworkBelowJsc && html.frameworkBelowJsc.trim()) ? html.frameworkBelowJsc : existingState.frameworkBelowJsc,
                 khuboniJscNotes: (html.khuboniJscNotes && html.khuboniJscNotes.trim()) ? html.khuboniJscNotes : existingState.khuboniJscNotes,
+                // Preserve and sync dynamicSections properly
+                dynamicSections: (Array.isArray(html.dynamicSections) && html.dynamicSections.length > 0)
+                  ? html.dynamicSections.map((sec: any) => ({
+                      ...sec,
+                      heading: sec.heading || sec.title || 'Section',
+                      content1: sec.content1 ?? sec.content ?? '',
+                      content: sec.content ?? sec.content1 ?? '',
+                      content2: sec.content2 || ''
+                    }))
+                  : (Array.isArray(existingState.dynamicSections) ? existingState.dynamicSections : []),
                 pdpCustomTable: (Array.isArray(html.pdpCustomTable) && html.pdpCustomTable.length > 0) ? html.pdpCustomTable : existingState.pdpCustomTable,
                 customTables: (Array.isArray(html.customTables) && html.customTables.length > 0) ? html.customTables : existingState.customTables
               };
@@ -21454,7 +21556,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      res.json({ success: true });
+      res.json({ success: true, savedTo: 'supabase', tenantId, timestamp: new Date().toISOString() });
     } catch (err: any) {
       console.error("PA draft save exception:", err);
       res.status(500).json({ error: err.message });

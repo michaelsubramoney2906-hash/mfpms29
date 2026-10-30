@@ -375,13 +375,35 @@ export default function App() {
         localStorage.setItem('originalAdminUser', userStr);
         sessionStorage.setItem('originalAdminUser', userStr);
       }
+      const cleanTargetEmail = (targetUser.email || '').toLowerCase().trim();
+      const isNedaUser = cleanTargetEmail.includes('mangani') ||
+                         cleanTargetEmail.includes('chaukenh') ||
+                         cleanTargetEmail.includes('chaukekc') ||
+                         cleanTargetEmail.includes('sehlakols') ||
+                         cleanTargetEmail.includes('ngomanennc') ||
+                         cleanTargetEmail.endsWith('@neda.gov.za') ||
+                         cleanTargetEmail.includes('neda.gov.za') ||
+                         targetUser.tenantId === 'neda' ||
+                         targetUser.tenantId === 'tenant-neda' ||
+                         targetUser.portalMode === 'neda' ||
+                         targetUser.department?.toLowerCase().includes('neda') ||
+                         targetUser.jobFunction?.toLowerCase().includes('neda');
+
       let resolvedTenantId = targetUser.tenantId;
-      if (resolvedTenantId === 'nkangala_auto' || targetUser.email?.toLowerCase().includes('nkangala')) {
+      let resolvedPortalMode = targetUser.portalMode;
+
+      if (isNedaUser) {
+        resolvedTenantId = 'neda';
+        resolvedPortalMode = 'neda';
+      } else if (resolvedTenantId === 'nkangala_auto' || cleanTargetEmail.includes('nkangala')) {
         resolvedTenantId = 'tenant-229';
+        resolvedPortalMode = 'municipality';
       }
+
       handleSetUser({
         ...targetUser,
-        tenantId: resolvedTenantId
+        tenantId: resolvedTenantId,
+        portalMode: resolvedPortalMode
       });
     } else {
       const originalAdminStr = localStorage.getItem('originalAdminUser') || sessionStorage.getItem('originalAdminUser');

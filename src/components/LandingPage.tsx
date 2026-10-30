@@ -87,9 +87,13 @@ export function LandingPage({ onLogin }: LandingPageProps) {
     setPasswordError('');
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           email: lowerEmail,
           password: password.trim(),
@@ -98,10 +102,17 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         })
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
 
-      if (!response.ok || !data.success) {
-        setPasswordError(data.error || 'Authentication failed. Please verify your email and password.');
+      let data: any = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = null;
+      }
+
+      if (!response.ok || !data || !data.success) {
+        setPasswordError(data?.error || 'Authentication failed. Please verify your email and password.');
         setIsLoggingIn(false);
         return;
       }
@@ -109,7 +120,11 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       onLogin(data.user);
     } catch (err: any) {
       console.error("Login request failed:", err);
-      setPasswordError('Connection to authentication server failed. Please retry.');
+      if (err.name === 'AbortError') {
+        setPasswordError('Connection to authentication server timed out. Please retry.');
+      } else {
+        setPasswordError('Connection to authentication server failed. Please retry.');
+      }
     } finally {
       setIsLoggingIn(false);
     }
