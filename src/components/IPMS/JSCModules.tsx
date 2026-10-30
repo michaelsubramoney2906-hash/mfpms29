@@ -484,7 +484,8 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
                 ) : (
                   rows.map(row => {
                     const qData = row[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' };
-                    const isLocked = qData.status === 'pending_approval' || qData.status === 'approved' || qData.status === 'audited' || qData.status === 'moderated' || isTimeLocked;
+                    // Only lock from self-scoring if the manager/auditor/DPMC has formally approved or moderated the evaluation
+                    const isLocked = qData.status === 'approved' || qData.status === 'audited' || qData.status === 'moderated';
 
                     return (
                       <tr key={row.id} className="border-b border-gray-150 hover:bg-gray-50 transition duration-100 group">

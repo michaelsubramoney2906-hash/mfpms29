@@ -1023,7 +1023,7 @@ export function CoreCompetenciesSelfEvaluation({ currentUser, activeTenantId, is
             <tbody>
               {currentRows.map((row, idx) => {
                 const qData = row[selectedQuarter] || createDefaultQuarterData();
-                const isItemLocked = qData.status === 'pending_approval' || qData.status === 'approved';
+                const isItemLocked = qData.status === 'approved' || qData.status === 'audited' || qData.status === 'moderated';
 
                 return (
                   <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50/60 transition group">
