@@ -9747,8 +9747,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       let userRole = u.role;
       const emailLower = (u.email || '').toLowerCase().trim();
-      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za'].includes(emailLower) ||
-                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs');
+      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za'].includes(emailLower) ||
+                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs') || emailLower.includes('maphanga');
       if (isTargetManager) {
         userRole = 'Manager';
       }
@@ -9812,6 +9812,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Thandiwe Mazwi';
         dynamicReportTo = 'Thandiwe Mazwi';
         dynamicManagerEmail = 'mazwitc@nkangaladm.gov.za';
+      } else if (['mahlangutp@nkangaladm.gov.za', 'thomasm@nkangaladm.gov.za'].includes(emailLower)) {
+        dynamicManager = 'Nomhle Maphanga';
+        dynamicReportTo = 'Nomhle Maphanga';
+        dynamicManagerEmail = 'maphangant@nkangaladm.gov.za';
       } else if (emailLower.includes('mazwitc') || emailLower.includes('mazwit')) {
         dynamicManager = 'Nkululeko Motshwene';
         dynamicReportTo = 'Nkululeko Motshwene';
@@ -18429,6 +18433,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za',
               'mtshalib@nkangaladm.gov.za'
             ],
+            'maphangant': ['mahlangutp@nkangaladm.gov.za', 'thomasm@nkangaladm.gov.za'],
+            'maphangan': ['mahlangutp@nkangaladm.gov.za', 'thomasm@nkangaladm.gov.za'],
             'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za'],
             'khumalobs': [
               'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
@@ -18502,6 +18508,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 (normMgr.includes('tlou') && mName.includes('tlou')) ||
                 (normMgr.includes('fenyane') && mName.includes('fenyane')) ||
                 (normMgr.includes('mazwi') && mName.includes('mazwi')) ||
+                (normMgr.includes('maphanga') && mName.includes('maphanga')) ||
                 ((normMgr.includes('khumalo') || normMgr.includes('nkosibs')) && (mName.includes('khumalo') || mName.includes('bongani')));
             })
             .map((u: any) => (u.email || '').toLowerCase().trim())

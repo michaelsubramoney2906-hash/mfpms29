@@ -670,6 +670,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         msizaSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Nomhle Maphanga (maphangant@nkangaladm.gov.za / maphangan@nkangaladm.gov.za)
+      const maphangaSubordinates = [
+        'mahlangutp@nkangaladm.gov.za',
+        'thomasm@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('maphangant') || managerEmail.includes('maphangan') || normCurrent.includes('maphanga') || normCurrent.includes('nomhle')) {
+        maphangaSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // Explicit list for Bongani S. Khumalo (khumalobs@nkangaladm.gov.za / nkosibs@nkangaladm.gov.za)
       const khumaloSubordinates = [
         'mthimunyedmn@nkangaladm.gov.za',
@@ -856,6 +865,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           ((managerEmail.includes('fenyanep') || normCurrent.includes('fenyane')) && (fenyaneSubordinates.includes(targetEmail) || pManager.includes('fenyane'))) ||
           ((managerEmail.includes('mazwit') || normCurrent.includes('mazwi') || normCurrent.includes('thandiwe')) && (mazwiSubordinates.includes(targetEmail) || pManager.includes('mazwi'))) ||
           ((managerEmail.includes('msiza') || normCurrent.includes('msiza') || normCurrent.includes('ali')) && (msizaSubordinates.includes(targetEmail) || pManager.includes('msiza'))) ||
+          ((managerEmail.includes('maphangant') || managerEmail.includes('maphangan') || normCurrent.includes('maphanga') || normCurrent.includes('nomhle')) && (maphangaSubordinates.includes(targetEmail) || pManager.includes('maphanga'))) ||
           (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
           ((managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) && (khumaloSubordinates.includes(targetEmail) || pManager.includes('khumalo') || pManager.includes('bongani') || pManagerEmail.includes('khumalobs') || pManagerEmail.includes('nkosibs'))) ||
           ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||

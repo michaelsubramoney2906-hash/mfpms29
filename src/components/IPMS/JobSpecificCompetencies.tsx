@@ -2605,6 +2605,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
             isTeamJSC={isTeamJSC} 
             isTeamJSC2={isTeamJSC2} 
             defaultEmployeeEmail={selectedUserEmail}
+            onUpdateRows={(updated) => setRows(updated)}
           />
         )}
 

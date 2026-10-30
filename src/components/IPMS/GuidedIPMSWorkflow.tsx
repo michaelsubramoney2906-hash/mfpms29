@@ -128,8 +128,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                           email === 'mike@mzansiflow.co.za' ||
                           email.endsWith('@mzansiflow.co.za');
 
-    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(email) || 
-                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep');
+    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za'].includes(email) || 
+                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep') || email.includes('maphanga');
 
     const isManagerUser = Boolean((currentUser as any)?.hasSubordinates) ||
                           role === 'manager' || 
@@ -213,8 +213,8 @@ export const GuidedIPMSWorkflow: React.FC<GuidedIPMSWorkflowProps> = ({
                       email === 'sakisd@nkangaladm.gov.za' || 
                       email === 'lukhelema@nkangaladm.gov.za' ||
                       jobFunction.includes('pms');
-    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(email) || 
-                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep');
+    const isTargetManagerEmail = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za'].includes(email) || 
+                                  email.includes('singhn') || email.includes('joubertm') || email.includes('magampeas') || email.includes('segamiy') || email.includes('tloujmt') || email.includes('fenyanep') || email.includes('maphanga');
     const isManagerUser = Boolean((currentUser as any)?.hasSubordinates) ||
                           role === 'manager' || 
                           role === 'approver' || 

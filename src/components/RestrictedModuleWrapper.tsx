@@ -249,8 +249,8 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const isManagerOrAuditorOrOfficial = 
     isAuthorizedAdmin ||
     isGlobalAdmin ||
-    ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za'].includes(userEmail) ||
-    userEmail.includes('singhn') || userEmail.includes('joubertm') || userEmail.includes('magampeas') || userEmail.includes('segamiy') || userEmail.includes('tloujmt') || userEmail.includes('fenyanep') ||
+    ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za'].includes(userEmail) ||
+    userEmail.includes('singhn') || userEmail.includes('joubertm') || userEmail.includes('magampeas') || userEmail.includes('segamiy') || userEmail.includes('tloujmt') || userEmail.includes('fenyanep') || userEmail.includes('maphanga') ||
     userRoleLower.includes('admin') ||
     userRoleLower.includes('manager') ||
     userRoleLower.includes('tenant') ||

@@ -89,6 +89,7 @@ interface JSCModuleProps {
   defaultEmployeeEmail?: string;
   isTeamJSC?: boolean;
   isTeamJSC2?: boolean;
+  onUpdateRows?: (updatedRows: CompetencyRow[]) => void;
 }
 
 export const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
@@ -167,7 +168,7 @@ export const DEFAULT_COMPETENCY_ROWS: CompetencyRow[] = [
 // ==========================================
 // 1. JSC Self / Team Evaluation Section
 // ==========================================
-export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
+export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC, isTeamJSC2, onUpdateRows }: JSCModuleProps) {
   const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const isTeam = isTeamJSC || isTeamJSC2;
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
@@ -197,9 +198,12 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
         const data = await res.json();
         if (active && data) {
           if (Array.isArray(data.competencies)) {
-            setRows(data.competencies.map(ensureQuarterlyData));
+            const mapped = data.competencies.map(ensureQuarterlyData);
+            setRows(mapped);
+            onUpdateRows?.(mapped);
           } else if (data.isCleared) {
             setRows([]);
+            onUpdateRows?.([]);
           }
         }
       } catch (err) {
@@ -219,6 +223,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
   const handleSaveToDatabase = async (updatedRows: CompetencyRow[]) => {
     try {
       setSaving(true);
+      onUpdateRows?.(updatedRows);
       await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(userEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
