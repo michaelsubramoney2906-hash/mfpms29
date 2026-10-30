@@ -1796,18 +1796,45 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
           <div className="space-y-6">
             {/* Overall Progress Tracking */}
             {(() => {
-              let q1Total = 0, q2Total = 0, q3Total = 0, q4Total = 0, midtermTotal = 0, annualTotal = 0;
-              let count = items.length;
-              if (count > 0) {
-                items.forEach(kpi => {
+              let q1Total = 0, q1Count = 0;
+              let q2Total = 0, q2Count = 0;
+              let q3Total = 0, q3Count = 0;
+              let q4Total = 0, q4Count = 0;
+              let midtermTotal = 0, midtermCount = 0;
+              let annualTotal = 0, annualCount = 0;
+
+              const isApplicableTarget = (t?: string) => {
+                if (!t) return false;
+                const clean = String(t).trim().toUpperCase();
+                return clean !== '' && clean !== 'N/A' && clean !== 'NONE';
+              };
+
+              items.forEach(kpi => {
+                if (isApplicableTarget(kpi.q1Target)) {
                   q1Total += calculateProgressPercentage(kpi.q1Target, kpi.q1Actual);
+                  q1Count++;
+                }
+                if (isApplicableTarget(kpi.q2Target)) {
                   q2Total += calculateProgressPercentage(kpi.q2Target, kpi.q2Actual);
+                  q2Count++;
+                }
+                if (isApplicableTarget(kpi.q3Target)) {
                   q3Total += calculateProgressPercentage(kpi.q3Target, kpi.q3Actual);
+                  q3Count++;
+                }
+                if (isApplicableTarget(kpi.q4Target)) {
                   q4Total += calculateProgressPercentage(kpi.q4Target, kpi.q4Actual);
+                  q4Count++;
+                }
+                if (isApplicableTarget(kpi.midtermTarget)) {
                   midtermTotal += calculateProgressPercentage(kpi.midtermTarget, kpi.midtermActual);
+                  midtermCount++;
+                }
+                if (isApplicableTarget(kpi.annualTarget)) {
                   annualTotal += calculateProgressPercentage(kpi.annualTarget, kpi.annualActual);
-                });
-              }
+                  annualCount++;
+                }
+              });
 
               const renderProgress = (label: string, percentage: number, colorText: string, colorBg: string) => (
                 <div className="flex-1 min-w-[150px] bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col justify-center gap-2">
@@ -1825,12 +1852,12 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                 <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
                   <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">Overall Progress Tracking</h3>
                   <div className="flex flex-wrap gap-3">
-                    {renderProgress("Q1 Progress", count > 0 ? Math.round(q1Total / count) : 0, "text-sky-600", "bg-sky-500")}
-                    {renderProgress("Q2 Progress", count > 0 ? Math.round(q2Total / count) : 0, "text-indigo-600", "bg-indigo-500")}
-                    {renderProgress("Midterm Progress", count > 0 ? Math.round(midtermTotal / count) : 0, "text-amber-600", "bg-amber-500")}
-                    {renderProgress("Q3 Progress", count > 0 ? Math.round(q3Total / count) : 0, "text-fuchsia-600", "bg-fuchsia-500")}
-                    {renderProgress("Q4 Progress", count > 0 ? Math.round(q4Total / count) : 0, "text-rose-600", "bg-rose-500")}
-                    {renderProgress("Annual Progress", count > 0 ? Math.round(annualTotal / count) : 0, "text-emerald-600", "bg-emerald-500")}
+                    {renderProgress("Q1 Progress", q1Count > 0 ? Math.round(q1Total / q1Count) : 0, "text-sky-600", "bg-sky-500")}
+                    {renderProgress("Q2 Progress", q2Count > 0 ? Math.round(q2Total / q2Count) : 0, "text-indigo-600", "bg-indigo-500")}
+                    {renderProgress("Midterm Progress", midtermCount > 0 ? Math.round(midtermTotal / midtermCount) : 0, "text-amber-600", "bg-amber-500")}
+                    {renderProgress("Q3 Progress", q3Count > 0 ? Math.round(q3Total / q3Count) : 0, "text-fuchsia-600", "bg-fuchsia-500")}
+                    {renderProgress("Q4 Progress", q4Count > 0 ? Math.round(q4Total / q4Count) : 0, "text-rose-600", "bg-rose-500")}
+                    {renderProgress("Annual Progress", annualCount > 0 ? Math.round(annualTotal / annualCount) : 0, "text-emerald-600", "bg-emerald-500")}
                   </div>
                 </div>
               );

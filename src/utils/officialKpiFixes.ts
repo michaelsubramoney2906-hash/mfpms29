@@ -190,43 +190,199 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
 
   // 4. Mr. Mxolisi Bembe (bembem@nkangaladm.gov.za or BembeM@nkangaladm.gov.za)
   if (isMxolisiBembe(normEmail)) {
-    // a) Remove KPI 07, KPI 08, KPI 09 (Jetpatchers / Allocated Projects)
-    // b) Remove KPI_26 (duplicate of KPI_M_67)
-    const excludeRefs = new Set([
-      '7', '8', '9', '07', '08', '09',
-      'KPI 7', 'KPI 8', 'KPI 9', 'KPI 07', 'KPI 08', 'KPI 09',
-      'KPI_7', 'KPI_8', 'KPI_9', 'KPI_07', 'KPI_08', 'KPI_09',
-      'P_07', 'P_08', 'P_09', 'P_7', 'P_8', 'P_9',
-      '26', 'KPI 26', 'KPI_26'
-    ]);
-
+    // Remove only Jetpatchers KPIs (Road Maintenance, Monthly Reports, Monthly Meetings) and duplicate stray block
     result = result.filter(kpi => {
       const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
       const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
 
-      if (excludeRefs.has(ref)) {
+      // Remove stray duplicate block
+      if (String(kpi.id || '').startsWith('extracted-sync-1787656937604-')) {
         return false;
       }
-      if (desc.includes('delmas wwtw') || desc.includes('emalahleni bulk water') || desc.includes('loskop regional bulk water supply: wp1') || desc.includes('jetpatcher')) {
+
+      // Remove Jetpatchers KPIs
+      if (
+        (desc.includes('road maintenance') && (desc.includes('submitted to municipal engineer') || desc.includes('jetpatcher'))) ||
+        (desc.includes('condition of roads') && desc.includes('submitted on the condition of roads')) ||
+        desc.includes('unit monthly meetings attendant for the') ||
+        ['KPI 07', 'KPI 08', 'KPI 09', 'KPI 7', 'KPI 8', 'KPI 9'].includes(ref) && desc.includes('road')
+      ) {
         return false;
       }
       return true;
     });
 
-    // c) Lock KPI_29 for Quarter 1 (only applicable for Q2 and Q4)
-    result = result.map(kpi => {
-      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim().toUpperCase();
-      if (ref === 'KPI_29' || ref === 'KPI 29' || ref === '29') {
-        return {
-          ...kpi,
-          q1Applicable: false,
-          '1st qtr target': 'N/A',
-          q1Target: 'N/A',
-          lockedQuarters: Array.from(new Set([...(kpi.lockedQuarters || []), 'Q1', 'q1']))
-        };
+    // Ensure all 7 missing official KPIs are present if not already in input
+    const missingBembeDefs = [
+      {
+        id: "extracted-sync-1786838328112-7-m23",
+        kpiNo: "M_23",
+        kpa: "KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION",
+        kpi: "Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.",
+        weighting: "2",
+        baseline: "1",
+        annualTarget: "1",
+        q1Target: "N/A",
+        q2Target: "1",
+        q3Target: "N/A",
+        q4Target: "N/A",
+        poe: "Audit Action Plan and Council resolution",
+        annualRequiredPoe: "Audit Action Plan and Council resolution",
+        q1Poe: "Audit Action Plan and Council resolution",
+        q2Poe: "Audit Action Plan and Council resolution",
+        midtermPoe: "Audit Action Plan and Council resolution",
+        q3Poe: "Audit Action Plan and Council resolution",
+        q4Poe: "Audit Action Plan and Council resolution",
+        budget: "OPEX",
+        q1Applicable: false,
+        q1Locked: true
+      },
+      {
+        id: "extracted-sync-1786838328112-8-m24",
+        kpiNo: "M_24",
+        kpa: "KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION",
+        kpi: "Percentage of AG Findings raised in the Management Letter resolved (Allocated Projects) by 30 June 2027.",
+        weighting: "2",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "N/A",
+        q2Target: "N/A",
+        q3Target: "40%",
+        q4Target: "100%",
+        poe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        annualRequiredPoe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        q1Poe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        q2Poe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        midtermPoe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        q3Poe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        q4Poe: "Signed Progress Report on the Implementation of the Audit Action Plan.",
+        budget: "OPEX",
+        q1Applicable: false,
+        q1Locked: true
+      },
+      {
+        id: "extracted-sync-1786838328112-9-m36",
+        kpiNo: "M_36",
+        kpa: "KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION",
+        kpi: "Percentage of strategic lekgotla resolutions implemented by 30 June 2027. (Technical Services Dept.)",
+        weighting: "2",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "Signed Strategic Lekgotla monitoring report",
+        annualRequiredPoe: "Signed Strategic Lekgotla monitoring report",
+        q1Poe: "Signed Strategic Lekgotla monitoring report",
+        q2Poe: "Signed Strategic Lekgotla monitoring report",
+        midtermPoe: "Signed Strategic Lekgotla monitoring report",
+        q3Poe: "Signed Strategic Lekgotla monitoring report",
+        q4Poe: "Signed Strategic Lekgotla monitoring report",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786838328112-26-m67",
+        kpiNo: "M_67",
+        kpa: "KPA 4: BASIC SERVICE DELIVERY AND INFRASTRUCTURE:",
+        kpi: "Total m2 of potholes patched on municipal roads by 30 June 2027",
+        weighting: "15",
+        baseline: "New",
+        annualTarget: "4000 m2",
+        q1Target: "1000 m2",
+        q2Target: "1000 m2",
+        q3Target: "1000 m2",
+        q4Target: "1000 m2",
+        poe: "Signed Quarterly reports",
+        annualRequiredPoe: "Signed Quarterly reports",
+        q1Poe: "Signed Quarterly reports",
+        q2Poe: "Signed Quarterly reports",
+        midtermPoe: "Signed Quarterly reports",
+        q3Poe: "Signed Quarterly reports",
+        q4Poe: "Signed Quarterly reports",
+        budget: "R1 413 328",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786838328112-31-p07",
+        kpiNo: "P_07",
+        kpa: "KPA 4: BASIC SERVICE DELIVERY AND INFRASTRUCTURE:",
+        kpi: "Refurbishment & Upgrading Delmas WWTW by 30 June 2027",
+        weighting: "15",
+        baseline: "Stage 3: Implementation Stage (100%): Construction Progress",
+        annualTarget: "Stage 3: Implementation Stage (100%): Construction Progress",
+        q1Target: "Stage 3: Implementation Stage (90%): Construction Progress",
+        q2Target: "Stage 3: Implementation Stage (95%): Construction Progress",
+        q3Target: "Stage 3: Implementation Stage (98%): Construction Progress Report",
+        q4Target: "Stage 3: Implementation Stage (100%): Construction Progress Completion Certificate",
+        poe: "Signed Construction Progress Report and completion certificate",
+        annualRequiredPoe: "Signed Construction Progress Report and completion certificate",
+        q1Poe: "Signed Construction Progress Report and completion certificate",
+        q2Poe: "Signed Construction Progress Report and completion certificate",
+        midtermPoe: "Signed Construction Progress Report and completion certificate",
+        q3Poe: "Signed Construction Progress Report and completion certificate",
+        q4Poe: "Signed Construction Progress Report and completion certificate",
+        budget: "R 12 732 860.00",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786838328112-32-p08",
+        kpiNo: "P_08",
+        kpa: "KPA 4: BASIC SERVICE DELIVERY AND INFRASTRUCTURE:",
+        kpi: "Refurbishment of Emalahleni Bulk Water Infrastructure by 30 June 2027",
+        weighting: "2",
+        baseline: "Stage 3: Implementation Stage (100%): Construction Progress",
+        annualTarget: "Stage 3: Implementation Stage (100%): Construction Progress",
+        q1Target: "Stage 3: Implementation Stage (40%): Construction Progress",
+        q2Target: "Stage 3: Implementation Stage (45%): Construction Progress",
+        q3Target: "Stage 3: Implementation Stage (65%): Construction Progress",
+        q4Target: "Stage 3: Implementation Stage (100%): Construction Progress",
+        poe: "Signed construction progress report and Completion Certificate",
+        annualRequiredPoe: "Signed construction progress report and Completion Certificate",
+        q1Poe: "Signed construction progress report and Completion Certificate",
+        q2Poe: "Signed construction progress report and Completion Certificate",
+        midtermPoe: "Signed construction progress report and Completion Certificate",
+        q3Poe: "Signed construction progress report and Completion Certificate",
+        q4Poe: "Signed construction progress report and Completion Certificate",
+        budget: "R 47 619 047",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786838328112-33-p09",
+        kpiNo: "P_09",
+        kpa: "KPA 4: BASIC SERVICE DELIVERY AND INFRASTRUCTURE:",
+        kpi: "Loskop Regional Bulk Water Supply: WP1 by 30 June 2027",
+        weighting: "2",
+        baseline: "Stage 3: Implementation Stage (100%): Construction Progress",
+        annualTarget: "Stage 3: Implementation Stage (100%): Construction Progress",
+        q1Target: "Stage 3: Implementation Stage (80%): Construction Progress",
+        q2Target: "Stage 3: Implementation Stage (90%): Construction Progress",
+        q3Target: "Stage 3: Implementation Stage (100%): Construction Progress",
+        q4Target: "N/A",
+        poe: "Signed construction progress report and Completion Certificate",
+        annualRequiredPoe: "Signed construction progress report and Completion Certificate",
+        q1Poe: "Signed construction progress report and Completion Certificate",
+        q2Poe: "Signed construction progress report and Completion Certificate",
+        midtermPoe: "Signed construction progress report and Completion Certificate",
+        q3Poe: "Signed construction progress report and Completion Certificate",
+        q4Poe: "Signed construction progress report and Completion Certificate",
+        budget: "R 213 500",
+        q1Applicable: true,
+        q1Locked: false
       }
-      return kpi;
-    });
+    ];
+
+    for (const def of missingBembeDefs) {
+      const exists = result.some(k => (k.kpiNo && String(k.kpiNo).toUpperCase() === def.kpiNo) || (k.kpi && k.kpi.toLowerCase() === def.kpi.toLowerCase()));
+      if (!exists) {
+        result.push(def);
+      }
+    }
   }
 
   // 5. Ms. Kgaogelo Molefe (molefeki@nkangaladm.gov.za) - Remove KPI 25, 26, 27, 28
@@ -964,6 +1120,313 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         q1Actual: existing.q1Actual,
         q1PoeDocs: Array.isArray(existing.q1PoeDocs) ? existing.q1PoeDocs : []
       };
+    });
+  }
+
+  // 17. Ms. Pretty B. Mahlangu (mahlangupb@nkangaladm.gov.za) - Assistant Director: LED (KPI 10 POE fix)
+  if (normEmail === 'mahlangupb@nkangaladm.gov.za' || normEmail.includes('mahlangupb')) {
+    const targetPoeText = "beneficiariesBSC Resolution, Tender Advert (Tear Sheet), BEC Resolution, BAC Resolution, Signed & Dated Appointment Letter, list of beneficiaries, Signed Agreements";
+    const allQtrPoe = `Q1: ${targetPoeText}\nQ2: ${targetPoeText}\nQ3: ${targetPoeText}\nQ4: ${targetPoeText}`;
+
+    result = result.map((kpi: any, idx: number) => {
+      const kpiNum = String(kpi.kpiNo || kpi['kpi no'] || idx + 1);
+      const desc = (kpi.kpi || kpi.description || kpi['kpi description'] || '').toLowerCase();
+      const isKpi10 = kpiNum === '10' || kpi.id === 'extracted-sync-1786883523924-10' || desc.includes('smmes') || desc.includes('cooperatives and informal traders');
+
+      if (isKpi10) {
+        return {
+          ...kpi,
+          poe: allQtrPoe,
+          annualRequiredPoe: targetPoeText,
+          q1Poe: targetPoeText,
+          q2Poe: targetPoeText,
+          midtermPoe: targetPoeText,
+          q3Poe: targetPoeText,
+          q4Poe: targetPoeText,
+          actualPoe: targetPoeText,
+          q1ActualPoe: targetPoeText,
+          q2ActualPoe: targetPoeText,
+          q3ActualPoe: targetPoeText,
+          q4ActualPoe: targetPoeText,
+          q1PoeDescription: targetPoeText,
+          q2PoeDescription: targetPoeText,
+          q3PoeDescription: targetPoeText,
+          q4PoeDescription: targetPoeText,
+          q1ActualPoeDescription: targetPoeText,
+          q2ActualPoeDescription: targetPoeText,
+          q3ActualPoeDescription: targetPoeText,
+          q4ActualPoeDescription: targetPoeText,
+          actualPoeDescription: targetPoeText
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 18. Mr. Bongani Isaac Sindane (sindaneib@nkangaladm.gov.za) - KPI 13 Dust Management Plan targets
+  if (normEmail === 'sindaneib@nkangaladm.gov.za' || normEmail.includes('sindaneib')) {
+    result = result.map((kpi: any, idx: number) => {
+      const kpiNum = String(kpi.kpiNo || kpi['kpi no'] || idx + 1);
+      const desc = (kpi.kpi || kpi.description || kpi['kpi description'] || '').toLowerCase();
+      if (kpiNum === '13' || desc.includes('monthly dust management plan')) {
+        return {
+          ...kpi,
+          annualTarget: '40%',
+          'annual target': '40%',
+          q1Target: '10%',
+          '1st qtr target': '10%',
+          q2Target: '20%',
+          '2nd qtr target': '20%',
+          q3Target: '30%',
+          '3rd qtr target': '30%',
+          q4Target: '40%',
+          '4th qtr target': '40%',
+          q1Applicable: true,
+          q1Locked: false
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 19. Mr. Bandile Zikhali (zikhalibi@nkangaladm.gov.za) - Unlock KPI 2 for Quarter 1 reporting
+  if (normEmail === 'zikhalibi@nkangaladm.gov.za' || normEmail.includes('zikhalibi')) {
+    result = result.map((kpi: any, idx: number) => {
+      const kpiNum = String(kpi.kpiNo || kpi['kpi no'] || idx + 1);
+      const desc = (kpi.kpi || kpi.description || kpi['kpi description'] || '').toLowerCase();
+      if (kpiNum === '2' || (desc.includes('annual performance agreement') && desc.includes('opme & pmds'))) {
+        return {
+          ...kpi,
+          q1Target: '1',
+          '1st qtr target': '1',
+          q1Applicable: true,
+          q1Locked: false,
+          lockedQuarters: Array.isArray(kpi.lockedQuarters) ? kpi.lockedQuarters.filter((q: string) => q.toUpperCase() !== 'Q1') : []
+        };
+      }
+      return kpi;
+    });
+  }
+
+  // 20. Mr. Thabang Mochabi (thabangmj@nkangaladm.gov.za) - SCM Clerk (All 13 official KPIs)
+  if (normEmail === 'thabangmj@nkangaladm.gov.za' || normEmail.includes('thabangmj')) {
+    const missingMochabiDefs = [
+      {
+        id: "extracted-sync-1786828057990-6",
+        kpiNo: "6",
+        kpa: "KPA 2: BID / TENDER EVALUATION COMMITTEE SECRETARIAT DUTIES (ALTERNATE)",
+        kpi: "% of agendas prepared and submitted to the Bid/Tender Evaluation Committee",
+        weighting: "10",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "Approved Bid/Tender Evaluation Committee agenda",
+        annualRequiredPoe: "Approved Bid/Tender Evaluation Committee agenda",
+        q1Poe: "Approved Bid/Tender Evaluation Committee agenda",
+        q2Poe: "Approved Bid/Tender Evaluation Committee agenda",
+        midtermPoe: "Approved Bid/Tender Evaluation Committee agenda",
+        q3Poe: "Approved Bid/Tender Evaluation Committee agenda",
+        q4Poe: "Approved Bid/Tender Evaluation Committee agenda",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-7",
+        kpiNo: "7",
+        kpa: "KPA 2: BID / TENDER EVALUATION COMMITTEE SECRETARIAT DUTIES (ALTERNATE)",
+        kpi: "Percentage (%) attendance at scheduled Bid Committee meetings per quarter",
+        weighting: "10",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "Quarterly Bid Committee Attendance register and report",
+        annualRequiredPoe: "Quarterly Bid Committee Attendance register and report",
+        q1Poe: "Quarterly Bid Committee Attendance register and report",
+        q2Poe: "Quarterly Bid Committee Attendance register and report",
+        midtermPoe: "Quarterly Bid Committee Attendance register and report",
+        q3Poe: "Quarterly Bid Committee Attendance register and report",
+        q4Poe: "Quarterly Bid Committee Attendance register and report",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-8",
+        kpiNo: "8",
+        kpa: "KPA 3: PRE-EVALUATION OF CLOSED TENDERS",
+        kpi: "% of Pre-Evaluation of Closed Tenders by 30 June 2027",
+        weighting: "10",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        annualRequiredPoe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        q1Poe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        q2Poe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        midtermPoe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        q3Poe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        q4Poe: "Email sent to Divisional manager-SCM with Pre-Evaluation Report",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-9",
+        kpiNo: "9",
+        kpa: "KPA 3: PRE-EVALUATION OF CLOSED TENDERS",
+        kpi: "% of tender documents opening for closed bids.",
+        weighting: "10",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "Tender opening results for closed bids",
+        annualRequiredPoe: "Tender opening results for closed bids",
+        q1Poe: "Tender opening results for closed bids",
+        q2Poe: "Tender opening results for closed bids",
+        midtermPoe: "Tender opening results for closed bids",
+        q3Poe: "Tender opening results for closed bids",
+        q4Poe: "Tender opening results for closed bids",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-10",
+        kpiNo: "10",
+        kpa: "KPA 4: CONTRACT MANAGEMENT SYSTEM",
+        kpi: "Number of monthly, quarterly and annual Procurement utilising contracted service providers (Travel & Accommodation, Diesel (THLM & NDM) and Competency assessment).",
+        weighting: "10",
+        baseline: "17",
+        annualTarget: "17",
+        q1Target: "4",
+        q2Target: "4",
+        q3Target: "4",
+        q4Target: "5",
+        poe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        annualRequiredPoe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        q1Poe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        q2Poe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        midtermPoe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        q3Poe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        q4Poe: "SCM long term report on (Travel & Accommodation, Diesel NDM and Fire Stations.",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-11",
+        kpiNo: "11",
+        kpa: "KPA 4: CONTRACT MANAGEMENT SYSTEM",
+        kpi: "Percentage of performance evaluation reports performed/loaded on the Contract Management System, (Travel & Accommodation, Diesel (THLM & NDM) and Competency assessment ).",
+        weighting: "10",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        annualRequiredPoe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        q1Poe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        q2Poe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        midtermPoe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        q3Poe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        q4Poe: "Evaluation reports conducted on the Contract Management system (Travel & Accommodation, Diesel for NDM and Fire Stations A and, Competency assessment)",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-12",
+        kpiNo: "12",
+        kpa: "KPA 5: REPORTING ON SCM MATTERS TO COUNCIL AND OTHER STAKEHOLDERS",
+        kpi: "Number of declarations of interest reports by NDM employees submitted monthly, quarterly and annual",
+        weighting: "15",
+        baseline: "17",
+        annualTarget: "17",
+        q1Target: "4",
+        q2Target: "4",
+        q3Target: "4",
+        q4Target: "5",
+        poe: "Declaration of interest report",
+        annualRequiredPoe: "Declaration of interest report",
+        q1Poe: "Declaration of interest report",
+        q2Poe: "Declaration of interest report",
+        midtermPoe: "Declaration of interest report",
+        q3Poe: "Declaration of interest report",
+        q4Poe: "Declaration of interest report",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      },
+      {
+        id: "extracted-sync-1786828057990-13",
+        kpiNo: "13",
+        kpa: "KPA 5: REPORTING ON SCM MATTERS TO COUNCIL AND OTHER STAKEHOLDERS",
+        kpi: "% of reminders sent to NDM officials who did not submit their declaration of interest",
+        weighting: "5",
+        baseline: "100%",
+        annualTarget: "100%",
+        q1Target: "100%",
+        q2Target: "100%",
+        q3Target: "100%",
+        q4Target: "100%",
+        poe: "E-mail reminder sent to NDM officials",
+        annualRequiredPoe: "E-mail reminder sent to NDM officials",
+        q1Poe: "E-mail reminder sent to NDM officials",
+        q2Poe: "E-mail reminder sent to NDM officials",
+        midtermPoe: "E-mail reminder sent to NDM officials",
+        q3Poe: "E-mail reminder sent to NDM officials",
+        q4Poe: "E-mail reminder sent to NDM officials",
+        budget: "OPEX",
+        q1Applicable: true,
+        q1Locked: false
+      }
+    ];
+
+    for (const def of missingMochabiDefs) {
+      const exists = result.some(k => (k.kpiNo && String(k.kpiNo) === def.kpiNo) || (k.kpi && k.kpi.toLowerCase() === def.kpi.toLowerCase()));
+      if (!exists) {
+        result.push(def);
+      }
+    }
+  }
+
+  // 21. Mrs. Yolanda Segami (segamiy@nkangaladm.gov.za) - KPI 24 Target Correction
+  if (normEmail === 'segamiy@nkangaladm.gov.za' || normEmail.includes('segamiy')) {
+    result = result.map((kpi: any, idx: number) => {
+      const kpiNum = String(kpi.kpiNo || kpi['kpi no'] || idx + 1);
+      const desc = (kpi.kpi || kpi.description || kpi['kpi description'] || '').toLowerCase();
+      if (kpiNum === '24' || (desc.includes('schools') && desc.includes('colleges') && desc.includes('inspections'))) {
+        return {
+          ...kpi,
+          baseline: '24',
+          annualTarget: '24',
+          'annual target': '24',
+          q1Target: '6',
+          '1st qtr target': '6',
+          q2Target: '6',
+          '2nd qtr target': '6',
+          q3Target: '6',
+          '3rd qtr target': '6',
+          q4Target: '6',
+          '4th qtr target': '6'
+        };
+      }
+      return kpi;
     });
   }
 
