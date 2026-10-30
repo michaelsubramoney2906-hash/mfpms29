@@ -2546,7 +2546,7 @@
   },
   {
     "id": "7d82317c-1520-4b04-820b-5160aa5e3a73",
-    "fullName": "Siphesihle O. Nkosi",
+    "fullName": "Siphesihle Nkosi",
     "email": "NkosiSO@nkangaladm.gov.za",
     "jobFunction": "Library & Records Officer",
     "department": "Corporate Services",
@@ -2873,12 +2873,12 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "TC Mazwi",
+    "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
+    "reportTo": "Thandiwe Mazwi",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": ""
+    "managerEmail": "mazwitc@nkangaladm.gov.za"
   },
   {
     "id": "fbb859f8-8e77-4b96-af3a-805658ebb48c",
@@ -9006,7 +9006,7 @@
     "tenantId": "tenant-229",
     "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
+    "reportTo": "Thandiwe Mazwi",
     "level": "1",
     "signatureType": "draw",
     "managerEmail": "mazwitc@nkangaladm.gov.za"
@@ -10189,12 +10189,12 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "TC Mazwi",
+    "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
+    "reportTo": "Thandiwe Mazwi",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": ""
+    "managerEmail": "mazwitc@nkangaladm.gov.za"
   },
   {
     "id": "4ca7be7a-7933-4242-ba6e-f74d6bc8fbca",
@@ -10541,12 +10541,12 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "TC Mazwi",
+    "manager": "Thandiwe Mazwi",
     "directorate": "Corporate",
-    "reportTo": "",
+    "reportTo": "Thandiwe Mazwi",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": ""
+    "managerEmail": "mazwitc@nkangaladm.gov.za"
   },
   {
     "id": "738317a2-8b39-4ff6-b37f-8079076df3e6",
@@ -12525,12 +12525,12 @@
     "source": "azure_ad",
     "role": "Standard User",
     "tenantId": "tenant-229",
-    "manager": "",
+    "manager": "Thandiwe Mazwi",
     "directorate": "",
-    "reportTo": "",
+    "reportTo": "Thandiwe Mazwi",
     "level": "1",
     "signatureType": "draw",
-    "managerEmail": ""
+    "managerEmail": "mazwitc@nkangaladm.gov.za"
   },
   {
     "id": "3e7763f6-99cd-4d55-82d4-8b897afbf908",

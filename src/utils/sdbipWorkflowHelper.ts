@@ -236,7 +236,7 @@ export function isUserMatch(
     'mazwit@nkangaladm.gov.za': ['thandiwe mazwi', 't mazwi', 'mazwit', 'mazwi'],
     'mthimunyen@nkangaladm.gov.za': ['nokuthula d. mthimunye', 'nokuthula mthimunye', 'n mthimunye', 'mthimunyen', 'mthimunye'],
     'mabundatt@nkangaladm.gov.za': ['tiro mabunda', 't.t. mabunda', 't mabunda', 'mabundatt', 'mabunda'],
-    'nkosis@nkangaladm.gov.za': ['sanele nkosi', 'sanele s. nkosi', 's nkosi', 'nkosis'],
+    'nkosis@nkangaladm.gov.za': ['siphesihle nkosi', 'siphesihle s. nkosi', 's nkosi', 'sanele nkosi', 'nkosis'],
     'nkosiso@nkangaladm.gov.za': ['siphesihle nkosi', 'siphesihle o. nkosi', 'sipho nkosi', 's.o. nkosi', 'nkosiso'],
     'nkosije@nkangaladm.gov.za': ['elmon nkosi', 'jabulani elmon nkosi', 'je nkosi', 'j.e. nkosi', 'nkosije'],
     'xabang@nkangaladm.gov.za': ['nonosi xaba', 'nonozi xaba', 'n xaba', 'xabang'],

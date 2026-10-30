@@ -634,15 +634,20 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         fenyaneSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
-      // Explicit list for Thandiwe Mazwi (mazwit@nkangaladm.gov.za)
+      // Explicit list for Thandiwe Mazwi (mazwit@nkangaladm.gov.za / mazwitc@nkangaladm.gov.za)
       const mazwiSubordinates = [
         'mashamaitenm@nkangaladm.gov.za',
+        'phetlavm@nkangaladm.gov.za',
         'phetlav@nkangaladm.gov.za',
         'nkosis@nkangaladm.gov.za',
+        'nkosiso@nkangaladm.gov.za',
         'lebisij@nkangaladm.gov.za',
         'fakuded@nkangaladm.gov.za',
+        'mangwegete@nkangaladm.gov.za',
         'mangweget@nkangaladm.gov.za',
+        'masimulats@nkangaladm.gov.za',
         'masimulat@nkangaladm.gov.za',
+        'mtshalinb@nkangaladm.gov.za',
         'mtshalib@nkangaladm.gov.za'
       ];
       if (managerEmail.includes('mazwit') || normCurrent.includes('mazwi') || normCurrent.includes('thandiwe')) {
@@ -2165,7 +2170,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       return (
                         <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition">
                           <td className="py-3 px-3 font-bold text-slate-800">
-                            {tp.plan.metadata?.name || tp.userId}
+                            {tp.userId?.toLowerCase().includes('nkosis') && (tp.plan.metadata?.name === 'Sanele Nkosi' || !tp.plan.metadata?.name)
+                              ? 'Siphesihle Nkosi'
+                              : (tp.plan.metadata?.name || tp.userId)}
                           </td>
                           <td className="py-3 px-3">
                             <p className="font-bold text-slate-700 text-[11px]">

@@ -9801,13 +9801,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicReportTo = 'Siphesihle O. Nkosi';
         dynamicManagerEmail = 'nkosiso@nkangaladm.gov.za';
       } else if (emailLower.includes('wakenis') || emailLower.includes('mokgolomothome')) {
-        dynamicManager = 'Sanele Nkosi';
-        dynamicReportTo = 'Sanele Nkosi';
+        dynamicManager = 'Siphesihle Nkosi';
+        dynamicReportTo = 'Siphesihle Nkosi';
         dynamicManagerEmail = 'nkosis@nkangaladm.gov.za';
       } else if (emailLower.includes('myenispl')) {
         dynamicManager = 'Elmon Nkosi';
         dynamicReportTo = 'Elmon Nkosi';
         dynamicManagerEmail = 'nkosije@nkangaladm.gov.za';
+      } else if (['mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za', 'nkosis@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za', 'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za', 'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za', 'mtshalib@nkangaladm.gov.za'].includes(emailLower)) {
+        dynamicManager = 'Thandiwe Mazwi';
+        dynamicReportTo = 'Thandiwe Mazwi';
+        dynamicManagerEmail = 'mazwitc@nkangaladm.gov.za';
       } else if (emailLower.includes('mazwitc') || emailLower.includes('mazwit')) {
         dynamicManager = 'Nkululeko Motshwene';
         dynamicReportTo = 'Nkululeko Motshwene';
@@ -9830,9 +9834,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManagerEmail = 'bvumaa@nkangaladm.gov.za';
       }
 
+      let userFullName = u.full_name || u.fullName;
+      if (emailLower === 'nkosis@nkangaladm.gov.za' || emailLower.startsWith('nkosis@')) {
+        userFullName = 'Siphesihle Nkosi';
+      }
+
       return {
         id: u.id,
-        fullName: u.full_name || u.fullName,
+        fullName: userFullName,
         email: u.email,
         jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : u.job_function,
         department: isShabangu ? 'PMS' : u.department,
@@ -18406,6 +18415,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'nkosis': ['wakenis@nkangaladm.gov.za', 'mokgolomothome@nkangaladm.gov.za'],
             'nkosije': ['myenispl@nkangaladm.gov.za'],
             'motshwenenm': ['mazwitc@nkangaladm.gov.za'],
+            'mazwitc': [
+              'mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za',
+              'nkosis@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za',
+              'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za',
+              'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za',
+              'mtshalib@nkangaladm.gov.za'
+            ],
+            'mazwit': [
+              'mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za',
+              'nkosis@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za',
+              'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za',
+              'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za',
+              'mtshalib@nkangaladm.gov.za'
+            ],
             'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za'],
             'khumalobs': [
               'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
@@ -18478,6 +18501,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 (normMgr.includes('segami') && mName.includes('segami')) ||
                 (normMgr.includes('tlou') && mName.includes('tlou')) ||
                 (normMgr.includes('fenyane') && mName.includes('fenyane')) ||
+                (normMgr.includes('mazwi') && mName.includes('mazwi')) ||
                 ((normMgr.includes('khumalo') || normMgr.includes('nkosibs')) && (mName.includes('khumalo') || mName.includes('bongani')));
             })
             .map((u: any) => (u.email || '').toLowerCase().trim())
