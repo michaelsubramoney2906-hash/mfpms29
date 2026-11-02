@@ -32,13 +32,24 @@ export const FIXED_INTERNAL_AUDITORS = [
   'Amos D. Twala',
   'Peggy L. Seerane',
   'Katlego Masemola',
-  'Sthembile C. Mpanza'
+  'Sthembile C. Mpanza',
+  'Jayvanti Morar',
+  'Nokubonga Chilli'
 ];
 
 const COLORS = [
   'bg-emerald-600', 'bg-blue-600', 'bg-indigo-600', 'bg-violet-600', 
   'bg-amber-600', 'bg-rose-600', 'bg-teal-600', 'bg-sky-600'
 ];
+
+const AUDITOR_EMAIL_MAP: Record<string, string> = {
+  'Amos D. Twala': 'twalaad@nkangaladm.gov.za',
+  'Peggy L. Seerane': 'seeranepl@nkangaladm.gov.za',
+  'Katlego Masemola': 'masemolak@nkangaladm.gov.za',
+  'Sthembile C. Mpanza': 'mpanzacs@nkangaladm.gov.za',
+  'Jayvanti Morar': 'morarj@nkangaladm.gov.za',
+  'Nokubonga Chilli': 'chillint@nkangaladm.gov.za'
+};
 
 const reviewerContacts: AzureContact[] = FIXED_REVIEWERS.map((name, idx) => ({
   id: name,
@@ -52,7 +63,7 @@ const reviewerContacts: AzureContact[] = FIXED_REVIEWERS.map((name, idx) => ({
 const auditorContacts: AzureContact[] = FIXED_INTERNAL_AUDITORS.map((name, idx) => ({
   id: name,
   name: name,
-  email: `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`,
+  email: AUDITOR_EMAIL_MAP[name] || `${name.toLowerCase().replace(/[^a-z0-9]/g, '.')}@nkangaladm.gov.za`,
   title: 'Internal Auditor',
   department: 'Internal Audit Unit',
   avatarColor: COLORS[idx % COLORS.length]

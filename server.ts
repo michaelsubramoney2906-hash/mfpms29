@@ -9836,6 +9836,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Alvin Bvuma';
         dynamicReportTo = 'Alvin Bvuma';
         dynamicManagerEmail = 'bvumaa@nkangaladm.gov.za';
+      } else if (emailLower.includes('chillint')) {
+        dynamicManager = 'Jayvanti Morar';
+        dynamicReportTo = 'Jayvanti Morar';
+        dynamicManagerEmail = 'morarj@nkangaladm.gov.za';
+      } else if (emailLower === 'jiyanevj@nkangaladm.gov.za' || emailLower === 'shabangug@nkangaladm.gov.za' || emailLower === 'nhlapoan@nkangaladm.gov.za') {
+        dynamicManager = 'Beauty Mtshali';
+        dynamicReportTo = 'Beauty Mtshali';
+        dynamicManagerEmail = 'mtshalinb@nkangaladm.gov.za';
       }
 
       let userFullName = u.full_name || u.fullName;
@@ -9847,10 +9855,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         id: u.id,
         fullName: userFullName,
         email: u.email,
-        jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : u.job_function,
-        department: isShabangu ? 'PMS' : u.department,
+        jobFunction: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'Global Administrator' : (emailLower.includes('chillint') ? 'Internal Auditor' : u.job_function),
+        department: isShabangu ? 'PMS' : (emailLower.includes('chillint') ? 'Internal Audit Unit' : u.department),
         source: u.source,
-        role: userRole,
+        role: emailLower.includes('chillint') ? 'Internal Auditor' : userRole,
         tenantId: (emailLower.includes('bongani') || emailLower.includes('delphine@mzansiflow.co.za')) ? 'global' : tId,
         manager: dynamicManager,
         directorate: isShabangu ? 'Office of the Municipal Manager' : (extraMap[u.id]?.directorate || ''),
@@ -14051,13 +14059,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       const defaultOfficials = {
         reviewers: [
+          'Nompumelelo P. Nsibande',
+          'Sibusiso M. Shabanga',
           'Noluthando Zulu',
           'Mduduzi Lukele'
         ],
         internalAuditors: [
+          'Amos D. Twala',
           'Peggy L. Seerane',
           'Katlego Masemola',
-          'Sthembile C. Mpanza'
+          'Sthembile C. Mpanza',
+          'Jayvanti Morar',
+          'Nokubonga Chilli'
         ]
       };
 
@@ -14066,28 +14079,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         return res.json(defaultOfficials);
       }
 
-      const filterMorar = (list: any[]) => Array.isArray(list)
-        ? list.filter(item => {
-            const s = String(item || '').toLowerCase();
-            return !s.includes('jayvanti') && !s.includes('morar');
-          })
-        : [];
-
       if (data && data.content) {
         try {
           const parsed = JSON.parse(data.content);
           return res.json({
-            reviewers: filterMorar(parsed.reviewers || defaultOfficials.reviewers),
-            internalAuditors: filterMorar(parsed.internalAuditors || defaultOfficials.internalAuditors)
+            reviewers: Array.isArray(parsed.reviewers) && parsed.reviewers.length > 0 ? parsed.reviewers : defaultOfficials.reviewers,
+            internalAuditors: Array.isArray(parsed.internalAuditors) && parsed.internalAuditors.length > 0 ? parsed.internalAuditors : defaultOfficials.internalAuditors
           });
         } catch (parseErr) {
           console.error("Error parsing sdbip officials JSON:", parseErr);
         }
       }
-      return res.json({
-        reviewers: filterMorar(defaultOfficials.reviewers),
-        internalAuditors: filterMorar(defaultOfficials.internalAuditors)
-      });
+      return res.json(defaultOfficials);
     } catch (err: any) {
       console.error("SDBIP officials load exception:", err);
       res.status(500).json({ error: err.message });
@@ -14101,14 +14104,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const documentId = `sdbip_officials_${tenantId}`;
-      const filterMorar = (list: any[]) => Array.isArray(list)
-        ? list.filter(item => {
-            const s = String(item || '').toLowerCase();
-            return !s.includes('jayvanti') && !s.includes('morar');
-          })
-        : [];
-      const cleanReviewers = filterMorar(reviewers);
-      const cleanAuditors = filterMorar(internalAuditors);
+      const cleanReviewers = Array.isArray(reviewers) ? reviewers : [];
+      const cleanAuditors = Array.isArray(internalAuditors) ? internalAuditors : [];
 
       const { error } = await supabase
         .from('messages')
@@ -18443,6 +18440,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'nkosibs': [
               'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
               'shongwesb@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za'
+            ],
+            'mtshalinb': [
+              'jiyanevj@nkangaladm.gov.za',
+              'shabangug@nkangaladm.gov.za',
+              'nhlapoan@nkangaladm.gov.za'
+            ],
+            'mtshalib': [
+              'jiyanevj@nkangaladm.gov.za',
+              'shabangug@nkangaladm.gov.za',
+              'nhlapoan@nkangaladm.gov.za'
             ]
           };
 
@@ -24905,6 +24912,52 @@ User Request: ${prompt}`;
             }
           }
         }
+      }
+
+      // Sync SDBIP Officials Directory to include Jayvanti Morar and Nokubonga Chilli
+      const sdbipOfficialsPayload = JSON.stringify({
+        reviewers: [
+          'Nompumelelo P. Nsibande',
+          'Sibusiso M. Shabanga',
+          'Noluthando Zulu',
+          'Mduduzi Lukele'
+        ],
+        internalAuditors: [
+          'Amos D. Twala',
+          'Peggy L. Seerane',
+          'Katlego Masemola',
+          'Sthembile C. Mpanza',
+          'Jayvanti Morar',
+          'Nokubonga Chilli'
+        ]
+      });
+
+      for (const tId of ['tenant-229', 'nkangala_auto', 'global']) {
+        await supabase.from('messages').upsert({
+          id: `sdbip_officials_${tId}`,
+          tenant_id: tId,
+          sender_id: 'sdbip_officials_editor',
+          sender_email: 'sdbip_officials@system.local',
+          sender_name: 'SDBIP Officials Configurator',
+          content: sdbipOfficialsPayload,
+          message_type: 'sdbip_officials_list',
+          created_at: nowIso
+        }, { onConflict: 'id' });
+      }
+
+      // Ensure Nokubonga Chilli user record in Supabase is updated to Internal Auditor reporting to Jayvanti Morar
+      try {
+        await supabase.from('users').update({
+          job_function: 'Internal Auditor',
+          department: 'Internal Audit Unit',
+          directorate: 'Office of the Municipal Manager',
+          manager: 'Jayvanti Morar',
+          report_to: 'Jayvanti Morar',
+          manager_email: 'morarj@nkangaladm.gov.za',
+          role: 'Internal Auditor'
+        }).ilike('email', '%chillint%');
+      } catch (userUpdErr) {
+        console.warn("Notice updating Nokubonga Chilli in Supabase:", userUpdErr);
       }
 
       // 1a. Pheladi Naka (nakapm@nkangaladm.gov.za):

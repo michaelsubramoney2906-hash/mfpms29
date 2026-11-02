@@ -562,7 +562,9 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
     'Amos D. Twala',
     'Peggy L. Seerane',
     'Katlego Masemola',
-    'Sthembile C. Mpanza'
+    'Sthembile C. Mpanza',
+    'Jayvanti Morar',
+    'Nokubonga Chilli'
   ]);
   const [savingOfficials, setSavingOfficials] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
@@ -1026,17 +1028,11 @@ export function SDBIP({ currentUser, activeTenantId }: SDBIPProps) {
         }
 
         if (officialsData) {
-          const filterMorar = (list: any[]) => Array.isArray(list)
-            ? list.filter(item => {
-                const s = String(item || '').toLowerCase();
-                return !s.includes('jayvanti') && !s.includes('morar');
-              })
-            : [];
           if (Array.isArray(officialsData.reviewers) && officialsData.reviewers.length > 0) {
-            setReviewers(filterMorar(officialsData.reviewers));
+            setReviewers(officialsData.reviewers);
           }
           if (Array.isArray(officialsData.internalAuditors) && officialsData.internalAuditors.length > 0) {
-            setInternalAuditors(filterMorar(officialsData.internalAuditors));
+            setInternalAuditors(officialsData.internalAuditors);
           }
         }
       })
@@ -5028,7 +5024,7 @@ Timestamp: ${new Date().toLocaleString()}
                 <div>
                   <h3 className="text-sm font-black text-slate-900 uppercase">Appointed SDBIP Officials Setup</h3>
                   <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Set up the exactly 4 reviewers and 5 internal auditors who are authorized to verify and audit the SDBIP logs. 
+                    Set up the authorized reviewers and internal auditors who are authorized to verify and audit the SDBIP logs. 
                     Only these specified personnel can be selected per KPI target.
                   </p>
                 </div>
@@ -5038,16 +5034,16 @@ Timestamp: ${new Date().toLocaleString()}
                 {/* Column 1: Reviewers */}
                 <div className="space-y-3.5">
                   <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200/60">
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wide">PMU Reviewers (Exactly 4)</span>
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wide">PMU Reviewers ({reviewers.length})</span>
                     <span className="bg-violet-100 text-violet-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Review Panel</span>
                   </div>
                   <div className="space-y-2.5">
-                    {Array.from({ length: 4 }).map((_, i) => (
+                    {reviewers.map((reviewer, i) => (
                       <div key={`reviewer-${i}`} className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-slate-400 font-mono w-5">#0{i+1}</span>
                         <input
                           type="text"
-                          value={reviewers[i] || ''}
+                          value={reviewer || ''}
                           onChange={(e) => {
                             const val = e.target.value;
                             setReviewers(prev => {
@@ -5066,17 +5062,26 @@ Timestamp: ${new Date().toLocaleString()}
 
                 {/* Column 2: Internal Auditors */}
                 <div className="space-y-3.5">
-                  <div className="flex items-center gap-2 pb-1.5 border-b border-slate-200/60">
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wide">Internal Auditors (Exactly 5)</span>
-                    <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Audit Panel</span>
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-slate-800 uppercase tracking-wide">Internal Auditors ({internalAuditors.length})</span>
+                      <span className="bg-amber-100 text-amber-800 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Audit Panel</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setInternalAuditors(prev => [...prev, ''])}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                    >
+                      + Add Auditor
+                    </button>
                   </div>
                   <div className="space-y-2.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
+                    {internalAuditors.map((auditor, i) => (
                       <div key={`auditor-${i}`} className="flex items-center gap-2">
                         <span className="text-[10px] font-bold text-slate-400 font-mono w-5">#0{i+1}</span>
                         <input
                           type="text"
-                          value={internalAuditors[i] || ''}
+                          value={auditor || ''}
                           onChange={(e) => {
                             const val = e.target.value;
                             setInternalAuditors(prev => {
@@ -5088,6 +5093,16 @@ Timestamp: ${new Date().toLocaleString()}
                           placeholder={`Auditor Name ${i+1}`}
                           className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                         />
+                        {internalAuditors.length > 4 && (
+                          <button
+                            type="button"
+                            onClick={() => setInternalAuditors(prev => prev.filter((_, idx) => idx !== i))}
+                            className="text-slate-400 hover:text-rose-600 text-xs px-1 cursor-pointer"
+                            title="Remove auditor"
+                          >
+                            &times;
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>

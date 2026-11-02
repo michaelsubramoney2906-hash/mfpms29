@@ -32,9 +32,13 @@ export const OFFICIAL_REVIEWERS: ReviewerOfficial[] = [
 ];
 
 export const INTERNAL_AUDIT_USERS = [
+  'twalaad@nkangaladm.gov.za',
+  'twalaa@nkangaladm.gov.za',
   'seeranepl@nkangaladm.gov.za',
   'masemolak@nkangaladm.gov.za',
-  'mpanzacs@nkangaladm.gov.za'
+  'mpanzacs@nkangaladm.gov.za',
+  'morarj@nkangaladm.gov.za',
+  'chillint@nkangaladm.gov.za'
 ];
 
 export interface InternalAuditorOfficial {
@@ -45,6 +49,12 @@ export interface InternalAuditorOfficial {
 }
 
 export const OFFICIAL_INTERNAL_AUDITORS: InternalAuditorOfficial[] = [
+  {
+    fullName: 'Amos D. Twala',
+    email: 'twalaad@nkangaladm.gov.za',
+    username: 'twalaad',
+    displayName: 'Amos D. Twala (@twalaad)'
+  },
   { 
     fullName: 'Peggy L. Seerane', 
     email: 'seeranepl@nkangaladm.gov.za', 
@@ -56,6 +66,24 @@ export const OFFICIAL_INTERNAL_AUDITORS: InternalAuditorOfficial[] = [
     email: 'masemolak@nkangaladm.gov.za', 
     username: 'masemolak',
     displayName: 'Katlego Masemola (@masemolak)'
+  },
+  {
+    fullName: 'Sthembile C. Mpanza',
+    email: 'mpanzacs@nkangaladm.gov.za',
+    username: 'mpanzacs',
+    displayName: 'Sthembile C. Mpanza (@mpanzacs)'
+  },
+  {
+    fullName: 'Jayvanti Morar',
+    email: 'morarj@nkangaladm.gov.za',
+    username: 'morarj',
+    displayName: 'Jayvanti Morar (@morarj)'
+  },
+  {
+    fullName: 'Nokubonga Chilli',
+    email: 'chillint@nkangaladm.gov.za',
+    username: 'chillint',
+    displayName: 'Nokubonga Chilli (@chillint)'
   }
 ];
 

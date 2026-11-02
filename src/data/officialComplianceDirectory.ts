@@ -965,10 +965,18 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
   },
   {
     fullName: "Jayvanti Morar",
-    jobFunction: "Departmental SDBIP Submitter & Operations Specialist",
-    department: "Office of the Municipal Manager / Strategic Executive",
+    jobFunction: "Internal Auditor & Operations Specialist",
+    department: "Internal Audit Unit / Office of the Municipal Manager",
     email: "morarj@nkangaladm.gov.za",
     refCode: "SEC57-NDM-0802",
+    status: "Section 57 Verified"
+  },
+  {
+    fullName: "Nokubonga T. Chilli",
+    jobFunction: "Internal Auditor",
+    department: "Internal Audit Unit",
+    email: "chillint@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0805",
     status: "Section 57 Verified"
   },
   {

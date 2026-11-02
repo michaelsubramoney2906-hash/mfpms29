@@ -40,7 +40,8 @@ export const INTERNAL_AUDIT_OFFICIALS = [
   'seeranepl@nkangaladm.gov.za',
   'masemolak@nkangaladm.gov.za',
   'mpanzacs@nkangaladm.gov.za',
-  'morarj@nkangaladm.gov.za'
+  'morarj@nkangaladm.gov.za',
+  'chillint@nkangaladm.gov.za'
 ];
 
 export const DESIGNATED_INTERNAL_AUDITORS = [
@@ -686,14 +687,22 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         'hlongwaan@nkangaladm.gov.za',
         'vanniekerkt@nkangaladm.gov.za',
         'masilelasi@nkangaladm.gov.za',
-        'nhlapoan@nkangaladm.gov.za',
         'nkosinv@nkangaladm.gov.za',
-        'shabangug@nkangaladm.gov.za',
-        'jiyanevj@nkangaladm.gov.za',
         'mashianelt@nkangaladm.gov.za'
       ];
       if (managerEmail.includes('msiza') || normCurrent.includes('msiza') || normCurrent.includes('ali')) {
         msizaSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
+      // Explicit list for Beauty Mtshali (mtshalinb@nkangaladm.gov.za / mtshalib@nkangaladm.gov.za)
+      const mtshaliSubordinates = [
+        'jiyanevj@nkangaladm.gov.za',
+        'shabangug@nkangaladm.gov.za',
+        'nhlapoan@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('mtshalinb') || managerEmail.includes('mtshalib') || normCurrent.includes('beauty mtshali') || (normCurrent.includes('mtshali') && !normCurrent.includes('thandiwe'))) {
+        mySubordinateEmails.clear();
+        mtshaliSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
       // Explicit list for Nomhle Maphanga (maphangant@nkangaladm.gov.za / maphangan@nkangaladm.gov.za)
@@ -857,6 +866,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
         if (isExcludedDev(targetEmail) && !isSystemDeveloper) {
           return false;
+        }
+
+        // Strict isolation for Beauty Mtshali (strictly her 3 direct subordinates: Jiyane, Shabangu, Nhlapo)
+        if (managerEmail.includes('mtshalinb') || managerEmail.includes('mtshalib') || normCurrent.includes('beauty mtshali')) {
+          return mtshaliSubordinates.includes(targetEmail);
         }
 
         const pManager = normalize(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '');
