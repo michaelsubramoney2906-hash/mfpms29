@@ -394,12 +394,83 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
-  // 6. Mr. David Mahlangu (mahlangude@nkangaladm.gov.za) - Remove KPI 29
+  // 6. Mr. David Emmanuel Mahlangu (mahlangude@nkangaladm.gov.za) - Signed 2026/2027 PA (24 KPIs, 100% total weight, remove HR vacancy KPI 25)
   if (normEmail === 'mahlangude@nkangaladm.gov.za' || normEmail.includes('mahlangude')) {
-    result = result.filter(kpi => {
-      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || kpi.id || '').toString().trim().toUpperCase();
-      const isKpi29 = ['29', 'KPI 29', 'KPI_29', 'M_29', 'M 29', 'M29', 'KPI-29'].includes(ref);
-      return !isKpi29;
+    const officialMahlanguKpis = [
+      { kpiNo: '1', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Attain clean audit opinion by 31 December 2026.', weighting: '1', baseline: '1 (Unqualified with matters)', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG’s Audit Report', q1Locked: true, q1Applicable: false },
+      { kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026', weighting: '1', baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', weighting: '1', baseline: '4', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', weighting: '1', baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '6', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of weekly itineraries compiled and submitted to Supervisor for approval per quarter in Dr JS Moroka Local Municipality.', weighting: '3', baseline: '52', annualTarget: '52', q1Target: '13', q2Target: '13', q3Target: '13', q4Target: '13', poe: 'Signed weekly itineraries.' },
+      { kpiNo: '7', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of municipal Health Services monthly reports submitted to Supervisor quarterly in Dr JS Moroka Local Municipality.', weighting: '3', baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Signed monthly reports' },
+      { kpiNo: '8', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of spot fines issued per quarter in Dr J.S Moroka Local Municipality.', weighting: '1', baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Spot fine copies.' },
+      { kpiNo: '9', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of Internal Audit Findings resolved per quarter as per Audit Plan in Dr JS Moroka Local Municipality.', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Internal audit quarterly reports' },
+      { kpiNo: '10', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of action plans implemented to address Operational Risks Identified in Dr JS Moroka Local Municipality per quarter.', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Operational Risk quarterly reports' },
+      { kpiNo: '11', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of action plans implemented to address Fraud and corruption Risks Identified in Dr JS Moroka Local Municipality per quarter.', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Fraud and corruption risk quarterly reports' },
+      { kpiNo: '12', kpa: 'KPA 2: FOOD CONTROL AND SAFETY', kpi: 'Number of food handling and preparation facilities inspections conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter in Dr JS Moroka Local Municipality.', weighting: '10', baseline: '181', annualTarget: '180', q1Target: '45', q2Target: '45', q3Target: '45', q4Target: '45', poe: 'Listing and inspection reports' },
+      { kpiNo: '13', kpa: 'KPA 2: FOOD CONTROL AND SAFETY', kpi: 'Number of food samples taken per quarter in Dr JS Moroka Local Municipality.', weighting: '10', baseline: '16', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Listing and Food Sampling sheets' },
+      { kpiNo: '14', kpa: 'KPA 3: WATER QUALITY MONITORING', kpi: 'Number of water samples taken per quarter and send to Laboratory for analysis as per SANS 241 Standard in Dr JS Moroka Local municipality.', weighting: '20', baseline: '92', annualTarget: '92', q1Target: '23', q2Target: '23', q3Target: '23', q4Target: '23', poe: 'Listing and water Sampling sheets' },
+      { kpiNo: '16', kpa: 'KPA 4: WASTE MANAGEMENT', kpi: 'Number of inspections conducted at illegal dumping hot spots per quarter in Dr JS Moroka Local Municipality.', weighting: '10', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Listing and inspections reports' },
+      { kpiNo: '17', kpa: 'KPA 4: WASTE MANAGEMENT', kpi: 'Number of inspections conducted at Health Care Waste Generators (private clinics, dentist, veterinary clinics, pharmacies, doctors) per quarter in Dr JS Moroka Local Municipality.', weighting: '5', baseline: '16', annualTarget: '16', q1Target: '4', q2Target: '4', q3Target: '4', q4Target: '4', poe: 'Listing and Inspections reports' },
+      { kpiNo: '18', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: 'Number of inspections conducted at (day care centres, crèches and preschools) per quarter in Dr JS Moroka Local Municipality.', weighting: '5', baseline: '37', annualTarget: '37', q1Target: '10', q2Target: '9', q3Target: '9', q4Target: '9', poe: 'Listing and inspections reports' },
+      { kpiNo: '19', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: 'Number of inspections conducted at funeral undertakers and mortuaries per quarter in Dr JS Moroka Local Municipality.', weighting: '4', baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Listing and inspections reports' },
+      { kpiNo: '20', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: 'Number of inspections conducted at Public Institutions/ Community facilities e.g. old age homes, disabled centres per quarter in Dr JS Moroka Local Municipality.', weighting: '2', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Listing and inspections reports' },
+      { kpiNo: '21', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: 'Number of inspections conducted at government and private schools, colleges and/or boarding schools per quarter in Dr JS Moroka Local Municipality.', weighting: '2', baseline: '18', annualTarget: '18', q1Target: '5', q2Target: '5', q3Target: '4', q4Target: '4', poe: 'Listing and inspections reports' },
+      { kpiNo: '22', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: 'Number of inspections conducted at Accommodation facilities e.g. hotels, guest houses etc per quarter in Dr JS Moroka Local Municipality.', weighting: '2', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Listing and inspections reports' },
+      { kpiNo: '23', kpa: 'KPA 6: EDUCATION AND AWARENESS', kpi: 'Number of Community based awareness campaigns attended by 30 June 2027 with team Dr JS Moroka Local Municipality representation in Nkangala District Municipality.', weighting: '5', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Attendance register.' },
+      { kpiNo: '24', kpa: 'KPA 6: EDUCATION AND AWARENESS', kpi: 'Number of joint operations conducted per quarter in Dr JS Moroka Local Municipality.', weighting: '5', baseline: '10', annualTarget: '10', q1Target: '3', q2Target: '2', q3Target: '3', q4Target: '2', poe: 'Reports and Attendance registers' },
+      { kpiNo: '25', kpa: 'KPA 6: EDUCATION AND AWARENESS', kpi: 'Number of education and training conducted per quarter in Dr JS Moroka Local Municipality.', weighting: '5', baseline: '10', annualTarget: '10', q1Target: '3', q2Target: '2', q3Target: '3', q4Target: '2', poe: 'Reports and Attendance registers' }
+    ];
+
+    result = officialMahlanguKpis.map((def, idx) => {
+      const existing = result.find((ex, exIdx) => {
+        const exNo = String(ex.kpiNo || ex['kpi no'] || '').trim().toUpperCase();
+        const exDesc = String(ex.kpi || ex.description || ex['kpi description'] || '').toLowerCase();
+        if (exIdx === idx) return true;
+        if (exNo === def.kpiNo.toUpperCase()) return true;
+        if (exDesc.includes(def.kpi.toLowerCase().substring(0, 30))) return true;
+        return false;
+      });
+      const base = existing ? { ...existing } : {};
+      const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      return {
+        ...base,
+        id: `mahlangude-official-kpi-${idx + 1}`,
+        kpiNo: def.kpiNo,
+        'kpi no': def.kpiNo,
+        kpa: def.kpa,
+        functionalKpa: def.kpa,
+        kpi: def.kpi,
+        indicator: def.kpi,
+        description: def.kpi,
+        'kpi description': def.kpi,
+        weighting: def.weighting,
+        weight: def.weighting,
+        '%wt': def.weighting,
+        baseline: def.baseline,
+        annualTarget: def.annualTarget,
+        'annual target': def.annualTarget,
+        q1Target: def.q1Target,
+        q2Target: def.q2Target,
+        q3Target: def.q3Target,
+        q4Target: def.q4Target,
+        poe: allQtrPoe,
+        annualRequiredPoe: def.poe,
+        q1Poe: def.poe,
+        q2Poe: def.poe,
+        midtermPoe: def.poe,
+        q3Poe: def.poe,
+        q4Poe: def.poe,
+        budget: 'OPEX',
+        q1Locked: def.q1Locked ?? false,
+        q1Applicable: def.q1Applicable ?? true,
+        reviewStatus: base.reviewStatus || (base.q1Actual || (Array.isArray(base.q1PoeDocs) && base.q1PoeDocs.length > 0) ? 'Submitted for Approval' : undefined),
+        reviewApprovalStatus: base.reviewApprovalStatus,
+        q1PoeStatus: base.q1PoeStatus,
+        q1Actual: base.q1Actual,
+        q1PoeDocs: Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []
+      };
     });
   }
 
@@ -490,20 +561,24 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     ];
 
     result = officialMpanzaKpis.map((def, idx) => {
-      // Find first matching existing item that genuinely matches this KPI number/description (avoiding the repeated #12-#25 duplicates)
+      // Find matching existing item strictly by index or unique ID
       const existing = result.find((ex, exIdx) => {
-        const exNo = String(ex.kpiNo || ex['kpi no'] || '').trim().toUpperCase();
-        const exDesc = String(ex.kpi || ex.description || ex['kpi description'] || '').toLowerCase();
-        if (idx < 11 && exIdx === idx) return true;
-        if (exNo === def.kpiNo.toUpperCase() && exIdx < 11) return true;
-        if (idx >= 11 && (exNo === def.kpiNo.toUpperCase() || exDesc.includes(def.kpi.toLowerCase().substring(0, 25)))) return true;
+        if (ex.id === `mpanzal-official-kpi-${idx + 1}`) return true;
+        if (exIdx === idx) return true;
         return false;
       });
       const base = existing ? { ...existing } : {};
       const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      
+      // Prevent bleed of duplicate actuals/POEs from the shared mpanzal-official-kpi-15 ID
+      const hasBleedDuplicate = idx > 14 && idx !== 22 && base.id === 'mpanzal-official-kpi-15';
+      const cleanQ1Actual = hasBleedDuplicate ? '' : (base.q1Actual || '');
+      const cleanQ1PoeDocs = hasBleedDuplicate ? [] : (Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []);
+      const cleanReviewStatus = cleanQ1Actual || cleanQ1PoeDocs.length > 0 ? (base.reviewStatus || 'Submitted for Approval') : undefined;
+
       return {
         ...base,
-        id: base.id || `mpanzal-official-kpi-${idx + 1}`,
+        id: `mpanzal-official-kpi-${idx + 1}`,
         kpiNo: def.kpiNo,
         'kpi no': def.kpiNo,
         kpa: def.kpa,
@@ -536,12 +611,11 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         budget: 'OPEX',
         q1Locked: def.q1Locked ?? false,
         q1Applicable: def.q1Applicable ?? true,
-        // Carry forward reviewStatus and actuals explicitly
-        reviewStatus: base.reviewStatus || (base.q1Actual || (Array.isArray(base.q1PoeDocs) && base.q1PoeDocs.length > 0) ? 'Submitted for Approval' : undefined),
-        reviewApprovalStatus: base.reviewApprovalStatus,
-        q1PoeStatus: base.q1PoeStatus,
-        q1Actual: base.q1Actual,
-        q1PoeDocs: Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []
+        reviewStatus: cleanReviewStatus,
+        reviewApprovalStatus: hasBleedDuplicate ? undefined : base.reviewApprovalStatus,
+        q1PoeStatus: hasBleedDuplicate ? undefined : base.q1PoeStatus,
+        q1Actual: cleanQ1Actual,
+        q1PoeDocs: cleanQ1PoeDocs
       };
     });
   }
@@ -597,10 +671,153 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
-  // 12. Mr. Prince M. Mthimunye (mthimunyepm@nkangaladm.gov.za), Sindiso Moepi (moepis@nkangaladm.gov.za), and Mathapelo Mankopana (mankopanamm@nkangaladm.gov.za)
+  // 12a. Mr. Prince M. Mthimunye (mthimunyepm@nkangaladm.gov.za) - Signed 2026/2027 PA (Exact 23 KPIs, 100% total weight)
+  if (normEmail === 'mthimunyepm@nkangaladm.gov.za' || normEmail.includes('mthimunyepm')) {
+    const officialMthimunyeKpis = [
+      { kpiNo: '1', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Attain clean audit opinion by 31 December 2026.', weighting: '6', baseline: '1 (Unqualified with matters)', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG’s Audit Report', q1Locked: true, q1Applicable: false },
+      { kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026', weighting: '1', baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', weighting: '1', baseline: '4', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', weighting: '1', baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '6', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of monthly municipal Health Services reports submitted to the CHEP per month.', weighting: '1', baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Monthly reports' },
+      { kpiNo: '7', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of spot fines/compliance notices issued in Dr J.SM LM per annum', weighting: '1', baseline: '06', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Spot fine/compliance notice copies only' },
+      { kpiNo: '8', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '% of Internal Audit Findings resolved per quarter as per the Audit Plan (MHS Dr JSM Local Municipality) per quarter', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Internal audit quarterly reports' },
+      { kpiNo: '9', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '% of action plans implemented to address Operational Risks Identified (MHS Dr JSM Local Municipality) per quarter', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Operational Risk quarterly reports' },
+      { kpiNo: '10', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: '% of action plans implemented to address Fraud and corruption Risks Identified (MHS LM) per quarter', weighting: '1', baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Fraud and corruption risk quarterly reports' },
+      { kpiNo: '11', kpa: 'KPA 2: FOOD CONTROL AND SAFETY', kpi: 'Number of food handling and preparation facility inspections conducted in terms of the Foodstuffs, Cosmetics, Disinfectant Act (FCDA) per quarter for MHS Dr JSM', weighting: '5', baseline: '182', annualTarget: '180', q1Target: '45', q2Target: '45', q3Target: '45', q4Target: '45', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '12', kpa: 'KPA 2: FOOD CONTROL AND SAFETY', kpi: 'Number of food samples taken per annum', weighting: '15', baseline: '20', annualTarget: '13', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '4', poe: 'Lab Sampling sheets' },
+      { kpiNo: '13', kpa: 'KPA 3: WATER QUALITY MONITORING', kpi: 'Number of water samples taken per quarter from the Dr JSM participating municipality, analysed as per the SANS 241 standard per quarter', weighting: '5', baseline: '92', annualTarget: '92', q1Target: '23', q2Target: '23', q3Target: '23', q4Target: '23', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '14', kpa: 'KPA 4: WASTE MANAGEMENT', kpi: '# of municipal health services inspections conducted at Landfill sites/ transfer stations/ illegal dumping hot spots per quarter', weighting: '25', baseline: '5', annualTarget: '5', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '2', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '15', kpa: 'KPA 4: WASTE MANAGEMENT', kpi: '# of municipal health services inspections conducted at Health Care Waste Generators (private clinics, dentist, veterinary clinics, pharmacies, doctors) per bi-annually', weighting: '5', baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '16', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at day care centres, crèches or preschools (ECDS) per annum', weighting: '2', baseline: '36', annualTarget: '36', q1Target: '9', q2Target: '9', q3Target: '9', q4Target: '9', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '17', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at funeral undertakers and mortuaries per quarter', weighting: '2', baseline: '8', annualTarget: '8', q1Target: '2', q2Target: '2', q3Target: '2', q4Target: '2', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '18', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Public Institutions/ Community facilities e.g. Old age, disabled centres per annum', weighting: '2', baseline: '14', annualTarget: '12', q1Target: '2', q2Target: '2', q3Target: '2', q4Target: '2', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '19', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at government and private schools, colleges and/or boarding schools per annum', weighting: '2', baseline: '15', annualTarget: '15', q1Target: '4', q2Target: '3', q3Target: '4', q4Target: '4', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '20', kpa: 'KPA 5: SURVEILLANCE OF PREMISES', kpi: '# of municipal health services inspections conducted at Accommodation facilities eg. hotels, guest houses etc. per annum', weighting: '2', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'reports and Listing Spread sheets' },
+      { kpiNo: '21', kpa: 'KPA 6: EDUCATION AND AWARENESS', kpi: '# of Community based awareness campaigns attended by 30 June 2027 with team Dr JSM presentation.', weighting: '2', baseline: '5', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Attendance registers only (MHS Dr JSM representation)' },
+      { kpiNo: '22', kpa: 'KPA 6: EDUCATION AND AWARENESS', kpi: '# of municipal Health Services and Environmental Management joint operations programmes conducted per quarter with team Dr JSM representation.', weighting: '9', baseline: '16', annualTarget: '10', q1Target: '3', q2Target: '2', q3Target: '3', q4Target: '2', poe: 'Attendance registers (MHS Dr JSM representation)' },
+      { kpiNo: '23', kpa: 'KPA 6: EDUCATION AND AWARENESS', kpi: '# of municipal Health Services education and training facilitated in Dr J.S.M per quarter with Dr JSM team representation.', weighting: '9', baseline: '13', annualTarget: '10', q1Target: '3', q2Target: '2', q3Target: '3', q4Target: '2', poe: 'Attendance registers (MHS Dr JSM representation)' }
+    ];
+
+    result = officialMthimunyeKpis.map((def, idx) => {
+      const existing = result.find((ex, exIdx) => {
+        if (ex.id === `mthimunyepm-official-kpi-${idx + 1}`) return true;
+        if (exIdx === idx) return true;
+        const exNo = String(ex.kpiNo || ex['kpi no'] || '').trim().toUpperCase();
+        if (exNo === def.kpiNo.toUpperCase()) return true;
+        return false;
+      });
+      const base = existing ? { ...existing } : {};
+      const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      return {
+        ...base,
+        id: `mthimunyepm-official-kpi-${idx + 1}`,
+        kpiNo: def.kpiNo,
+        'kpi no': def.kpiNo,
+        kpa: def.kpa,
+        functionalKpa: def.kpa,
+        kpi: def.kpi,
+        indicator: def.kpi,
+        description: def.kpi,
+        'kpi description': def.kpi,
+        weighting: def.weighting,
+        weight: def.weighting,
+        '%wt': def.weighting,
+        baseline: def.baseline,
+        annualTarget: def.annualTarget,
+        'annual target': def.annualTarget,
+        q1Target: def.q1Target,
+        q2Target: def.q2Target,
+        q3Target: def.q3Target,
+        q4Target: def.q4Target,
+        poe: allQtrPoe,
+        annualRequiredPoe: def.poe,
+        q1Poe: def.poe,
+        q2Poe: def.poe,
+        midtermPoe: def.poe,
+        q3Poe: def.poe,
+        q4Poe: def.poe,
+        budget: def.kpiNo === '13' ? 'R 2 000 (total NDM budget)' : (def.kpiNo === '21' ? 'R500 000 (Total CDS budget)' : (def.kpiNo === '12' ? 'R 110 (Total NDM budget)' : 'OPEX')),
+        q1Locked: def.q1Locked ?? false,
+        q1Applicable: def.q1Applicable ?? true,
+        reviewStatus: base.reviewStatus || (base.q1Actual || (Array.isArray(base.q1PoeDocs) && base.q1PoeDocs.length > 0) ? 'Submitted for Approval' : undefined),
+        reviewApprovalStatus: base.reviewApprovalStatus,
+        q1PoeStatus: base.q1PoeStatus,
+        q1Actual: base.q1Actual,
+        q1PoeDocs: Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []
+      };
+    });
+  }
+
+  // 12b. Mr. Vinny Lehlohonolo Maphoto (maphotovl@nkangaladm.gov.za) - Signed 2026/2027 PA (Strictly 12 KPIs, 100% total weight, remove HR KPIs 13-16)
+  if (normEmail === 'maphotovl@nkangaladm.gov.za' || normEmail.includes('maphotovl')) {
+    const officialMaphotoKpis = [
+      { kpiNo: '1', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Maintain clean audit opinion by 30 December 2026', weighting: '5', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG’s Audit Report', q1Locked: true, q1Applicable: false },
+      { kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Compile and sign the annual performance agreement for the 2025/2026 financial year and submit to OPME & PMDS unit by 30 July 2027', weighting: '5', baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', weighting: '5', baseline: '3', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', weighting: '5', baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit' },
+      { kpiNo: '5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', weighting: '5', baseline: 'New', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services' },
+      { kpiNo: '6', kpa: 'KPA 2: MEETING AND ADMINISTRATION', kpi: 'Number of Youth development Forum conducted by 30 June 2027', weighting: '5', baseline: '1', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Operational expenditure signed progress report' },
+      { kpiNo: '7', kpa: 'KPA 3: AWARENESS CAMPAIGNS', kpi: 'Number of awareness campaigns on teenage pregnancy undertaken by 30 June 2027', weighting: '13', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Attendance registers and signed reports (proving number of awareness campaigns)' },
+      { kpiNo: '8', kpa: 'KPA 3: AWARENESS CAMPAIGNS', kpi: 'Number of campaigns on drug / substance abuse held in partnership with SANCA by 30 June 2027', weighting: '14', baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Attendance registers and signed reports (proving number of awareness campaigns)' },
+      { kpiNo: '9', kpa: 'KPA 4: EDUCATIONAL CAREER EXPOS', kpi: 'Number of Education Career Expos held by 30 June 2027', weighting: '15', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '1', poe: 'Attendance registers and signed reports (proving of number of education career expos held)' },
+      { kpiNo: '10', kpa: 'KPA 5: YOUTH DEVELOPMENT AND MANAGEMENT', kpi: 'Mayoral Academic Recognition of NDM Learners held by 30 June 2027', weighting: '10', baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Attendance registers and signed report' },
+      { kpiNo: '11', kpa: 'KPA 5: YOUTH DEVELOPMENT AND MANAGEMENT', kpi: 'Number of existing qualifying learners identified by 30 June 2027', weighting: '10', baseline: '25', annualTarget: '15', q1Target: 'N/A', q2Target: 'N/A', q3Target: '15', q4Target: 'N/A', poe: 'Bursary offer letters, academic transcript and progress signed reports of existing qualifying learners' },
+      { kpiNo: '12', kpa: 'KPA 5: YOUTH DEVELOPMENT AND MANAGEMENT', kpi: 'Number of new qualifying learners identified by 31 March 2027', weighting: '8', baseline: '13', annualTarget: '7', q1Target: 'N/A', q2Target: 'N/A', q3Target: '7', q4Target: 'N/A', poe: 'Bursary offer letters, proof of registration, and signed Progress report on new qualifying learners' }
+    ];
+
+    result = officialMaphotoKpis.map((def, idx) => {
+      const existing = result.find((ex, exIdx) => {
+        if (ex.id === `maphotovl-official-kpi-${idx + 1}`) return true;
+        if (exIdx === idx) return true;
+        const exNo = String(ex.kpiNo || ex['kpi no'] || '').trim().toUpperCase();
+        if (exNo === def.kpiNo.toUpperCase()) return true;
+        return false;
+      });
+      const base = existing ? { ...existing } : {};
+      const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+      return {
+        ...base,
+        id: `maphotovl-official-kpi-${idx + 1}`,
+        kpiNo: def.kpiNo,
+        'kpi no': def.kpiNo,
+        kpa: def.kpa,
+        functionalKpa: def.kpa,
+        kpi: def.kpi,
+        indicator: def.kpi,
+        description: def.kpi,
+        'kpi description': def.kpi,
+        weighting: def.weighting,
+        weight: def.weighting,
+        '%wt': def.weighting,
+        baseline: def.baseline,
+        annualTarget: def.annualTarget,
+        'annual target': def.annualTarget,
+        q1Target: def.q1Target,
+        q2Target: def.q2Target,
+        q3Target: def.q3Target,
+        q4Target: def.q4Target,
+        poe: allQtrPoe,
+        annualRequiredPoe: def.poe,
+        q1Poe: def.poe,
+        q2Poe: def.poe,
+        midtermPoe: def.poe,
+        q3Poe: def.poe,
+        q4Poe: def.poe,
+        budget: def.kpiNo === '7' || def.kpiNo === '8' ? 'R15' : (def.kpiNo === '9' ? 'R44' : (def.kpiNo === '10' ? 'R118' : (def.kpiNo === '11' || def.kpiNo === '12' ? 'R5000' : 'OPEX'))),
+        q1Locked: def.q1Locked ?? false,
+        q1Applicable: def.q1Applicable ?? true,
+        reviewStatus: base.reviewStatus || (base.q1Actual || (Array.isArray(base.q1PoeDocs) && base.q1PoeDocs.length > 0) ? 'Submitted for Approval' : undefined),
+        reviewApprovalStatus: base.reviewApprovalStatus,
+        q1PoeStatus: base.q1PoeStatus,
+        q1Actual: base.q1Actual,
+        q1PoeDocs: Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []
+      };
+    });
+  }
+
+  // 12c. Sindiso Moepi (moepis@nkangaladm.gov.za) and Mathapelo Mankopana (mankopanamm@nkangaladm.gov.za)
   if (
-    normEmail === 'mthimunyepm@nkangaladm.gov.za' ||
-    normEmail.includes('mthimunyepm') ||
     normEmail === 'moepis@nkangaladm.gov.za' ||
     normEmail.includes('moepis') ||
     normEmail === 'mankopanamm@nkangaladm.gov.za' ||
@@ -622,13 +839,8 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       ) {
         return false;
       }
-      if (normEmail.includes('mthimunyepm')) {
-        if (!isNaN(numVal) && numVal >= 24 && ref !== 'M_21') return false;
-        if (index >= 23) return false;
-      } else {
-        if (!isNaN(numVal) && numVal >= 25 && ref !== 'M_21') return false;
-        if (index >= 24) return false;
-      }
+      if (!isNaN(numVal) && numVal >= 25 && ref !== 'M_21') return false;
+      if (index >= 24) return false;
       return true;
     });
   }

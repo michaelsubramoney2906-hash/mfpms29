@@ -35,6 +35,22 @@ const safeJson = async (res: Response) => {
   return null;
 };
 
+export const INTERNAL_AUDIT_OFFICIALS = [
+  'twalaa@nkangaladm.gov.za',
+  'seeranepl@nkangaladm.gov.za',
+  'masemolak@nkangaladm.gov.za',
+  'mpanzacs@nkangaladm.gov.za',
+  'morarj@nkangaladm.gov.za'
+];
+
+export const DESIGNATED_INTERNAL_AUDITORS = [
+  { name: 'Nompumelelo Nsibande', email: 'nsibandenp@nkangaladm.gov.za', role: 'Internal Auditor / Performance Management' },
+  { name: 'Sibusiso Shabangu', email: 'shabangusm@nkangaladm.gov.za', role: 'Internal Auditor / Performance Management' },
+  { name: 'Noluthando Zulu', email: 'zulune@nkangaladm.gov.za', role: 'Internal Auditor / PMS' },
+  { name: 'Mduduzi Lukhele', email: 'lukhelema@nkangaladm.gov.za', role: 'Internal Auditor' },
+  { name: 'Yena Khuboni', email: 'khuboniy@nkangaladm.gov.za', role: 'Internal Auditor / Municipal Manager Desk' }
+];
+
 export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [mgrTab, setMgrTab] = useState<'kpi' | 'jsc' | 'cc'>('kpi');
   const [loading, setLoading] = useState(true);
@@ -43,6 +59,9 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
   const [saving, setSaving] = useState(false);
   const [kpiFilter, setKpiFilter] = useState<'all' | 'submitted' | 'poe_attached' | 'approved' | 'revision'>('all');
   const [clearingOldReviews, setClearingOldReviews] = useState(false);
+  const [showAuditDispatchModal, setShowAuditDispatchModal] = useState(false);
+  const [auditTargetKpiIds, setAuditTargetKpiIds] = useState<string[] | undefined>(undefined);
+  const [selectedAuditorEmail, setSelectedAuditorEmail] = useState<string>('all');
   const [showClearKpiModal, setShowClearKpiModal] = useState(false);
   const [clearingLedger, setClearingLedger] = useState(false);
   const [clearingReview, setClearingReview] = useState(false);
@@ -62,6 +81,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     const curEmail = (currentUser?.email || '').toLowerCase().trim();
     return isUserUnrestricted(currentUser) || ['mike@mzansiflow.co.za', 'mike@massivedynamixdistributors.com', 'audrey@mzansiflow.co.za', 'delphine@mzansiflow.co.za', 'ryanw@mzansiflow.co.za', 'bongani@mzansiflow.co.za', 'bonganim@mzansiflow.co.za'].includes(curEmail);
   }, [currentUser]);
+
+  const isInternalAuditorTarget = useMemo(() => {
+    const subEmail = (selectedPlan?.userId || selectedPlan?.plan?.metadata?.email || '').toLowerCase().trim();
+    const curEmail = (currentUser?.email || '').toLowerCase().trim();
+    return INTERNAL_AUDIT_OFFICIALS.some(em => subEmail === em || subEmail.includes(em)) ||
+           (curEmail.includes('morarj') && INTERNAL_AUDIT_OFFICIALS.some(em => subEmail === em || subEmail.includes(em)));
+  }, [selectedPlan, currentUser]);
 
   const matchesKpiIdentifier = (item: any, targetIdOrNo: string) => {
     if (!targetIdOrNo || !item) return false;
@@ -1679,9 +1705,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
     }
   };
 
-  const handlePushToAudit = async (targetIds?: string[]) => {
+  const handlePushToAudit = (targetIds?: string[]) => {
+    setAuditTargetKpiIds(targetIds);
+    setShowAuditDispatchModal(true);
+  };
+
+  const executePushToAudit = async (targetIds?: string[], designatedEmail: string = 'all') => {
     if (!selectedPlan) return;
     setSaving(true);
+    setShowAuditDispatchModal(false);
     try {
       const payload = { ...selectedPlan.plan };
       const allItems = payload.items || [];
@@ -1709,22 +1741,28 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         }
       });
 
+      const selectedAuditorObj = DESIGNATED_INTERNAL_AUDITORS.find(a => a.email === designatedEmail);
+      const designatedName = designatedEmail === 'all' 
+        ? 'All Designated Internal Auditors' 
+        : (selectedAuditorObj?.name || designatedEmail);
+
       if (!payload.metadata) payload.metadata = {};
       payload.metadata.reviewStatus = 'Dispatched to Audit';
       payload.metadata.internalAuditStatus = 'Dispatched to Audit';
       payload.metadata.dispatchedKpiIds = isTargeted ? targetIds : allItems.map((i: any) => i.id);
       payload.metadata.lastDispatchedKpiId = isTargeted && targetIds.length === 1 ? targetIds[0] : undefined;
+      payload.metadata.designatedAuditorEmail = designatedEmail;
+      payload.metadata.designatedAuditorName = designatedName;
 
-      if (!payload.metadata) payload.metadata = {};
       if (!payload.metadata.history) payload.metadata.history = [];
       payload.metadata.history.push({
         timestamp: new Date().toISOString(),
         userEmail: (currentUser?.email || '').toLowerCase().trim(),
-        userName: currentUser?.fullName || currentUser?.full_name || 'Manager Yena Khuboni',
+        userName: currentUser?.fullName || currentUser?.full_name || 'Line Manager',
         role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
-        action: isTargeted ? `Dispatched KPI(s) (${kpiNosText}) to Internal Audit` : 'Forwarded All to Internal Audit',
+        action: isTargeted ? `Dispatched KPI(s) (${kpiNosText}) to Internal Audit (${designatedName})` : `Forwarded All to Internal Audit (${designatedName})`,
         status: 'Dispatched to Audit',
-        comment: `Manager approved and dispatched ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} to the Internal Audit Committee.`
+        comment: `Manager approved and dispatched ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} to Internal Audit (${designatedName}).`
       });
 
       await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
@@ -1735,7 +1773,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
 
       const managerEmail = currentUser.email || '';
-      const managerName = currentUser.fullName || currentUser.full_name || 'Manager Yena Khuboni';
+      const managerName = currentUser.fullName || currentUser.full_name || 'Line Manager';
       const submitterEmail = selectedPlan.userId;
       const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
 
@@ -1758,18 +1796,24 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
       const isSingle = isTargeted && targetIds.length === 1;
       const title = isSingle
-        ? `🛡️ Audit Dispatch: Single KPI ${kpiNosText} (${submitterName}) Approved by ${managerName}`
-        : `🛡️ Audit Dispatch: ${targetItems.length} KPIs (${kpiNosText}) (${submitterName}) Approved by ${managerName}`;
+        ? `🛡️ Audit Dispatch: Single KPI ${kpiNosText} (${submitterName}) Dispatched to ${designatedName}`
+        : `🛡️ Audit Dispatch: ${targetItems.length} KPIs (${kpiNosText}) (${submitterName}) Dispatched to ${designatedName}`;
 
-      const message = `Line Manager ${managerName} (${managerEmail}) has verified and approved ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for Subordinate (${submitterName}).\n\n` +
+      const message = `Line Manager ${managerName} (${managerEmail}) has verified and approved ${isSingle ? `single KPI ${kpiNosText}` : `${targetItems.length} KPIs (${kpiNosText})`} for Subordinate (${submitterName}) and dispatched to Internal Audit.\n\n` +
         `👤 **KPI Submitter/Owner**: ${submitterName} (${submitterEmail})\n` +
-        `💼 **Reviewed & Dispatched By**: ${managerName} (${managerEmail})\n\n` +
+        `💼 **Reviewed & Dispatched By**: ${managerName} (${managerEmail})\n` +
+        `🛡️ **Designated Auditor**: ${designatedName}\n\n` +
         `📋 **APPROVED KPI & EVIDENCE DETAILS**:\n\n${kpisDetail}\n\n` +
         `Please access the Internal Audit module to conduct compliance verification and audit evaluation.`;
+
+      const auditorRecipients = designatedEmail === 'all'
+        ? DESIGNATED_INTERNAL_AUDITORS
+        : (selectedAuditorObj ? [selectedAuditorObj] : [{ email: designatedEmail, name: designatedName, role: 'Internal Auditor' }]);
 
       const targetsList = [
         { email: submitterEmail, name: submitterName },
         { email: managerEmail, name: managerName },
+        ...auditorRecipients.map(a => ({ email: a.email, name: a.name })),
         { email: 'internal_audit', name: 'Internal Audit Committee' },
         { email: 'dpmc', name: 'DPMC Moderation Committee' }
       ];
@@ -1789,27 +1833,132 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
               actionType: 'audit_dispatch',
               senderCapacity: 'manager_as_subordinate',
               kpiIds: targetIds,
-              kpiId: targetIds.length > 0 ? targetIds[0] : '',
+              kpiId: targetIds && targetIds.length > 0 ? targetIds[0] : '',
               kpiNo: targetItems.length > 0 ? (targetItems[0].kpiNo || targetItems[0].id) : '',
-              employeeEmail: submitterEmail
+              employeeEmail: submitterEmail,
+              designatedAuditorEmail: designatedEmail
             }
           })
         });
       }
 
       alert(isSingle 
-        ? `Single KPI (${kpiNosText}) dispatched to Internal Audit committee! Notification sent.`
-        : `${targetItems.length} KPI(s) (${kpiNosText}) dispatched to Internal Audit committee! Notification sent.`
+        ? `Single KPI (${kpiNosText}) dispatched to ${designatedName}! Notification sent.`
+        : `${targetItems.length} KPI(s) (${kpiNosText}) dispatched to ${designatedName}! Notification sent.`
       );
       
       const updatedPlans = teamPlans.map(tp => 
-        tp.userId === selectedPlan.userId ? { ...tp, plan: payload } : tp
+        (tp.userId || '').toLowerCase().trim() === (selectedPlan.userId || '').toLowerCase().trim() 
+          ? { ...tp, plan: payload } 
+          : tp
       );
       setTeamPlans(updatedPlans);
       setSelectedPlan({ ...selectedPlan, plan: payload });
     } catch (e) {
       console.error(e);
-      alert("Error occurred while pushing to audit: " + String(e));
+      alert("Error occurred while dispatching to Internal Audit: " + String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePushToPms = async (targetIds?: string[]) => {
+    if (!selectedPlan) return;
+    setSaving(true);
+    try {
+      const payload = { ...selectedPlan.plan };
+      const allItems = payload.items || [];
+      const isTargeted = targetIds && targetIds.length > 0;
+      const targetItems = isTargeted ? allItems.filter((i: any) => targetIds.includes(i.id)) : allItems;
+      const kpiNosText = targetItems.map((i: any) => `#${i.kpiNo || i.id}`).join(', ');
+
+      payload.items = allItems.map((item: any) => {
+        if (!isTargeted || targetIds.includes(item.id)) {
+          const selfScore = getSelfScore(item);
+          const mScore = item.managerScore || (selfScore !== 'N/A' ? selfScore : '3.0');
+          return {
+            ...item,
+            myScore: item.myScore || (selfScore !== 'N/A' ? selfScore : ''),
+            managerScore: mScore,
+            reviewStatus: 'Pushed to PMS',
+            pmsStatus: 'Pushed to PMS'
+          };
+        } else {
+          return {
+            ...item,
+            reviewStatus: item.reviewStatus === 'Pushed to PMS' ? 'Reviewed' : (item.reviewStatus || 'Draft')
+          };
+        }
+      });
+
+      if (!payload.metadata) payload.metadata = {};
+      payload.metadata.reviewStatus = 'Pushed to PMS';
+      payload.metadata.pmsStatus = 'Pushed to PMS';
+      payload.metadata.dispatchedKpiIds = isTargeted ? targetIds : allItems.map((i: any) => i.id);
+
+      if (!payload.metadata.history) payload.metadata.history = [];
+      payload.metadata.history.push({
+        timestamp: new Date().toISOString(),
+        userEmail: (currentUser?.email || '').toLowerCase().trim(),
+        userName: currentUser?.fullName || currentUser?.full_name || 'Line Manager',
+        role: currentUser?.systemRole || currentUser?.role || 'Line Manager',
+        action: isTargeted ? `Dispatched KPI(s) (${kpiNosText}) to PMS` : 'Forwarded All to PMS',
+        status: 'Pushed to PMS',
+        comment: `Internal Audit Manager approved and dispatched ${isTargeted ? `${targetItems.length} KPI(s) (${kpiNosText})` : 'all KPIs'} directly to the Performance Management System (PMS) Unit.`
+      });
+
+      await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${selectedPlan.userId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      window.dispatchEvent(new CustomEvent('pplan-updated', { detail: { tenantId: activeTenantId, userId: selectedPlan.userId } }));
+
+      const managerEmail = currentUser.email || '';
+      const managerName = currentUser.fullName || currentUser.full_name || 'Line Manager';
+      const submitterEmail = selectedPlan.userId;
+      const submitterName = selectedPlan.plan?.metadata?.name || submitterEmail;
+
+      const targetsList = [
+        { email: submitterEmail, name: submitterName },
+        { email: managerEmail, name: managerName },
+        { email: 'pms_team', name: 'PMS Unit (OPME & PMDS)' },
+        { email: 'zulune@nkangaladm.gov.za', name: 'Noluthando Zulu (PMS)' },
+        { email: 'nsibandenp@nkangaladm.gov.za', name: 'Nompumelelo Nsibande (PMS)' }
+      ];
+
+      for (const t of targetsList) {
+        await fetch(`/api/tenant/${activeTenantId}/ipms-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            notification: {
+              senderEmail: managerEmail,
+              senderName: managerName,
+              recipientEmail: t.email,
+              recipientName: t.name,
+              title: `📑 PMS Dispatch: Internal Audit Submission (${submitterName}) Approved`,
+              message: `Internal Audit Line Manager ${managerName} (${managerEmail}) has verified and approved the submission for Internal Auditor ${submitterName} and dispatched it directly to the PMS Unit.`,
+              actionType: 'approval',
+              senderCapacity: 'internal_audit_to_pms',
+              employeeEmail: submitterEmail
+            }
+          })
+        });
+      }
+
+      alert(`Submission successfully pushed to PMS! Notifications sent to submitter and PMS Unit.`);
+
+      const updatedPlans = teamPlans.map(tp => 
+        (tp.userId || '').toLowerCase().trim() === (selectedPlan.userId || '').toLowerCase().trim() 
+          ? { ...tp, plan: payload } 
+          : tp
+      );
+      setTeamPlans(updatedPlans);
+      setSelectedPlan({ ...selectedPlan, plan: payload });
+    } catch (e) {
+      console.error(e);
+      alert("Error pushing to PMS: " + String(e));
     } finally {
       setSaving(false);
     }
@@ -2324,14 +2473,26 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             <span>Redo Approval / Rejection</span>
           </button>
 
-          <button 
-            onClick={() => handlePushToAudit()}
-            disabled={saving}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Push to Internal Audit</span>
-          </button>
+          {isInternalAuditorTarget ? (
+            <button 
+              onClick={() => handlePushToPms()}
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
+              title="Push Internal Audit submission directly to PMS Unit"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Push to PMS</span>
+            </button>
+          ) : (
+            <button 
+              onClick={() => handlePushToAudit()}
+              disabled={saving}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-2 rounded-xl text-[10px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-sm cursor-pointer border-0"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Push to Internal Audit</span>
+            </button>
+          )}
 
           <button 
             onClick={handleSaveReview}
@@ -2974,16 +3135,29 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       <span>Reject / Revision</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handlePushToAudit([kpi.id])}
-                      disabled={saving}
-                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs cursor-pointer border-0"
-                      title="Dispatch this single KPI to Internal Audit review"
-                    >
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      <span>Push to Internal Audit</span>
-                    </button>
+                    {isInternalAuditorTarget ? (
+                      <button
+                        type="button"
+                        onClick={() => handlePushToPms([kpi.id])}
+                        disabled={saving}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs cursor-pointer border-0"
+                        title="Dispatch this single KPI to PMS Unit"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Push to PMS</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handlePushToAudit([kpi.id])}
+                        disabled={saving}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1.5 rounded-lg text-[9.5px] uppercase tracking-wide flex items-center gap-1.5 transition disabled:opacity-50 shadow-xs cursor-pointer border-0"
+                        title="Dispatch this single KPI to Internal Audit review"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Push to Internal Audit</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -3403,6 +3577,102 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                 className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-xl text-[10px] uppercase tracking-wider transition shadow-sm cursor-pointer border-0"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Designated Internal Audit Recipient Dispatch Modal */}
+      {showAuditDispatchModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+            <div className="bg-gradient-to-r from-indigo-700 via-indigo-850 to-slate-900 p-5 text-white flex justify-between items-start">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-white/10 text-indigo-300">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider">Push to Internal Audit</h3>
+                  <p className="text-[11px] text-indigo-200 mt-0.5">Select designated Internal Auditor to receive submission</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuditDispatchModal(false)}
+                className="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="text-xs text-slate-600">
+                Select the designated Internal Auditor responsible for conducting the compliance and verification review for{' '}
+                <strong className="text-slate-900">{selectedPlan?.plan?.metadata?.name || selectedPlan?.userId}</strong>:
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 cursor-pointer transition">
+                  <input
+                    type="radio"
+                    name="auditorRecipient"
+                    value="all"
+                    checked={selectedAuditorEmail === 'all'}
+                    onChange={() => setSelectedAuditorEmail('all')}
+                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <div className="text-xs font-black text-indigo-950">👥 All Designated Internal Auditors (Broadcast)</div>
+                    <div className="text-[10px] text-indigo-700">Notifies all 5 team auditors in the Internal Audit committee</div>
+                  </div>
+                </label>
+
+                {DESIGNATED_INTERNAL_AUDITORS.map(auditor => (
+                  <label
+                    key={auditor.email}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition cursor-pointer ${
+                      selectedAuditorEmail === auditor.email
+                        ? 'border-indigo-600 bg-indigo-50/70 shadow-xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="auditorRecipient"
+                      value={auditor.email}
+                      checked={selectedAuditorEmail === auditor.email}
+                      onChange={() => setSelectedAuditorEmail(auditor.email)}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div className="flex-1">
+                      <div className="text-xs font-bold text-slate-900 flex items-center justify-between">
+                        <span>{auditor.name}</span>
+                        <span className="text-[9.5px] font-mono text-slate-400 font-normal">{auditor.email}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500">{auditor.role}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAuditDispatchModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200 transition cursor-pointer border-0 bg-transparent"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => executePushToAudit(auditTargetKpiIds, selectedAuditorEmail)}
+                disabled={saving}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black px-5 py-2 rounded-xl text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition cursor-pointer border-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Confirm & Dispatch</span>
               </button>
             </div>
           </div>

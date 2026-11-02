@@ -533,7 +533,10 @@ export function ExtractionEngine({ currentUser, activeTenantId, initialMode, onN
     setStatusMessage({ type: 'info', text: `Syncing ${selected.length} KPIs into IPMS Annual Performance Planner Grid...` });
 
     try {
-      const targetEmail = targetEmployeeEmail || currentUser.email;
+      const baseEmail = (currentUser?.email || targetEmployeeEmail || '').trim();
+      const targetEmail = targetProfile === 'team'
+        ? (baseEmail.endsWith('_team') ? baseEmail : `${baseEmail}_team`)
+        : (targetEmployeeEmail || currentUser?.email);
 
       // Transform mapped schema strictly into IPMS PlanKPIItem format with verbatim edited values
       const ipmsPlanItems = selected.map((it, idx) => {
@@ -568,7 +571,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, initialMode, onN
 
       // Prepare metadata
       const planMetadata = {
-        name: currentUser.fullName || 'Employee Performance Plan',
+        name: targetProfile === 'team' ? `${currentUser.fullName || 'Team'} (Team Plan)` : (currentUser.fullName || 'Employee Performance Plan'),
         period: '2025/2026 Financial Year',
         department: currentUser.department || 'Municipal Administration',
         position: currentUser.jobFunction || 'Manager / Section 56 Senior Manager',
@@ -576,6 +579,7 @@ export function ExtractionEngine({ currentUser, activeTenantId, initialMode, onN
         email: targetEmail,
         manager: currentUser.manager || 'Municipal Manager',
         _isFredExtracted: true,
+        _isTeamPlan: targetProfile === 'team',
         _extractedAt: new Date().toISOString(),
         _sourceDocument: sourceFileName
       };

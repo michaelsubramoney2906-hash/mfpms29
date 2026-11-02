@@ -20979,9 +20979,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       documentId = documentId.toLowerCase();
 
-      const isCdsTeamDoc = Boolean(
-        (reqDocumentId && reqDocumentId.toLowerCase().includes('cds_team')) ||
-        isDisasterControlTeamMember(userId)
+      const isCdsTeam2Doc = Boolean(reqDocumentId && reqDocumentId.toLowerCase().includes('team_2'));
+      const isCdsTeam1Doc = Boolean(
+        !isCdsTeam2Doc && (
+          (reqDocumentId && (reqDocumentId.toLowerCase().includes('cds_team_1') || (reqDocumentId.toLowerCase().includes('cds') && !reqDocumentId.toLowerCase().includes('team_')))) ||
+          isDisasterControlTeamMember(userId)
+        )
       );
       const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : [];
       const candidateDraftIds = Array.from(new Set([
@@ -21001,7 +21004,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           'draft_doc_pms_team_tenant-229_zulune@nkangaladm.gov.za',
           'draft_doc_pms_team_tenant-229_nsibandenp@nkangaladm.gov.za'
         ] : []),
-        ...(isCdsTeamDoc ? [
+        ...(isCdsTeam2Doc ? [
+          `draft_doc_cds_team_2_${tenantId}_${userId}`.toLowerCase(),
+          `draft_doc_cds_team_2_${tenantId}`.toLowerCase(),
+          `draft_doc_cds_team_2_tenant-229_${userId}`.toLowerCase(),
+          `draft_doc_cds_team_2_tenant-229`.toLowerCase(),
+          `draft_doc_cds_team_2_nkangala_auto_${userId}`.toLowerCase(),
+          `draft_doc_cds_team_2_nkangala_auto`.toLowerCase(),
+          `draft_doc_cds_team_2_global_${userId}`.toLowerCase(),
+          `draft_doc_cds_team_2_global`.toLowerCase()
+        ] : []),
+        ...(isCdsTeam1Doc ? [
           'draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za',
           'draft_doc_cds_team_1_nkangala_auto_myenispl@nkangaladm.gov.za',
           'draft_doc_cds_team_1_tenant-229',
@@ -24845,6 +24858,8 @@ User Request: ${prompt}`;
         'mpanzal@nkangaladm.gov.za',
         'magampeas@nkangaladm.gov.za',
         'mthimunyepm@nkangaladm.gov.za',
+        'maphotovl@nkangaladm.gov.za',
+        'mahlangude@nkangaladm.gov.za',
         'moepis@nkangaladm.gov.za',
         'mankopanamm@nkangaladm.gov.za',
         'masekome@nkangaladm.gov.za',
