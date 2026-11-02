@@ -1971,6 +1971,17 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       }
     ];
 
+    const existingMap = new Map<string, any>();
+    if (Array.isArray(inputKpis)) {
+      inputKpis.forEach((item, i) => {
+        if (item) {
+          if (item.id) existingMap.set(String(item.id).toLowerCase(), item);
+          if (item.kpiNo) existingMap.set(String(item.kpiNo).toLowerCase(), item);
+          if (i >= 11) existingMap.set(`idx-${i}`, item);
+        }
+      });
+    }
+
     // Keep the first 11 valid items from KPA 1 (preserving actuals and PoEs)
     const preserved1To11 = result.slice(0, 11).map((kpi: any, idx: number) => ({
       ...kpi,
@@ -1978,7 +1989,80 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       q1Applicable: kpi.q1Target && kpi.q1Target !== 'N/A' && kpi.q1Target !== 'NONE'
     }));
 
-    result = [...preserved1To11, ...officialSingoKpis12To25];
+    const mergedSingoKpis12To25 = officialSingoKpis12To25.map((kpi, idx) => {
+      const kpiNum = String(idx + 12);
+      const existing = existingMap.get(kpi.id.toLowerCase()) ||
+                       existingMap.get(kpiNum) ||
+                       existingMap.get(`idx-${idx + 11}`) ||
+                       result[idx + 11] || {};
+
+      return {
+        ...kpi,
+        ...existing,
+        id: kpi.id,
+        kpiNo: kpiNum,
+        kpa: kpi.kpa,
+        kpi: kpi.kpi,
+        weighting: kpi.weighting,
+        annualTarget: kpi.annualTarget,
+        q1Target: kpi.q1Target,
+        q2Target: kpi.q2Target,
+        q3Target: kpi.q3Target,
+        q4Target: kpi.q4Target,
+        poe: existing.poe || kpi.poe,
+        annualRequiredPoe: kpi.annualRequiredPoe,
+        q1Poe: kpi.q1Poe,
+        q2Poe: kpi.q2Poe,
+        midtermPoe: kpi.midtermPoe,
+        q3Poe: kpi.q3Poe,
+        q4Poe: kpi.q4Poe,
+        budget: kpi.budget,
+        q1Applicable: true,
+        q1Locked: false,
+        q1Actual: existing.q1Actual ?? existing.actualAchieved ?? existing.actual ?? '',
+        actual: existing.actual ?? existing.q1Actual ?? '',
+        actualAchieved: existing.actualAchieved ?? existing.q1Actual ?? '',
+        q1PoeDocs: existing.q1PoeDocs || existing.poeDocs || [],
+        poeDocs: existing.poeDocs || existing.q1PoeDocs || [],
+        selfScore: existing.selfScore ?? 0,
+        q1Comments: existing.q1Comments || existing.comments || '',
+        reviewStatus: existing.reviewStatus || 'Draft',
+        reviewApprovalStatus: existing.reviewApprovalStatus || ''
+      };
+    });
+
+    result = [...preserved1To11, ...mergedSingoKpis12To25];
+  }
+
+  // 23. Rebecca Tebogo Mangena (mangenart@nkangaladm.gov.za) - Unlock KPI 4 for Q1 reporting (Signed PA Annexure A)
+  if (normEmail === 'mangenart@nkangaladm.gov.za' || normEmail.includes('mangenart')) {
+    result = result.map((item: any, idx: number) => {
+      const kNo = String(item.kpiNo || (idx + 1)).trim();
+      const desc = String(item.kpi || item.description || '').toLowerCase();
+      const isKpi4 = kNo === '4' || idx === 3 || desc.includes('submission of 2025/2026 annual performance evaluation');
+
+      if (isKpi4) {
+        return {
+          ...item,
+          kpiNo: "4",
+          weighting: "3",
+          baseline: "1 (annual assessment)",
+          annualTarget: "1 (annual assessment)",
+          q1Target: "1 (annual assessment)",
+          q2Target: "N/A",
+          q3Target: "N/A",
+          q4Target: "N/A",
+          poe: "Compliance certificate from OPME & PMDS Unit",
+          annualRequiredPoe: "Compliance certificate from OPME & PMDS Unit",
+          q1Poe: "Compliance certificate from OPME & PMDS Unit",
+          q1Applicable: true,
+          q1Locked: false,
+          lockedQuarters: ['Q2', 'Q3', 'Q4'],
+          budget: "OPEX"
+        };
+      }
+      return item;
+    });
   }
 
   return result;

@@ -24860,6 +24860,8 @@ User Request: ${prompt}`;
         'mthimunyepm@nkangaladm.gov.za',
         'maphotovl@nkangaladm.gov.za',
         'mahlangude@nkangaladm.gov.za',
+        'singorl@nkangaladm.gov.za',
+        'mangenart@nkangaladm.gov.za',
         'moepis@nkangaladm.gov.za',
         'mankopanamm@nkangaladm.gov.za',
         'masekome@nkangaladm.gov.za',
