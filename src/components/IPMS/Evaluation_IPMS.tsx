@@ -2056,7 +2056,14 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                   (kpi.q3Actual && String(kpi.q3Actual).trim() !== '' && String(kpi.q3Actual).trim().toUpperCase() !== 'N/A') ||
                   (kpi.q4Actual && String(kpi.q4Actual).trim() !== '' && String(kpi.q4Actual).trim().toUpperCase() !== 'N/A') ||
                   (kpi.midtermActual && String(kpi.midtermActual).trim() !== '' && String(kpi.midtermActual).trim().toUpperCase() !== 'N/A') ||
-                  (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A')
+                  (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A') ||
+                  kpi.q1Score ||
+                  kpi.q2Score ||
+                  kpi.q3Score ||
+                  kpi.q4Score ||
+                  (kpi as any).ownScore ||
+                  kpi.managerScore ||
+                  (kpi.myScore && String(kpi.myScore).trim() !== '' && String(kpi.myScore).trim() !== 'N/A' && String(kpi.myScore).trim() !== '3.0')
                 );
                 const isQ1LockedCard = currentTab === 'q1' && (Boolean(kpi.q1Locked) || isCellNA(kpi.q1Target));
                 const isRejectedOrRevision = !isQ1LockedCard && (
@@ -2070,7 +2077,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                   kpi.q4PoeStatus === 'Revision Required' ||
                   Boolean(kpi.resubmissionUnlocked)
                 );
-                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && !isRejectedOrRevision && (
+                const kpiIsReadOnly = isReadOnly || (!isUnrestricted && !isRejectedOrRevision && kpiHasEvidence && (
                   kpi.reviewStatus === 'Submitted for Approval' || 
                   kpi.reviewStatus === 'Reviewed' || 
                   kpi.reviewStatus === 'Approved'
@@ -2124,7 +2131,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                           ⚠️ Revision Requested (Unlocked for Resubmission)
                         </span>
                       )}
-                      {!isQ1LockedCard && (kpi.reviewStatus === 'Reviewed' || kpi.reviewStatus === 'Approved') && (
+                      {!isQ1LockedCard && kpiHasEvidence && (kpi.reviewStatus === 'Reviewed' || kpi.reviewStatus === 'Approved') && (
                         <span className="bg-emerald-600 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                           ✅ Verified & Approved
                         </span>

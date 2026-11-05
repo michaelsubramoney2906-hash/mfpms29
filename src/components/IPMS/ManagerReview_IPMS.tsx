@@ -130,6 +130,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
     const hasVal = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toUpperCase() !== 'N/A';
     const hasScore = (v: any) => v !== undefined && v !== null && !isNaN(parseFloat(String(v))) && parseFloat(String(v)) > 0;
+    const hasExplicitMyScore = hasScore(it.myScore) && String(it.myScore).trim() !== '3.0';
     if (
       hasVal(it.q1Actual) ||
       hasVal(it.q2Actual) ||
@@ -142,17 +143,15 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
       hasVal(it.q3Comment) ||
       hasVal(it.q4Comment) ||
       hasVal(it.evaluationComment) ||
-      hasScore(it.myScore) ||
+      hasExplicitMyScore ||
+      hasScore(it.ownScore) ||
       hasScore(it.q1Score) ||
       hasScore(it.q2Score) ||
       hasScore(it.q3Score) ||
       hasScore(it.q4Score) ||
       hasScore(it.midtermScore) ||
       hasScore(it.managerScore) ||
-      it.reviewStatus === 'Approved' ||
-      it.reviewStatus === 'Reviewed' ||
       it.reviewStatus === 'Revision Required' ||
-      it.reviewApprovalStatus === 'Approved' ||
       it.reviewApprovalStatus === 'Rejected'
     ) {
       return true;
@@ -2326,10 +2325,13 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       const applicableItems = Array.isArray(tp.plan?.items)
                         ? tp.plan.items.filter((it: any) => String(it?.q1Target || '').trim().toUpperCase() !== 'N/A' && it?.reviewStatus !== 'N/A')
                         : [];
+                      const hasAnySubmittedOrReviewedEvidence = applicableItems.some((it: any) => isGenuinelySubmittedKpi(it));
                       const isApproved =
-                        tp.plan.metadata?.reviewStatus === 'Reviewed' ||
-                        tp.plan.metadata?.reviewStatus === 'Approved' ||
-                        (applicableItems.length > 0 && applicableItems.every((it: any) => it.reviewStatus === 'Approved' || it.reviewApprovalStatus === 'Approved'));
+                        hasAnySubmittedOrReviewedEvidence && (
+                          tp.plan.metadata?.reviewStatus === 'Reviewed' ||
+                          tp.plan.metadata?.reviewStatus === 'Approved' ||
+                          (applicableItems.length > 0 && applicableItems.every((it: any) => it.reviewStatus === 'Approved' || it.reviewApprovalStatus === 'Approved'))
+                        );
                       let submittedKpisCount = 0;
                       if (Array.isArray(tp.plan?.items)) {
                         tp.plan.items.forEach((it: any) => {

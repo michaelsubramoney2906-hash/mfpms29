@@ -1467,23 +1467,99 @@ export async function syncNedaPerformanceAgreements() {
         }
       }
 
+      const hasRealNedaKpiCapture = (it: any, q1TargetStr?: string): boolean => {
+        if (!it) return false;
+        const isQ1NaTarget = String(q1TargetStr ?? it.q1Target ?? '').trim().toUpperCase() === 'N/A';
+        const docsCount =
+          (Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs.length : 0) +
+          (Array.isArray(it.q2PoeDocs) ? it.q2PoeDocs.length : 0) +
+          (Array.isArray(it.q3PoeDocs) ? it.q3PoeDocs.length : 0) +
+          (Array.isArray(it.q4PoeDocs) ? it.q4PoeDocs.length : 0) +
+          (Array.isArray(it.annualPoeDocs) ? it.annualPoeDocs.length : 0) +
+          (Array.isArray(it.midtermPoeDocs) ? it.midtermPoeDocs.length : 0);
+        if (docsCount > 0 || it.poeFileBase64 || it.poeFileName) return true;
+        const hasVal = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toUpperCase() !== 'N/A';
+        const hasScore = (v: any) => v !== undefined && v !== null && !isNaN(parseFloat(String(v))) && parseFloat(String(v)) > 0;
+        if (
+          hasVal(it.q1Actual) ||
+          hasVal(it.q2Actual) ||
+          hasVal(it.q3Actual) ||
+          hasVal(it.q4Actual) ||
+          hasVal(it.midtermActual) ||
+          hasVal(it.annualActual) ||
+          hasVal(it.q1Comment) ||
+          hasVal(it.q2Comment) ||
+          hasVal(it.q3Comment) ||
+          hasVal(it.q4Comment) ||
+          hasVal(it.evaluationComment) ||
+          hasVal(it.review) ||
+          hasVal(it.reviewComment) ||
+          hasScore(it.q1Score) ||
+          hasScore(it.q2Score) ||
+          hasScore(it.q3Score) ||
+          hasScore(it.q4Score) ||
+          hasScore(it.midtermScore) ||
+          hasScore(it.ownScore) ||
+          (!isQ1NaTarget && (hasScore(it.managerScore) || hasScore(it.q1ManagerScore)))
+        ) {
+          return true;
+        }
+        return false;
+      };
+
       const mergedKpis = pkg.kpis.map((officialKpi: any) => {
         const kNo = String(officialKpi.kpiNo || '').toLowerCase().trim();
         const kDesc = String(officialKpi.kpi || '').toLowerCase().trim();
         const existing = existingItemOverlay.get(kNo) || existingItemOverlay.get(kDesc);
-        if (!existing) return officialKpi;
+        const isQ1Na = String(officialKpi.q1Target || '').trim().toUpperCase() === 'N/A';
+        const hasCapture = hasRealNedaKpiCapture(existing, officialKpi.q1Target);
+
+        if (!existing || !hasCapture) {
+          return {
+            ...(existing || {}),
+            ...officialKpi,
+            q1Locked: isQ1Na,
+            q1Applicable: !isQ1Na,
+            q1Actual: '',
+            q2Actual: '',
+            q3Actual: '',
+            q4Actual: '',
+            annualActual: '',
+            q1Score: '',
+            myScore: '',
+            ownScore: '',
+            managerScore: '',
+            reviewStatus: isQ1Na ? 'N/A' : 'Draft',
+            reviewApprovalStatus: '',
+            q1PoeStatus: isQ1Na ? 'N/A' : 'Draft',
+            q2PoeStatus: 'Draft',
+            q3PoeStatus: 'Draft',
+            q4PoeStatus: 'Draft',
+            q1PoeDocs: [],
+            q2PoeDocs: [],
+            q3PoeDocs: [],
+            q4PoeDocs: [],
+            annualPoeDocs: [],
+            midtermPoeDocs: []
+          };
+        }
+
         return {
           ...existing,
           ...officialKpi,
+          q1Locked: isQ1Na,
+          q1Applicable: !isQ1Na,
           q1Actual: existing.q1Actual || officialKpi.q1Actual || '',
           q2Actual: existing.q2Actual || officialKpi.q2Actual || '',
           q3Actual: existing.q3Actual || officialKpi.q3Actual || '',
           q4Actual: existing.q4Actual || officialKpi.q4Actual || '',
           annualActual: existing.annualActual || officialKpi.annualActual || '',
+          q1Score: existing.q1Score || officialKpi.q1Score || '',
+          myScore: existing.myScore || existing.q1Score || officialKpi.myScore || '',
           ownScore: existing.ownScore || officialKpi.ownScore || '',
           managerScore: existing.managerScore || officialKpi.managerScore || '',
-          reviewStatus: existing.reviewStatus || officialKpi.reviewStatus || 'Approved',
-          reviewApprovalStatus: existing.reviewApprovalStatus || officialKpi.reviewApprovalStatus || 'Approved',
+          reviewStatus: existing.reviewStatus || officialKpi.reviewStatus || 'Draft',
+          reviewApprovalStatus: existing.reviewApprovalStatus || officialKpi.reviewApprovalStatus || '',
           q1PoeDocs: existing.q1PoeDocs || [],
           q2PoeDocs: existing.q2PoeDocs || [],
           q3PoeDocs: existing.q3PoeDocs || [],
@@ -16753,6 +16829,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       return !isNaN(n) && n > 0;
     };
 
+    const hasExplicitMyScore =
+      hasScoreVal(item.myScore) &&
+      String(item.myScore).trim() !== '3.0';
+
     if (
       hasNonEmptyVal(item.q1Actual) ||
       hasNonEmptyVal(item.q2Actual) ||
@@ -16765,7 +16845,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       hasNonEmptyVal(item.q3Comment) ||
       hasNonEmptyVal(item.q4Comment) ||
       hasNonEmptyVal(item.evaluationComment) ||
-      hasScoreVal(item.myScore) ||
+      hasNonEmptyVal(item.review) ||
+      hasNonEmptyVal(item.reviewComment) ||
+      hasExplicitMyScore ||
+      hasScoreVal(item.ownScore) ||
       hasScoreVal(item.q1Score) ||
       hasScoreVal(item.q2Score) ||
       hasScoreVal(item.q3Score) ||
@@ -16777,13 +16860,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
     const st = item.reviewStatus || item.reviewApprovalStatus || '';
     if (
-      st === 'Approved' ||
-      st === 'Reviewed' ||
       st === 'Revision Required' ||
       st === 'Rejected' ||
       st === 'Dispatched to Audit' ||
       st === 'Dispatched to Internal Audit' ||
-      hasScoreVal(item.managerScore)
+      hasScoreVal(item.managerScore) ||
+      hasScoreVal(item.q1ManagerScore)
     ) {
       return true;
     }
@@ -16845,6 +16927,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const isHleza = uClean.includes('hlezard');
     const isMotauAm = uClean.includes('motauam');
     const isMakitlaC = uClean.includes('makitlac');
+    const isNedaUser =
+      uClean.includes('@neda.gov.za') ||
+      uClean.includes('ngomanennc') ||
+      uClean.includes('manganijp') ||
+      uClean.includes('chaukekc') ||
+      uClean.includes('sehlakols') ||
+      uClean.includes('chaukenh') ||
+      String(item.id || '').startsWith('kpi-ngomane-') ||
+      String(item.id || '').startsWith('kpi-mangani-') ||
+      String(item.id || '').startsWith('kpi-chauke-') ||
+      String(item.id || '').startsWith('kpi-sehlako-') ||
+      String(item.id || '').startsWith('kpi-chaukenh-');
 
     // Alfred Magampe (magampeas@nkangaladm.gov.za):
     // 1) Replace STLM with THLM across all required POE fields
@@ -16992,6 +17086,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       q1LockedVal = true;
     }
 
+    const isQ1TargetNa = String(q1TargetVal || '').trim().toUpperCase() === 'N/A';
+    if (isNedaUser && isQ1TargetNa) {
+      q1LockedVal = true;
+    }
+
     const isNonRejectedReviewStatus =
       item.reviewStatus === 'Submitted for Approval' ||
       item.reviewStatus === 'Submitted for Review' ||
@@ -17017,12 +17116,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       syncedReviewApprovalStatus = '';
     }
 
-    // Prevent blank template KPIs (no PoE files, no actuals, no scores, no manager review) from ever being locked as Submitted for Approval
-    if (
-      (syncedReviewStatus === 'Submitted for Approval' || syncedReviewStatus === 'Submitted for Review' || syncedReviewStatus === 'Submitted') &&
-      !hasGenuineSubmissionEvidence(item)
-    ) {
-      syncedReviewStatus = 'Draft';
+    const itemHasGenuineEvidence = hasGenuineSubmissionEvidence(item);
+
+    // Prevent blank template KPIs (no PoE files, no actuals, no scores, no manager review) from ever being locked as Submitted or Approved
+    if (!itemHasGenuineEvidence) {
+      if (isNedaUser && isQ1TargetNa) {
+        syncedReviewStatus = 'N/A';
+        syncedReviewApprovalStatus = '';
+      } else if (
+        syncedReviewStatus === 'Submitted for Approval' ||
+        syncedReviewStatus === 'Submitted for Review' ||
+        syncedReviewStatus === 'Submitted' ||
+        ((isNedaUser || item.myScore === '3.0') &&
+          (syncedReviewStatus === 'Approved' || syncedReviewStatus === 'Reviewed' || syncedReviewApprovalStatus === 'Approved'))
+      ) {
+        syncedReviewStatus = 'Draft';
+        syncedReviewApprovalStatus = '';
+      }
     }
 
     // Ensure legacy single-file POE attachments (poeFileBase64) are surfaced in q1PoeDocs ONLY if q1PoeDocs was never initialized as an array
@@ -17072,11 +17182,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (isResubmittedOrSubmitted && (st === 'Revision Required' || st === 'Rejected')) {
         return 'Pending Verification';
       }
+      if (!itemHasGenuineEvidence && st === 'Approved') {
+        return 'Draft';
+      }
       return st;
     };
 
+    const shouldStripPlaceholderScore =
+      !itemHasGenuineEvidence &&
+      String(restItem.myScore || '').trim() === '3.0' &&
+      !restItem.q1Score &&
+      !restItem.ownScore &&
+      !restItem.q1Actual;
+
     return {
       ...restItem,
+      ...(shouldStripPlaceholderScore ? { myScore: '' } : {}),
       kpiNo: kpiNoVal,
       annualTarget: annualTargetVal,
       poeFileName: firstCleanDoc ? firstCleanDoc.name : '',
