@@ -1465,6 +1465,28 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         const isMatch = !isTargeted || targetIds.some(tId => matchesKpiIdentifier(item, tId));
         if (isMatch) {
           const selfScore = getSelfScore(item);
+          const hasAnyPoeDocs =
+            (Array.isArray(item.q1PoeDocs) && item.q1PoeDocs.length > 0) ||
+            (Array.isArray(item.q2PoeDocs) && item.q2PoeDocs.length > 0) ||
+            (Array.isArray(item.q3PoeDocs) && item.q3PoeDocs.length > 0) ||
+            (Array.isArray(item.q4PoeDocs) && item.q4PoeDocs.length > 0) ||
+            Boolean(item.poeFileBase64 || item.poeFileName);
+          const hasAnyActual =
+            Boolean(item.q1Actual && String(item.q1Actual).trim() !== '' && String(item.q1Actual).trim().toUpperCase() !== 'N/A') ||
+            Boolean(item.q2Actual && String(item.q2Actual).trim() !== '' && String(item.q2Actual).trim().toUpperCase() !== 'N/A') ||
+            Boolean(item.q3Actual && String(item.q3Actual).trim() !== '' && String(item.q3Actual).trim().toUpperCase() !== 'N/A') ||
+            Boolean(item.q4Actual && String(item.q4Actual).trim() !== '' && String(item.q4Actual).trim().toUpperCase() !== 'N/A');
+          const isExplicitlySubmitted =
+            item.reviewStatus === 'Submitted for Approval' ||
+            item.reviewStatus === 'Submitted for Review' ||
+            item.reviewStatus === 'Submitted' ||
+            item.reviewStatus === 'Approved';
+
+          // During a bulk "Approve All KPIs" (!isTargeted), never lock unsubmitted KPIs that have no actuals, no self-score, and zero POE attachments
+          if (!isTargeted && !hasAnyPoeDocs && !hasAnyActual && selfScore === 'N/A' && !isExplicitlySubmitted) {
+            return item;
+          }
+
           const mScore = item.managerScore || (selfScore !== 'N/A' ? selfScore : '3.0');
           return {
             ...item,

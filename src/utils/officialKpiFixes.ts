@@ -2226,6 +2226,50 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 25. Ms. Refilwe C. Motlhabane (motlhabanerc@nkangaladm.gov.za / mothlabanerc@nkangaladm.gov.za):
+  // Unlock unsubmitted KPIs (KPIs 16 to 21, including KPI 17) that were prematurely bulk-approved with zero POE attachments and no actuals
+  if (
+    normEmail === 'motlhabanerc@nkangaladm.gov.za' ||
+    normEmail === 'mothlabanerc@nkangaladm.gov.za' ||
+    normEmail.includes('motlhabanerc') ||
+    normEmail.includes('mothlabanerc')
+  ) {
+    result = result.map((item: any, idx: number) => {
+      const kNo = String(item.kpiNo || item['kpi no'] || '').trim().toUpperCase();
+      const desc = String(item.kpi || item.description || '').toLowerCase();
+      if (idx === 0 || kNo === 'M_21' || desc.includes('clean audit opinion')) {
+        return item;
+      }
+      const hasActual = Boolean(
+        item.q1Actual &&
+        String(item.q1Actual).trim() !== '' &&
+        String(item.q1Actual).trim().toUpperCase() !== 'N/A'
+      );
+      const hasDocs = Array.isArray(item.q1PoeDocs) && item.q1PoeDocs.length > 0;
+      const hasSelfScore = Boolean(item.q1Score && String(item.q1Score).trim() !== '' && String(item.q1Score).trim() !== '0');
+
+      // If the employee has not yet captured an actual, self-score, or POE attachment, unlock the KPI to Draft
+      if (!hasActual && !hasDocs && !hasSelfScore) {
+        return {
+          ...item,
+          q1Applicable: true,
+          q1Locked: false,
+          lockedQuarters: Array.isArray(item.lockedQuarters)
+            ? item.lockedQuarters.filter((q: string) => q.toUpperCase() !== 'Q1')
+            : [],
+          reviewStatus: 'Draft',
+          reviewApprovalStatus: '',
+          q1PoeStatus: 'Draft',
+          managerScore: '',
+          q1ManagerScore: '',
+          myScore: '',
+          resubmissionUnlocked: true
+        };
+      }
+      return item;
+    });
+  }
+
   return result;
 }
 

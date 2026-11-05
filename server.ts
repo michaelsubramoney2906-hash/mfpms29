@@ -16884,13 +16884,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
 
     const st = item.reviewStatus || item.reviewApprovalStatus || '';
+    const hasManagerComment = hasNonEmptyVal(item.review) || hasNonEmptyVal(item.reviewComment) || hasNonEmptyVal(item.q1PoeFeedback);
+    const hasExplicitManagerScore =
+      (hasScoreVal(item.managerScore) && (String(item.managerScore).trim() !== '3.0' || hasManagerComment)) ||
+      hasScoreVal(item.q1ManagerScore);
+
     if (
       st === 'Revision Required' ||
       st === 'Rejected' ||
       st === 'Dispatched to Audit' ||
       st === 'Dispatched to Internal Audit' ||
-      hasScoreVal(item.managerScore) ||
-      hasScoreVal(item.q1ManagerScore)
+      hasExplicitManagerScore
     ) {
       return true;
     }
@@ -17152,7 +17156,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         syncedReviewStatus === 'Submitted for Approval' ||
         syncedReviewStatus === 'Submitted for Review' ||
         syncedReviewStatus === 'Submitted' ||
-        ((isNedaUser || item.myScore === '3.0') &&
+        ((isNedaUser || item.myScore === '3.0' || item.managerScore === '3.0' || uClean.includes('motlhabanerc') || uClean.includes('mothlabanerc')) &&
           (syncedReviewStatus === 'Approved' || syncedReviewStatus === 'Reviewed' || syncedReviewApprovalStatus === 'Approved'))
       ) {
         syncedReviewStatus = 'Draft';
@@ -25163,7 +25167,8 @@ User Request: ${prompt}`;
         'mankopanamm@nkangaladm.gov.za',
         'masekome@nkangaladm.gov.za',
         'hlezard@nkangaladm.gov.za',
-        'makitlac@nkangaladm.gov.za'
+        'makitlac@nkangaladm.gov.za',
+        'motlhabanerc@nkangaladm.gov.za'
       ];
 
       for (const em of kpiReconcileEmails) {
