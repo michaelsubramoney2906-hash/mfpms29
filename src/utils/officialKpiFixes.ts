@@ -424,19 +424,48 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     ];
 
     result = officialMahlanguKpis.map((def, idx) => {
-      const existing = result.find((ex, exIdx) => {
-        const exNo = String(ex.kpiNo || ex['kpi no'] || '').trim().toUpperCase();
-        const exDesc = String(ex.kpi || ex.description || ex['kpi description'] || '').toLowerCase();
-        if (exIdx === idx) return true;
-        if (exNo === def.kpiNo.toUpperCase()) return true;
-        if (exDesc.includes(def.kpi.toLowerCase().substring(0, 30))) return true;
-        return false;
-      });
+      const targetId = `mahlangude-official-kpi-${idx + 1}`;
+      const existing =
+        result.find(ex => String(ex?.id || '') === targetId) ||
+        result.find(ex => String(ex?.kpiNo || ex?.['kpi no'] || '').trim().toUpperCase() === def.kpiNo.toUpperCase()) ||
+        result.find((_ex, exIdx) => exIdx === idx);
       const base = existing ? { ...existing } : {};
       const allQtrPoe = `Q1: ${def.poe}\nQ2: ${def.poe}\nQ3: ${def.poe}\nQ4: ${def.poe}`;
+
+      // Strip the cloned KPI 16 Illegal Dumping POE (poe_doc_Q1_1792747168095_u5mj33fz2 / 'Illegal dumping listing and inspection reports.pdf')
+      // that bled onto KPIs 17 to 22 (array indices 15 to 20, kpiNo '17' to '22')
+      const isKpi17To22 = ['17', '18', '19', '20', '21', '22'].includes(def.kpiNo);
+      const rawDocs = Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : [];
+      const hadClonedIllegalDumpingDoc = isKpi17To22 && rawDocs.some(
+        (d: any) =>
+          d?.id === 'poe_doc_Q1_1792747168095_u5mj33fz2' ||
+          String(d?.name || '').toLowerCase().includes('illegal dumping listing')
+      );
+      const cleanQ1PoeDocs = isKpi17To22
+        ? rawDocs.filter(
+            (d: any) =>
+              d?.id !== 'poe_doc_Q1_1792747168095_u5mj33fz2' &&
+              !String(d?.name || '').toLowerCase().includes('illegal dumping listing')
+          )
+        : rawDocs;
+
+      // If this row in KPIs 17-22 only had the cloned Illegal Dumping POE and no genuine POE of its own, reset its cloned actual/score/status
+      const shouldResetClonedFields = isKpi17To22 && hadClonedIllegalDumpingDoc && cleanQ1PoeDocs.length === 0;
+      const cleanQ1Actual = shouldResetClonedFields ? '' : (base.q1Actual || '');
+      const cleanQ1Score = shouldResetClonedFields ? '' : (base.q1Score || '');
+      const cleanMyScore = shouldResetClonedFields ? '' : (base.myScore || '');
+      const cleanPoeFileName = shouldResetClonedFields
+        ? ''
+        : (cleanQ1PoeDocs[0]?.name || (isKpi17To22 && String(base.poeFileName || '').toLowerCase().includes('illegal dumping') ? '' : base.poeFileName));
+      const cleanReviewStatus = shouldResetClonedFields
+        ? 'Draft'
+        : (base.reviewStatus || (cleanQ1Actual || cleanQ1PoeDocs.length > 0 ? 'Submitted for Approval' : undefined));
+      const cleanReviewApprovalStatus = shouldResetClonedFields ? '' : base.reviewApprovalStatus;
+      const cleanQ1PoeStatus = shouldResetClonedFields ? 'Draft' : base.q1PoeStatus;
+
       return {
         ...base,
-        id: `mahlangude-official-kpi-${idx + 1}`,
+        id: targetId,
         kpiNo: def.kpiNo,
         'kpi no': def.kpiNo,
         kpa: def.kpa,
@@ -465,11 +494,16 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         budget: 'OPEX',
         q1Locked: def.q1Locked ?? false,
         q1Applicable: def.q1Applicable ?? true,
-        reviewStatus: base.reviewStatus || (base.q1Actual || (Array.isArray(base.q1PoeDocs) && base.q1PoeDocs.length > 0) ? 'Submitted for Approval' : undefined),
-        reviewApprovalStatus: base.reviewApprovalStatus,
-        q1PoeStatus: base.q1PoeStatus,
-        q1Actual: base.q1Actual,
-        q1PoeDocs: Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : []
+        reviewStatus: cleanReviewStatus,
+        reviewApprovalStatus: cleanReviewApprovalStatus,
+        q1PoeStatus: cleanQ1PoeStatus,
+        q1Actual: cleanQ1Actual,
+        actual: shouldResetClonedFields ? '' : base.actual,
+        actualAchieved: shouldResetClonedFields ? '' : base.actualAchieved,
+        q1Score: cleanQ1Score,
+        myScore: cleanMyScore,
+        poeFileName: cleanPoeFileName,
+        q1PoeDocs: cleanQ1PoeDocs
       };
     });
   }

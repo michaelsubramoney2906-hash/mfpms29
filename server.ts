@@ -25173,7 +25173,16 @@ User Request: ${prompt}`;
             plan.items.map((it: any) => sanitizePplanItem(it, em)),
             em
           ).map((it: any) => sanitizePplanItem(it, em));
-          await upsertUserPlanAndKpis(em, plan.metadata, fixedItems);
+          const updatedMeta = { ...(plan.metadata || {}) };
+          if (em === 'mahlangude@nkangaladm.gov.za' && Array.isArray(updatedMeta.submittedKpiIds)) {
+            const draftIds = new Set(
+              fixedItems
+                .filter((it: any) => it.reviewStatus === 'Draft' || (!it.q1Actual && (!Array.isArray(it.q1PoeDocs) || it.q1PoeDocs.length === 0)))
+                .map((it: any) => String(it.id || ''))
+            );
+            updatedMeta.submittedKpiIds = updatedMeta.submittedKpiIds.filter((id: string) => !draftIds.has(String(id || '')));
+          }
+          await upsertUserPlanAndKpis(em, updatedMeta, fixedItems);
 
           // Also sync pulledPplanItems / pulledFilteredPplanItems in draft_doc_* so PA matches 100%
           for (const tId of targetTenants) {
