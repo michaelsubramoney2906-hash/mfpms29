@@ -14378,45 +14378,112 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       
       const aliasUsers = getKhumaloNkosiAliases(userId);
-      const candidateDocIds: string[] = [];
+      const rawCandidateIds: string[] = [];
       for (const aUser of aliasUsers) {
-        candidateDocIds.push(
+        rawCandidateIds.push(
           `job_competencies_${tenantId}_${aUser}`,
-          `job_competencies_neda_${aUser}`,
-          `job_competencies_tenant-neda_${aUser}`,
           `job_competencies_tenant-229_${aUser}`,
           `job_competencies_nkangala_auto_${aUser}`,
+          `job_competencies_neda_${aUser}`,
+          `job_competencies_tenant-neda_${aUser}`,
           `job_competencies_global_${aUser}`
         );
       }
       if (rawUserId !== userId) {
-        candidateDocIds.unshift(
+        rawCandidateIds.push(
           `job_competencies_${tenantId}_${rawUserId}`,
-          `job_competencies_neda_${rawUserId}`,
-          `job_competencies_tenant-neda_${rawUserId}`,
           `job_competencies_tenant-229_${rawUserId}`,
           `job_competencies_nkangala_auto_${rawUserId}`,
+          `job_competencies_neda_${rawUserId}`,
+          `job_competencies_tenant-neda_${rawUserId}`,
           `job_competencies_global_${rawUserId}`
         );
       }
+      const candidateDocIds = Array.from(new Set(rawCandidateIds));
 
-      for (const dId of candidateDocIds) {
-        const { data } = await supabase
-          .from('messages')
-          .select('content')
-          .eq('id', dId)
-          .maybeSingle();
+      const mergeQuarterObj = (primaryQ: any, secondaryQ: any) => {
+        if (!primaryQ && !secondaryQ) return undefined;
+        if (!primaryQ) return secondaryQ;
+        if (!secondaryQ) return primaryQ;
+        const pDocs = Array.isArray(primaryQ.poeDocs) ? primaryQ.poeDocs : [];
+        const sDocs = Array.isArray(secondaryQ.poeDocs) ? secondaryQ.poeDocs : [];
+        const docMap = new Map<string, any>();
+        for (const d of [...pDocs, ...sDocs]) {
+          if (d && (d.id || d.name)) {
+            docMap.set(String(d.id || d.name).toLowerCase().trim(), d);
+          }
+        }
+        return {
+          ...secondaryQ,
+          ...primaryQ,
+          selfScore: primaryQ.selfScore || secondaryQ.selfScore || 0,
+          selfComments: primaryQ.selfComments || secondaryQ.selfComments || '',
+          managerScore: primaryQ.managerScore || secondaryQ.managerScore || 0,
+          managerMotivation: primaryQ.managerMotivation || secondaryQ.managerMotivation || '',
+          internalAuditorScore: primaryQ.internalAuditorScore || secondaryQ.internalAuditorScore || 0,
+          internalAuditorComments: primaryQ.internalAuditorComments || secondaryQ.internalAuditorComments || '',
+          dpmcScore: primaryQ.dpmcScore || secondaryQ.dpmcScore || 0,
+          dpmcComments: primaryQ.dpmcComments || secondaryQ.dpmcComments || '',
+          poeText: primaryQ.poeText || secondaryQ.poeText || '',
+          poeDocs: Array.from(docMap.values()),
+          status: (primaryQ.status && primaryQ.status !== 'draft') ? primaryQ.status : (secondaryQ.status || primaryQ.status || 'draft')
+        };
+      };
 
-        if (data && data.content) {
-          try {
-            const parsed = JSON.parse(data.content);
-            if (parsed && (parsed.isCleared || Array.isArray(parsed.competencies))) {
-              if (parsed.isCleared || parsed.competencies.length === 0) {
-                return res.json({ ...parsed, competencies: [], isCleared: true });
-              }
-              return res.json(parsed);
+      const { data: matchingDocs } = await supabase
+        .from('messages')
+        .select('id, content')
+        .in('id', candidateDocIds);
+
+      if (Array.isArray(matchingDocs) && matchingDocs.length > 0) {
+        const docById = new Map<string, any>();
+        for (const row of matchingDocs) {
+          if (row && row.id && row.content) {
+            try {
+              docById.set(row.id, JSON.parse(row.content));
+            } catch (_) {}
+          }
+        }
+
+        let primaryParsed: any = null;
+        const secondaryCompetencyLists: any[][] = [];
+
+        for (const dId of candidateDocIds) {
+          const parsed = docById.get(dId);
+          if (!parsed) continue;
+          if (parsed.isCleared || Array.isArray(parsed.competencies)) {
+            if (!primaryParsed) {
+              primaryParsed = parsed;
+            } else if (Array.isArray(parsed.competencies) && parsed.competencies.length > 0) {
+              secondaryCompetencyLists.push(parsed.competencies);
             }
-          } catch (parseErr) {}
+          }
+        }
+
+        if (primaryParsed) {
+          if (primaryParsed.isCleared || !Array.isArray(primaryParsed.competencies) || primaryParsed.competencies.length === 0) {
+            return res.json({ ...primaryParsed, competencies: [], isCleared: true });
+          }
+          let mergedCompetencies = primaryParsed.competencies.map((c: any) => ({ ...c }));
+          for (const secList of secondaryCompetencyLists) {
+            mergedCompetencies = mergedCompetencies.map((baseRow: any, idx: number) => {
+              const secRow = secList.find((s: any, sIdx: number) =>
+                (s.id && baseRow.id && String(s.id) === String(baseRow.id)) ||
+                (s.jscNo && baseRow.jscNo && String(s.jscNo).trim() === String(baseRow.jscNo).trim()) ||
+                sIdx === idx
+              );
+              if (!secRow) return baseRow;
+              return {
+                ...secRow,
+                ...baseRow,
+                q1: mergeQuarterObj(baseRow.q1, secRow.q1),
+                q2: mergeQuarterObj(baseRow.q2, secRow.q2),
+                q3: mergeQuarterObj(baseRow.q3, secRow.q3),
+                q4: mergeQuarterObj(baseRow.q4, secRow.q4)
+              };
+            });
+          }
+          return res.json({ ...primaryParsed, competencies: mergedCompetencies });
         }
       }
 
@@ -14524,7 +14591,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       const payload = JSON.stringify(bodyToSave);
 
-      const targetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
+      const baseTargetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
+      const targetUsers = Array.from(new Set(
+        rawUserId !== userId && rawUserId !== 'default'
+          ? [...baseTargetUsers, rawUserId]
+          : baseTargetUsers
+      ));
       for (const uKey of targetUsers) {
         for (const tKey of targetTenants) {
           const uDocId = `job_competencies_${tKey}_${uKey}`;
@@ -16772,6 +16844,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const isMagampe = uClean.includes('magampeas');
     const isHleza = uClean.includes('hlezard');
     const isMotauAm = uClean.includes('motauam');
+    const isMakitlaC = uClean.includes('makitlac');
 
     // Alfred Magampe (magampeas@nkangaladm.gov.za):
     // 1) Replace STLM with THLM across all required POE fields
@@ -16851,12 +16924,37 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
     }
 
-    // Mark Maseko (masekome@nkangaladm.gov.za): Unlock KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Q1
-    if (isMasekoMe && (kpiNoNorm === '5' || kpiDesc.includes('annual performance evaluation on e-pms') || kpiDesc.includes('29 august 2026'))) {
+    // Mark Maseko (masekome@nkangaladm.gov.za):
+    // 1. Unlock KPA 1 KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Q1
+    // 2. Lock KPA 1 KPI 6 ("Number of informal performance evaluation conducted with all subordinates per quarter") as N/A for Q1 and strip misplaced Batho Pele POEs/actuals
+    // 3. Lock KPA 3 KPI 5 ("Number of reports on the maintenance of the Organisational Structure by 30 June 2027") as N/A for Q1
+    const isMasekoKpa1Kpi5 =
+      isMasekoMe &&
+      (String(item.id || '') === 'ipp-kpi-1790668545717-5' ||
+        kpiDesc.includes('annual performance evaluation on e-pms') ||
+        kpiDesc.includes('29 august 2026'));
+    const isMasekoKpa1Kpi6 =
+      isMasekoMe &&
+      (String(item.id || '') === 'ipp-kpi-1790668545717-6' ||
+        kpiDesc.includes('informal performance evaluation conducted with all subordinates'));
+    const isMasekoKpa3Kpi5 =
+      isMasekoMe &&
+      (String(item.id || '') === 'ipp-kpi-1790668545717-13' ||
+        kpiDesc.includes('maintenance of the organisational structure'));
+
+    if (isMasekoKpa1Kpi5) {
       if (!q1TargetVal || String(q1TargetVal).trim().toUpperCase() === 'N/A') {
         q1TargetVal = '1 (annual assessment)';
       }
       q1LockedVal = false;
+    }
+    if (isMasekoKpa1Kpi6) {
+      q1TargetVal = 'N/A';
+      q1LockedVal = true;
+    }
+    if (isMasekoKpa3Kpi5) {
+      q1TargetVal = 'N/A';
+      q1LockedVal = true;
     }
 
     // Fikile Maseko: Lock KPI M_49 ("Number of Tourism Expo convened by 30 April 2027") for Q1, Q2, Q3 (only applicable in Q4)
@@ -16882,6 +16980,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
     }
 
+    // Cedrive Makitla (makitlac@nkangaladm.gov.za): Lock KPI 1 on KPA 2 ("Percentage of departmental procurement plan developed and submitted by 30 May 2025") as N/A for Quarter 1
+    const kpaLower = String(item.kpa || '').toLowerCase();
+    const isMakitlaKpa2Kpi1 =
+      isMakitlaC &&
+      (String(item.id || '') === 'extracted-sync-1790030926695-9' ||
+        ((kpaLower.includes('kpa 2') || kpaLower.includes('supply chain')) &&
+          (kpiNoNorm === '1' || kpiDesc.includes('departmental procurement plan developed'))));
+    if (isMakitlaKpa2Kpi1) {
+      q1TargetVal = 'N/A';
+      q1LockedVal = true;
+    }
+
     const isNonRejectedReviewStatus =
       item.reviewStatus === 'Submitted for Approval' ||
       item.reviewStatus === 'Submitted for Review' ||
@@ -16898,6 +17008,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
     // Ensure Q1 N/A Clean Audit Opinion (M_21) is marked as N/A for Quarter 1 on Pheladi Naka & Rachidi Mogatle (and any uncaptured Q1 N/A Clean Audit KPI)
     if ((kpiNoNorm === 'M_21' || kpiNoNorm === 'M-21' || (isCleanAudit && kpiDesc.includes('31 december'))) && (uClean.includes('nakapm') || uClean.includes('rachidimb') || !item.q1Actual || String(item.q1Actual).trim().toUpperCase() === 'N/A')) {
+      syncedReviewStatus = 'N/A';
+      syncedReviewApprovalStatus = '';
+    }
+
+    if (isMakitlaKpa2Kpi1 || isMasekoKpa1Kpi6 || isMasekoKpa3Kpi5) {
       syncedReviewStatus = 'N/A';
       syncedReviewApprovalStatus = '';
     }
@@ -16922,7 +17037,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       });
     };
 
-    let q1Docs = cleanDocList(item.q1PoeDocs);
+    let q1Docs = isMasekoKpa1Kpi6 ? [] : cleanDocList(item.q1PoeDocs);
     const q2Docs = cleanDocList(item.q2PoeDocs);
     const q3Docs = cleanDocList(item.q3PoeDocs);
     const q4Docs = cleanDocList(item.q4PoeDocs);
@@ -16930,7 +17045,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     const midtermDocs = cleanDocList(item.midtermPoeDocs);
 
     const totalDocsCount = q1Docs.length + q2Docs.length + q3Docs.length + q4Docs.length + annualDocs.length + midtermDocs.length;
-    if (totalDocsCount === 0 && item.poeFileBase64 && !Array.isArray(item.q1PoeDocs)) {
+    if (totalDocsCount === 0 && item.poeFileBase64 && !Array.isArray(item.q1PoeDocs) && !isMasekoKpa1Kpi6) {
       q1Docs = [{
         id: `legacy-poe-${item.id || item.kpiNo || '1'}`,
         name: item.poeFileName || 'Submitted_Portfolio_of_Evidence.pdf',
@@ -16979,12 +17094,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       q4Target: q4TargetVal,
       q1Locked: q1LockedVal,
       ...(q1LockedVal === false ? { q1Applicable: true } : {}),
+      ...(q1LockedVal === true ? { q1Applicable: false } : {}),
+      ...((isMakitlaKpa2Kpi1 || isMasekoKpa1Kpi6) ? {
+        q1Actual: '',
+        actual: '',
+        actualAchieved: '',
+        q1Score: '',
+        myScore: '',
+        managerScore: '',
+        review: '',
+        resubmittedAt: '',
+        resubmissionUnlocked: false,
+        lockedQuarters: ['Q1', 'q1']
+      } : {}),
+      ...(isMasekoKpa3Kpi5 ? {
+        lockedQuarters: ['Q1', 'q1', 'Q2', 'q2', 'Q3', 'q3']
+      } : {}),
       ...(q2LockedVal !== undefined ? { q2Locked: q2LockedVal } : {}),
       ...(q3LockedVal !== undefined ? { q3Locked: q3LockedVal } : {}),
       ...(q4LockedVal !== undefined ? { q4Locked: q4LockedVal } : {}),
       poe: cleanParentPoe,
       annualRequiredPoe: finalAnnual,
-      q1Poe: finalQ1,
+      q1Poe: isMasekoKpa1Kpi6 ? '' : finalQ1,
       q2Poe: finalQ2,
       midtermPoe: finalMidterm,
       q3Poe: finalQ3,
@@ -17389,21 +17520,45 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (!secItem) continue;
         const secId = String(secItem.id || '').toLowerCase().trim();
         const secNo = String(secItem.kpiNo || secItem['kpi no'] || '').toLowerCase().trim();
-        const secDesc = String(secItem.kpi || secItem.description || '').toLowerCase().trim();
+        const secDesc = String(secItem.kpi || secItem.kpiDescription || secItem.description || '').toLowerCase().trim();
+        const secKpa = String(secItem.kpa || '').toLowerCase().trim();
 
-        const matchIdx = result.findIndex(baseItem => {
-          const bId = String(baseItem.id || '').toLowerCase().trim();
-          const bNo = String(baseItem.kpiNo || baseItem['kpi no'] || '').toLowerCase().trim();
-          const bDesc = String(baseItem.kpi || baseItem.description || '').toLowerCase().trim();
-          return (secId && bId && secId === bId) ||
-                 (secNo && bNo && secNo === bNo) ||
-                 (secDesc && bDesc && secDesc.length > 8 && secDesc === bDesc);
-        });
+        // Multi-pass priority matching to prevent cross-KPA kpiNo collisions (e.g. KPA 1 KPI 6 vs KPA 3 KPI 6)
+        let matchIdx = -1;
+        if (secId) {
+          matchIdx = result.findIndex(baseItem => String(baseItem.id || '').toLowerCase().trim() === secId);
+        }
+        if (matchIdx < 0 && secDesc && secDesc.length > 8) {
+          matchIdx = result.findIndex(baseItem => {
+            const bDesc = String(baseItem.kpi || baseItem.kpiDescription || baseItem.description || '').toLowerCase().trim();
+            return bDesc === secDesc;
+          });
+        }
+        if (matchIdx < 0 && secNo) {
+          matchIdx = result.findIndex(baseItem => {
+            const bNo = String(baseItem.kpiNo || baseItem['kpi no'] || '').toLowerCase().trim();
+            if (bNo !== secNo) return false;
+            const bKpa = String(baseItem.kpa || '').toLowerCase().trim();
+            const bDesc = String(baseItem.kpi || baseItem.kpiDescription || baseItem.description || '').toLowerCase().trim();
+            // If both items have descriptions and they are completely different KPIs, never collide on kpiNo alone
+            if (secDesc && bDesc && secDesc.length > 8 && bDesc.length > 8 && secDesc !== bDesc) {
+              return false;
+            }
+            if (secKpa && bKpa && secKpa !== bKpa) {
+              return false;
+            }
+            return true;
+          });
+        }
 
         if (matchIdx >= 0) {
           const base = result[matchIdx];
           const baseSt = base.reviewStatus || base.reviewApprovalStatus;
           const secSt = secItem.reviewStatus || secItem.reviewApprovalStatus;
+          const isBaseQ1LockedOrNA =
+            base.q1Locked === true ||
+            base.q1Applicable === false ||
+            String(base.q1Target || '').trim().toUpperCase() === 'N/A';
 
           const countDocs = (it: any) =>
             (Array.isArray(it?.q1PoeDocs) ? it.q1PoeDocs.length : 0) +
@@ -17413,27 +17568,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             (Array.isArray(it?.annualPoeDocs) ? it.annualPoeDocs.length : 0) +
             (Array.isArray(it?.midtermPoeDocs) ? it.midtermPoeDocs.length : 0);
 
-          const getNewestDocUploadTs = (it: any) => {
-            const docs = [
-              ...(Array.isArray(it?.q1PoeDocs) ? it.q1PoeDocs : []),
-              ...(Array.isArray(it?.q2PoeDocs) ? it.q2PoeDocs : []),
-              ...(Array.isArray(it?.q3PoeDocs) ? it.q3PoeDocs : []),
-              ...(Array.isArray(it?.q4PoeDocs) ? it.q4PoeDocs : []),
-              ...(Array.isArray(it?.annualPoeDocs) ? it.annualPoeDocs : []),
-              ...(Array.isArray(it?.midtermPoeDocs) ? it.midtermPoeDocs : [])
-            ];
-            let maxTs = 0;
-            for (const d of docs) {
-              const t = d?.uploadedAt ? new Date(d.uploadedAt).getTime() : 0;
-              if (!isNaN(t) && t > maxTs) maxTs = t;
-            }
-            return maxTs;
-          };
-
-          const baseDocsCount = countDocs(base);
           const secDocsCount = countDocs(secItem);
-          const baseNewestDocTs = getNewestDocUploadTs(base);
-          const secNewestDocTs = getNewestDocUploadTs(secItem);
 
           let resolvedReviewStatus = base.reviewStatus;
           let resolvedApprovalStatus = base.reviewApprovalStatus;
@@ -17451,6 +17586,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             const isBaseAlreadyActionedOrUnlocked =
               isActionedStatus(baseSt) ||
               base.reviewStatus === 'N/A' ||
+              isBaseQ1LockedOrNA ||
               Boolean(base.resubmissionUnlocked) ||
               isExplicitDraftStatus(base.reviewStatus);
 
@@ -17464,7 +17600,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             }
           }
 
-          const mergedQ1Docs = mergeDocArrays(base.q1PoeDocs, secItem.q1PoeDocs);
+          const mergedQ1Docs = isBaseQ1LockedOrNA
+            ? (Array.isArray(base.q1PoeDocs) ? base.q1PoeDocs : [])
+            : mergeDocArrays(base.q1PoeDocs, secItem.q1PoeDocs);
           const mergedQ2Docs = mergeDocArrays(base.q2PoeDocs, secItem.q2PoeDocs);
           const mergedQ3Docs = mergeDocArrays(base.q3PoeDocs, secItem.q3PoeDocs);
           const mergedQ4Docs = mergeDocArrays(base.q4PoeDocs, secItem.q4PoeDocs);
@@ -17492,34 +17630,34 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             reviewApprovalStatus: resolvedApprovalStatus || '',
             resubmittedAt: resolvedResubmittedAt,
             resubmissionUnlocked: resolvedResubmissionUnlocked,
-            managerScore: base.managerScore || secItem.managerScore,
-            q1ManagerScore: base.q1ManagerScore || secItem.q1ManagerScore,
+            managerScore: base.managerScore || (isBaseQ1LockedOrNA ? '' : secItem.managerScore),
+            q1ManagerScore: base.q1ManagerScore || (isBaseQ1LockedOrNA ? '' : secItem.q1ManagerScore),
             q2ManagerScore: base.q2ManagerScore || secItem.q2ManagerScore,
             q3ManagerScore: base.q3ManagerScore || secItem.q3ManagerScore,
             q4ManagerScore: base.q4ManagerScore || secItem.q4ManagerScore,
-            review: base.review || secItem.review,
-            reviewComment: base.reviewComment || secItem.reviewComment,
-            myScore: (base.myScore && base.myScore !== 'N/A') ? base.myScore : (secItem.myScore || base.myScore),
-            q1Score: base.q1Score || secItem.q1Score,
+            review: base.review || (isBaseQ1LockedOrNA ? '' : secItem.review),
+            reviewComment: base.reviewComment || (isBaseQ1LockedOrNA ? '' : secItem.reviewComment),
+            myScore: isBaseQ1LockedOrNA ? (base.myScore || '') : ((base.myScore && base.myScore !== 'N/A') ? base.myScore : (secItem.myScore || base.myScore)),
+            q1Score: isBaseQ1LockedOrNA ? (base.q1Score || '') : (base.q1Score || secItem.q1Score),
             q2Score: base.q2Score || secItem.q2Score,
             q3Score: base.q3Score || secItem.q3Score,
             q4Score: base.q4Score || secItem.q4Score,
             evaluation: base.evaluation || secItem.evaluation,
             evaluationComment: base.evaluationComment || secItem.evaluationComment,
-            q1Actual: base.q1Actual || secItem.q1Actual,
+            q1Actual: isBaseQ1LockedOrNA ? (base.q1Actual || '') : (base.q1Actual || secItem.q1Actual),
             q2Actual: base.q2Actual || secItem.q2Actual,
             q3Actual: base.q3Actual || secItem.q3Actual,
             q4Actual: base.q4Actual || secItem.q4Actual,
             midtermActual: base.midtermActual || secItem.midtermActual,
-            q1Comment: base.q1Comment || secItem.q1Comment,
+            q1Comment: isBaseQ1LockedOrNA ? (base.q1Comment || '') : (base.q1Comment || secItem.q1Comment),
             q2Comment: base.q2Comment || secItem.q2Comment,
             q3Comment: base.q3Comment || secItem.q3Comment,
             q4Comment: base.q4Comment || secItem.q4Comment,
-            q1Poe: base.q1Poe || secItem.q1Poe,
+            q1Poe: isBaseQ1LockedOrNA ? (base.q1Poe || '') : (base.q1Poe || secItem.q1Poe),
             q2Poe: base.q2Poe || secItem.q2Poe,
             q3Poe: base.q3Poe || secItem.q3Poe,
             q4Poe: base.q4Poe || secItem.q4Poe,
-            q1PoeStatus: resolveQuarterPoeStatus(base.q1PoeStatus, secItem.q1PoeStatus, mergedQ1Docs),
+            q1PoeStatus: isBaseQ1LockedOrNA ? 'N/A' : resolveQuarterPoeStatus(base.q1PoeStatus, secItem.q1PoeStatus, mergedQ1Docs),
             q2PoeStatus: resolveQuarterPoeStatus(base.q2PoeStatus, secItem.q2PoeStatus, mergedQ2Docs),
             q3PoeStatus: resolveQuarterPoeStatus(base.q3PoeStatus, secItem.q3PoeStatus, mergedQ3Docs),
             q4PoeStatus: resolveQuarterPoeStatus(base.q4PoeStatus, secItem.q4PoeStatus, mergedQ4Docs),
@@ -17528,7 +17666,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             q3PoeFeedback: base.q3PoeFeedback || secItem.q3PoeFeedback,
             q4PoeFeedback: base.q4PoeFeedback || secItem.q4PoeFeedback,
             poeFileBase64: undefined,
-            poeFileName: allMergedDocs[0] ? allMergedDocs[0].name : (authoritativePoe ? '' : (base.poeFileName || secItem.poeFileName || '')),
+            poeFileName: allMergedDocs[0] ? allMergedDocs[0].name : (authoritativePoe || isBaseQ1LockedOrNA ? '' : (base.poeFileName || secItem.poeFileName || '')),
             q1PoeDocs: mergedQ1Docs,
             q2PoeDocs: mergedQ2Docs,
             q3PoeDocs: mergedQ3Docs,
@@ -24872,7 +25010,8 @@ User Request: ${prompt}`;
         'moepis@nkangaladm.gov.za',
         'mankopanamm@nkangaladm.gov.za',
         'masekome@nkangaladm.gov.za',
-        'hlezard@nkangaladm.gov.za'
+        'hlezard@nkangaladm.gov.za',
+        'makitlac@nkangaladm.gov.za'
       ];
 
       for (const em of kpiReconcileEmails) {
@@ -25557,7 +25696,10 @@ User Request: ${prompt}`;
         }
       }
 
-      // Re-associate Mark Maseko's (masekome@nkangaladm.gov.za) misplaced HR POE files to KPI 8 (HR Plan) & KPI 14 (Vacancy Report)
+      // Re-associate Mark Maseko's (masekome@nkangaladm.gov.za) misplaced POE files and clean locked Q1 KPIs:
+      // - KPI 0 (Clean Audit M_21) -> HR Plan to KPI 8, Vacancy Report to KPI 14
+      // - KPA 1 KPI 6 (id: ipp-kpi-1790668545717-6, informal performance evaluation) -> Batho Pele POEs rescued to KPA 3 KPI 6 (id: ipp-kpi-1790668545717-14), and KPA 1 KPI 6 locked/cleaned for Q1
+      // - KPA 3 KPI 5 (id: ipp-kpi-1790668545717-13, Organisational Structure maintenance) -> locked as N/A for Q1
       const masekoEmail = 'masekome@nkangaladm.gov.za';
       const masekoDocIds = [
         `pplan_tenant-229_${masekoEmail}`,
@@ -25571,24 +25713,42 @@ User Request: ${prompt}`;
           if (!row.content) continue;
           try {
             const parsed = JSON.parse(row.content);
-            let list = parsed.items || parsed.kpis || parsed.rows;
+            const list = parsed.items || parsed.kpis || parsed.rows;
             if (Array.isArray(list) && list.length > 0) {
               let misplacedPoeDocs: any[] = [];
+              let bathoPeleDocsFromKpa1Kpi6: any[] = [];
+              let needsUpdate = false;
+
               list.forEach((it: any, index: number) => {
                 const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+                const itemId = String(it.id || '');
                 if (index === 0 || desc.includes('clean audit opinion')) {
                   if (Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0) {
                     misplacedPoeDocs = [...it.q1PoeDocs];
+                    needsUpdate = true;
+                  }
+                }
+                if (itemId === 'ipp-kpi-1790668545717-6' || desc.includes('informal performance evaluation conducted with all subordinates')) {
+                  const docs = [...(Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : []), ...(Array.isArray(it.poeDocs) ? it.poeDocs : [])];
+                  if (docs.length > 0 || it.q1Actual || it.q1Score || !it.q1Locked || it.reviewStatus !== 'N/A') {
+                    bathoPeleDocsFromKpa1Kpi6 = [...bathoPeleDocsFromKpa1Kpi6, ...docs];
+                    needsUpdate = true;
+                  }
+                }
+                if (itemId === 'ipp-kpi-1790668545717-13' || desc.includes('maintenance of the organisational structure')) {
+                  if (!it.q1Locked || it.q1Target !== 'N/A' || it.reviewStatus !== 'N/A') {
+                    needsUpdate = true;
                   }
                 }
               });
 
-              if (misplacedPoeDocs.length > 0) {
+              if (needsUpdate) {
                 const hrPlanDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('hr plan'));
                 const vacancyDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('vacancy'));
 
                 const updatedList = list.map((it: any, index: number) => {
                   const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+                  const itemId = String(it.id || '');
 
                   if (index === 0 || desc.includes('clean audit opinion')) {
                     return {
@@ -25598,11 +25758,70 @@ User Request: ${prompt}`;
                       q1Locked: true,
                       q1Applicable: false,
                       q1PoeStatus: 'N/A',
+                      reviewStatus: 'N/A',
                       q1Actual: '',
                       q1Poe: '',
                       poe: '',
                       q1PoeDocs: [],
                       q1Score: ''
+                    };
+                  }
+
+                  // KPA 1, KPI 6: Lock & strip misplaced Batho Pele actuals/POEs in Q1
+                  if (itemId === 'ipp-kpi-1790668545717-6' || desc.includes('informal performance evaluation conducted with all subordinates')) {
+                    return {
+                      ...it,
+                      q1Target: 'N/A',
+                      '1st qtr target': 'N/A',
+                      q1Locked: true,
+                      q1Applicable: false,
+                      lockedQuarters: ['Q1', 'q1', 'Q3', 'q3'],
+                      q1Actual: '',
+                      actual: '',
+                      actualAchieved: '',
+                      q1Score: '',
+                      myScore: '',
+                      managerScore: '',
+                      q1Poe: '',
+                      poe: '',
+                      poeFileName: '',
+                      q1PoeDocs: [],
+                      poeDocs: [],
+                      q1PoeStatus: 'N/A',
+                      reviewStatus: 'N/A',
+                      reviewApprovalStatus: ''
+                    };
+                  }
+
+                  // KPA 3, KPI 5: Lock in Q1, Q2, Q3 (applicable only in Q4)
+                  if (itemId === 'ipp-kpi-1790668545717-13' || desc.includes('maintenance of the organisational structure')) {
+                    return {
+                      ...it,
+                      q1Target: 'N/A',
+                      '1st qtr target': 'N/A',
+                      q1Locked: true,
+                      q1Applicable: false,
+                      lockedQuarters: ['Q1', 'q1', 'Q2', 'q2', 'Q3', 'q3'],
+                      q1PoeStatus: 'N/A',
+                      reviewStatus: 'N/A',
+                      reviewApprovalStatus: ''
+                    };
+                  }
+
+                  // KPA 3, KPI 6: Preserve & merge rescued Batho Pele POE files
+                  if (itemId === 'ipp-kpi-1790668545717-14' || desc.includes('batho pele local committee meetings coordinated')) {
+                    const existing = Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : [];
+                    const merged = Array.from(new Map([...existing, ...bathoPeleDocsFromKpa1Kpi6].filter(Boolean).map(d => [d.id || d.name, d])).values());
+                    return {
+                      ...it,
+                      q1Target: '1',
+                      q1Locked: false,
+                      q1Applicable: true,
+                      q1Actual: it.q1Actual || '1',
+                      q1Score: it.q1Score || '3',
+                      q1PoeDocs: merged,
+                      poeDocs: merged,
+                      poeFileName: merged[0]?.name || it.poeFileName
                     };
                   }
 
@@ -25627,6 +25846,7 @@ User Request: ${prompt}`;
                 const updatedContent = JSON.stringify(parsed);
                 await supabase.from('messages').update({ content: updatedContent, updated_at: nowIso }).eq('id', row.id);
                 memoryCache.delete(row.id);
+                pplanCache.delete(row.id);
               }
             }
           } catch (err) {}

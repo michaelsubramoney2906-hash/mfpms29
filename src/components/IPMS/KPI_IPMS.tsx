@@ -591,10 +591,19 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
     const targetKpi = updatedKpis.find(k => k.id === id);
     if (targetKpi && !loading && Array.isArray(pplanData.items) && pplanData.items.length > 0) {
       const existingPlanItems = [...pplanData.items];
-      const matchIndex = existingPlanItems.findIndex(item => 
-        (item.id && targetKpi.id && String(item.id).toLowerCase().trim() === String(targetKpi.id).toLowerCase().trim()) ||
-        (item.kpiNo && targetKpi.kpiNo && String(item.kpiNo).toLowerCase().trim() === String(targetKpi.kpiNo).toLowerCase().trim())
+      let matchIndex = existingPlanItems.findIndex(item =>
+        item.id && targetKpi.id && String(item.id).toLowerCase().trim() === String(targetKpi.id).toLowerCase().trim()
       );
+      if (matchIndex < 0) {
+        matchIndex = existingPlanItems.findIndex(item => {
+          const itemDesc = String(item.kpi || item.kpiDescription || item.description || '').toLowerCase().trim();
+          const targetDesc = String(targetKpi.description || (targetKpi as any).kpi || '').toLowerCase().trim();
+          if (itemDesc && targetDesc && itemDesc.length > 8 && itemDesc === targetDesc) return true;
+          const sameNo = item.kpiNo && targetKpi.kpiNo && String(item.kpiNo).toLowerCase().trim() === String(targetKpi.kpiNo).toLowerCase().trim();
+          const sameKpa = !item.kpa || !targetKpi.kpa || String(item.kpa).toLowerCase().trim() === String(targetKpi.kpa).toLowerCase().trim();
+          return Boolean(sameNo && sameKpa && (!itemDesc || !targetDesc || itemDesc === targetDesc));
+        });
+      }
       
       const selectedKpaObj = availableKpas.find(k => k.title === targetKpi.kpa);
       const fallbackStrategicGoal = selectedKpaObj?.parentObjective || targetKpi.kpa || '';

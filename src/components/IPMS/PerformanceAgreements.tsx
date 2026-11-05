@@ -17,6 +17,7 @@ import { NKANGALA_LOGO_BASE64 } from './nkangala_logo_base64';
 import { PoeDocument } from './Evaluation_IPMS';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
 import { downloadOriginalFile, viewOriginalFile } from '../../utils/documentBinaryHelper';
+import { applyOfficialKpiRules } from '../../utils/officialKpiFixes';
 
 
 const cachedMinimalUsersByTenant = new Map<string, any[]>();
@@ -737,6 +738,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                 return !kpiDesc.includes('staff vacancy rate');
               });
             }
+
+            currentItems = applyOfficialKpiRules(targetEmail, currentItems);
           }
 
           const isCleared = data.metadata && data.metadata._isCleared === true;
@@ -756,7 +759,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               );
               // Update existing items
               currentItems = currentItems.map(item => {
-                const matchedKpi = fetchedKpis.find(fk => (fk.kpiNo || '').toLowerCase().trim() === (item.kpiNo || '').toLowerCase().trim());
+                const matchedKpi = fetchedKpis.find(fk =>
+                  (item.id && fk.id && String(fk.id).toLowerCase().trim() === String(item.id).toLowerCase().trim()) ||
+                  ((fk.kpiNo || '').toLowerCase().trim() === (item.kpiNo || '').toLowerCase().trim() &&
+                   (fk.kpa || '').toLowerCase().trim() === (item.kpa || '').toLowerCase().trim())
+                );
                 if (matchedKpi) {
                   return {
                     ...item,

@@ -2058,7 +2058,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                   (kpi.midtermActual && String(kpi.midtermActual).trim() !== '' && String(kpi.midtermActual).trim().toUpperCase() !== 'N/A') ||
                   (kpi.annualActual && String(kpi.annualActual).trim() !== '' && String(kpi.annualActual).trim().toUpperCase() !== 'N/A')
                 );
-                const isRejectedOrRevision =
+                const isQ1LockedCard = currentTab === 'q1' && (Boolean(kpi.q1Locked) || isCellNA(kpi.q1Target));
+                const isRejectedOrRevision = !isQ1LockedCard && (
                   kpi.reviewStatus === 'Revision Required' ||
                   kpi.reviewStatus === 'Rejected' ||
                   kpi.reviewApprovalStatus === 'Rejected' ||
@@ -2067,7 +2068,8 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                   kpi.q2PoeStatus === 'Revision Required' ||
                   kpi.q3PoeStatus === 'Revision Required' ||
                   kpi.q4PoeStatus === 'Revision Required' ||
-                  Boolean(kpi.resubmissionUnlocked);
+                  Boolean(kpi.resubmissionUnlocked)
+                );
                 const kpiIsReadOnly = isReadOnly || (!isUnrestricted && !isRejectedOrRevision && (
                   kpi.reviewStatus === 'Submitted for Approval' || 
                   kpi.reviewStatus === 'Reviewed' || 
@@ -2082,9 +2084,10 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => toggleSelectKpi(kpi.id)}
-                        className="p-1 rounded text-slate-600 hover:text-emerald-600 cursor-pointer"
-                        title={isSelected ? 'Deselect KPI' : 'Select KPI for batch submission'}
+                        onClick={() => !isQ1LockedCard && toggleSelectKpi(kpi.id)}
+                        disabled={isQ1LockedCard}
+                        className="p-1 rounded text-slate-600 hover:text-emerald-600 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={isQ1LockedCard ? 'Locked for Quarter 1 (N/A)' : (isSelected ? 'Deselect KPI' : 'Select KPI for batch submission')}
                       >
                         {isSelected ? (
                           <CheckSquare className="w-5 h-5 text-emerald-600" />
@@ -2106,17 +2109,22 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                       )}
                       
                       {/* Review Status Badging */}
-                      {kpi.reviewStatus === 'Submitted for Approval' && kpiHasEvidence && (
+                      {isQ1LockedCard && (
+                        <span className="bg-slate-200 text-slate-700 font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-slate-300">
+                          🔒 Locked for Q1 (N/A)
+                        </span>
+                      )}
+                      {!isQ1LockedCard && kpi.reviewStatus === 'Submitted for Approval' && kpiHasEvidence && (
                         <span className="bg-amber-500 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                           ⚡ Submitted to Manager
                         </span>
                       )}
-                      {(kpi.reviewStatus === 'Revision Required' || kpi.reviewStatus === 'Rejected' || kpi.reviewApprovalStatus === 'Rejected' || kpi.q1PoeStatus === 'Revision Required' || kpi.q1PoeStatus === 'Rejected' || kpi.q2PoeStatus === 'Revision Required' || kpi.q3PoeStatus === 'Revision Required' || kpi.q4PoeStatus === 'Revision Required') && (
+                      {!isQ1LockedCard && (kpi.reviewStatus === 'Revision Required' || kpi.reviewStatus === 'Rejected' || kpi.reviewApprovalStatus === 'Rejected' || kpi.q1PoeStatus === 'Revision Required' || kpi.q1PoeStatus === 'Rejected' || kpi.q2PoeStatus === 'Revision Required' || kpi.q3PoeStatus === 'Revision Required' || kpi.q4PoeStatus === 'Revision Required') && (
                         <span className="bg-rose-600 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs animate-pulse">
                           ⚠️ Revision Requested (Unlocked for Resubmission)
                         </span>
                       )}
-                      {(kpi.reviewStatus === 'Reviewed' || kpi.reviewStatus === 'Approved') && (
+                      {!isQ1LockedCard && (kpi.reviewStatus === 'Reviewed' || kpi.reviewStatus === 'Approved') && (
                         <span className="bg-emerald-600 text-white font-black text-[9.5px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs">
                           ✅ Verified & Approved
                         </span>
@@ -2124,7 +2132,7 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {!isReadOnly && (kpiIsReadOnly || kpi.reviewStatus === 'Submitted for Approval' || kpi.reviewStatus === 'Approved' || kpi.reviewStatus === 'Reviewed') && (
+                      {!isReadOnly && !isQ1LockedCard && (kpiIsReadOnly || kpi.reviewStatus === 'Submitted for Approval' || kpi.reviewStatus === 'Approved' || kpi.reviewStatus === 'Reviewed') && (
                         <button
                           type="button"
                           onClick={() => handleRedoKpi(kpi.id)}
@@ -2139,16 +2147,16 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
                         <button
                           type="button"
                           onClick={() => handleBatchSubmitSelectedKpis([kpi.id], true)}
-                          disabled={saving || kpiIsReadOnly}
+                          disabled={saving || kpiIsReadOnly || isQ1LockedCard}
                           className={`font-bold px-3 py-1 rounded-xl text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition shadow-2xs ${
-                            kpiIsReadOnly
+                            kpiIsReadOnly || isQ1LockedCard
                               ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                               : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 cursor-pointer'
                           }`}
-                          title={kpiIsReadOnly ? "Click 'Unlock / Redo' first to amend and resubmit" : "Submit ONLY this single KPI and its attached PoE files for Manager approval"}
+                          title={isQ1LockedCard ? "This KPI is Not Applicable (N/A) and locked for Quarter 1" : (kpiIsReadOnly ? "Click 'Unlock / Redo' first to amend and resubmit" : "Submit ONLY this single KPI and its attached PoE files for Manager approval")}
                         >
                           <Send className="w-3 h-3 text-emerald-600" />
-                          <span>{kpiIsReadOnly ? 'Already Submitted' : (isRejectedOrRevision ? `Resubmit KPI #${kpi.kpiNo || idx + 1}` : `Submit Single KPI #${kpi.kpiNo || idx + 1}`)}</span>
+                          <span>{isQ1LockedCard ? 'Locked (N/A for Q1)' : (kpiIsReadOnly ? 'Already Submitted' : (isRejectedOrRevision ? `Resubmit KPI #${kpi.kpiNo || idx + 1}` : `Submit Single KPI #${kpi.kpiNo || idx + 1}`))}</span>
                         </button>
                       )}
 

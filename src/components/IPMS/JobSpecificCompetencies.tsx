@@ -65,7 +65,13 @@ interface CompetencyQuarterData {
   selfComments: string;         // Self comments
   managerScore: number;         // 1-5 or 0 (unrated)
   managerMotivation: string;    // Manager motivation
-  status: 'draft' | 'pending_approval' | 'approved';
+  internalAuditorScore?: number;
+  internalAuditorComments?: string;
+  dpmcScore?: number;
+  dpmcComments?: string;
+  poeText?: string;
+  poeDocs?: any[];
+  status: 'draft' | 'pending_approval' | 'approved' | 'audited' | 'moderated';
 }
 
 // Table Row Schema
@@ -375,7 +381,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
         isCleared: currentRowsList.length === 0
       };
       
-      const emailToSave = explicitTargetEmail || selectedUserEmail;
+      const emailToSave = String(explicitTargetEmail || selectedUserEmail || '').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(emailToSave)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

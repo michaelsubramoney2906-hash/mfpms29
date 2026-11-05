@@ -465,18 +465,18 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse font-sans">
+            <table className="w-full min-w-[1280px] text-left border-collapse font-sans">
               <thead>
                 <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-wider select-none">
-                  <th className="px-4 py-3 font-black text-center w-24">JSC Code</th>
-                  <th className="px-4 py-3 font-black">Competency Title</th>
-                  <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
-                  <th className="px-4 py-3 font-black text-center w-40">{isTeamJSC ? 'Team Score (1-5)' : 'Self Score (1-5)'}</th>
-                  <th className="px-4 py-3 font-black">{isTeamJSC ? 'Team Comments' : 'Self Comments'}</th>
-                  <th className="px-4 py-3 font-black text-center w-72 bg-emerald-950 text-white">Portfolio of Evidence (PoE)</th>
-                  <th className="px-4 py-3 font-black text-center w-48">Audit & DPMC Reviews</th>
-                  <th className="px-4 py-3 font-black text-center w-24">Status</th>
-                  <th className="px-4 py-3 font-black text-center w-36 bg-slate-800 text-white">Actions</th>
+                  <th className="px-4 py-3 font-black text-center w-24 shrink-0">JSC Code</th>
+                  <th className="px-4 py-3 font-black min-w-[220px] max-w-[300px]">Competency Title</th>
+                  <th className="px-4 py-3 font-black text-center w-20 shrink-0">Weight (%)</th>
+                  <th className="px-4 py-3 font-black text-center w-52 min-w-[200px] shrink-0">{isTeamJSC ? 'Team Score (1-5)' : 'Self Score (1-5)'}</th>
+                  <th className="px-4 py-3 font-black min-w-[210px]">{isTeamJSC ? 'Team Comments' : 'Self Comments'}</th>
+                  <th className="px-4 py-3 font-black text-center w-72 min-w-[270px] bg-emerald-950 text-white">Portfolio of Evidence (PoE)</th>
+                  <th className="px-4 py-3 font-black text-center w-48 min-w-[170px]">Audit & DPMC Reviews</th>
+                  <th className="px-4 py-3 font-black text-center w-24 shrink-0">Status</th>
+                  <th className="px-4 py-3 font-black text-center w-36 min-w-[140px] bg-slate-800 text-white">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -492,15 +492,27 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
                     // Only lock from self-scoring if the manager/auditor/DPMC has formally approved or moderated the evaluation
                     const isLocked = qData.status === 'approved' || qData.status === 'audited' || qData.status === 'moderated';
 
+                    const handleSetSelfScore = (val: number) => {
+                      const updated = rows.map(r => r.id === row.id ? {
+                        ...r,
+                        [selectedQuarter]: {
+                          ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }),
+                          selfScore: val
+                        }
+                      } : r);
+                      setRows(updated);
+                      handleSaveToDatabase(updated);
+                    };
+
                     return (
                       <tr key={row.id} className="border-b border-gray-150 hover:bg-gray-50 transition duration-100 group">
                         <td className="px-4 py-3 text-center font-bold text-xs text-slate-800 font-mono">
                           {row.jscNo || 'N/A'}
                         </td>
-                        <td className="px-4 py-3 text-xs font-semibold text-slate-800">
+                        <td className="px-4 py-3 text-xs font-semibold text-slate-800 min-w-[220px] max-w-[300px]">
                           {row.competency || 'Mandatory Competency'}
                           {row.definition?.mainText && (
-                            <p className="text-[10px] text-gray-400 font-medium mt-0.5 line-clamp-1 group-hover:line-clamp-none transition-all duration-150">
+                            <p className="text-[10px] text-gray-400 font-medium mt-0.5 line-clamp-2 group-hover:line-clamp-none transition-all duration-150">
                               {row.definition.mainText}
                             </p>
                           )}
@@ -508,33 +520,52 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
                         <td className="px-4 py-3 text-center font-bold text-xs font-mono text-gray-500">
                           {row.weight}%
                         </td>
-                        <td className="px-4 py-3">
-                          <select
-                            value={qData.selfScore || ''}
-                            disabled={isLocked}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
-                              const updated = rows.map(r => r.id === row.id ? {
-                                ...r,
-                                [selectedQuarter]: {
-                                  ...(r[selectedQuarter] || { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }),
-                                  selfScore: val
-                                }
-                              } : r);
-                              setRows(updated);
-                              handleSaveToDatabase(updated);
-                            }}
-                            className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                          >
-                            <option value="">Select Score</option>
-                            <option value="1">1 - Unsatisfactory</option>
-                            <option value="2">2 - Basic Competence</option>
-                            <option value="3">3 - Fully Competent</option>
-                            <option value="4">4 - Highly Effective</option>
-                            <option value="5">5 - Outstanding</option>
-                          </select>
+                        <td className="px-4 py-3 min-w-[200px]">
+                          <div className="flex flex-col gap-1.5 min-w-[180px]">
+                            <select
+                              value={qData.selfScore ? String(qData.selfScore) : ''}
+                              disabled={isLocked}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                handleSetSelfScore(val);
+                              }}
+                              className={`w-full min-w-[180px] rounded-lg px-3 py-2 text-xs font-extrabold focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-500 cursor-pointer shadow-xs ${
+                                qData.selfScore
+                                  ? 'bg-blue-50/80 border-2 border-blue-500 text-blue-950'
+                                  : 'bg-white border-2 border-gray-300 text-gray-800'
+                              }`}
+                            >
+                              <option value="">Select Score (1 - 5)</option>
+                              <option value="1">1 - Unsatisfactory</option>
+                              <option value="2">2 - Basic Competence</option>
+                              <option value="3">3 - Fully Competent</option>
+                              <option value="4">4 - Highly Effective</option>
+                              <option value="5">5 - Outstanding</option>
+                            </select>
+                            <div className="flex items-center justify-between gap-1">
+                              {[1, 2, 3, 4, 5].map((num) => {
+                                const isSelected = Number(qData.selfScore) === num;
+                                return (
+                                  <button
+                                    key={num}
+                                    type="button"
+                                    disabled={isLocked}
+                                    onClick={() => handleSetSelfScore(num)}
+                                    title={`Set score to ${num}`}
+                                    className={`flex-1 py-1 rounded-md text-[10px] font-black transition cursor-pointer border ${
+                                      isSelected
+                                        ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                                        : 'bg-slate-100 hover:bg-blue-50 text-slate-700 border-slate-200'
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {num}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         </td>
-                         <td className="px-4 py-3">
+                         <td className="px-4 py-3 min-w-[210px]">
                           <input
                             type="text"
                             placeholder={isLocked ? "No comment added." : (isTeamJSC ? "Enter team evaluation comments..." : "Enter self evaluation comments...")}
@@ -551,7 +582,7 @@ export function JSCSelfEvaluationSection({ currentUser, activeTenantId, defaultE
                               setRows(updated);
                               handleSaveToDatabase(updated);
                             }}
-                            className="w-full bg-white border border-gray-200 rounded-lg px-3 py-1 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            className="w-full min-w-[185px] bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
                           />
                         </td>
                         <td className="px-4 py-3 font-sans">
@@ -1202,15 +1233,15 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse font-sans">
+            <table className="w-full min-w-[1200px] text-left border-collapse font-sans">
               <thead>
                 <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-wider select-none">
                   <th className="px-4 py-3 font-black text-center w-24">JSC Code</th>
-                  <th className="px-4 py-3 font-black">Competency Title</th>
+                  <th className="px-4 py-3 font-black min-w-[200px]">Competency Title</th>
                   <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
-                  <th className="px-4 py-3 font-black w-48">Self Score & Comments</th>
-                  <th className="px-4 py-3 font-black text-center w-40">Manager Scoring (1-5)</th>
-                  <th className="px-4 py-3 font-black">Manager Motivation / Comments</th>
+                  <th className="px-4 py-3 font-black w-56 min-w-[210px]">Self Score & Comments</th>
+                  <th className="px-4 py-3 font-black text-center w-48 min-w-[180px]">Manager Scoring (1-5)</th>
+                  <th className="px-4 py-3 font-black min-w-[200px]">Manager Motivation / Comments</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
                   <th className="px-4 py-3 font-black text-center w-36 bg-slate-800 text-white">Actions</th>
                 </tr>
@@ -1323,12 +1354,12 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 min-w-[180px]">
                           <select
-                            value={qData.managerScore || ''}
+                            value={qData.managerScore ? String(qData.managerScore) : ''}
                             disabled={isApproved}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                              const val = parseInt(e.target.value, 10) || 0;
                               const updated = rows.map(r => r.id === row.id ? {
                                 ...r,
                                 [selectedQuarter]: {
@@ -1339,7 +1370,7 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
                               setRows(updated);
                               handleSaveToDatabase(updated);
                             }}
-                            className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
+                            className="w-full min-w-[165px] bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:border-emerald-500 disabled:bg-gray-100 disabled:text-gray-500"
                           >
                             <option value="">Select Score</option>
                             <option value="1">1 - Unsatisfactory</option>
@@ -1795,15 +1826,15 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse font-sans">
+            <table className="w-full min-w-[1200px] text-left border-collapse font-sans">
               <thead>
                 <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-wider select-none">
                   <th className="px-4 py-3 font-black text-center w-24">JSC Code</th>
-                  <th className="px-4 py-3 font-black">Competency Title</th>
+                  <th className="px-4 py-3 font-black min-w-[200px]">Competency Title</th>
                   <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
-                  <th className="px-4 py-3 font-black w-48">Employee Self Score & Comments</th>
-                  <th className="px-4 py-3 font-black text-center w-40">Internal Auditor Score (1-5)</th>
-                  <th className="px-4 py-3 font-black">Internal Auditor Review Comments</th>
+                  <th className="px-4 py-3 font-black w-56 min-w-[210px]">Employee Self Score & Comments</th>
+                  <th className="px-4 py-3 font-black text-center w-48 min-w-[180px]">Internal Auditor Score (1-5)</th>
+                  <th className="px-4 py-3 font-black min-w-[200px]">Internal Auditor Review Comments</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
                   <th className="px-4 py-3 font-black text-center w-44 bg-slate-800 text-white">Actions</th>
                 </tr>
@@ -1915,11 +1946,11 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 min-w-[180px]">
                           <select
-                            value={qData.internalAuditorScore || ''}
+                            value={qData.internalAuditorScore ? String(qData.internalAuditorScore) : ''}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                              const val = parseInt(e.target.value, 10) || 0;
                               const updated = rows.map(r => r.id === row.id ? {
                                 ...r,
                                 [selectedQuarter]: {
@@ -1930,7 +1961,7 @@ export function JSCInternalAuditorReviewSection({ currentUser, activeTenantId, d
                               setRows(updated);
                               handleSaveToDatabase(updated);
                             }}
-                            className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-indigo-500"
+                            className="w-full min-w-[165px] bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:border-indigo-500"
                           >
                             <option value="">Select Audit Score</option>
                             <option value="1">1 - Unsatisfactory</option>
@@ -2274,16 +2305,16 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse font-sans">
+            <table className="w-full min-w-[1200px] text-left border-collapse font-sans">
               <thead>
                 <tr className="bg-slate-900 text-white uppercase text-[9px] tracking-wider select-none">
                   <th className="px-4 py-3 font-black text-center w-24">JSC Code</th>
-                  <th className="px-4 py-3 font-black">Competency Title</th>
+                  <th className="px-4 py-3 font-black min-w-[200px]">Competency Title</th>
                   <th className="px-4 py-3 font-black text-center w-20">Weight (%)</th>
-                  <th className="px-4 py-3 font-black w-48">Employee Self Score & Comments</th>
-                  <th className="px-4 py-3 font-black w-48">Internal Auditor Review (Score & Comments)</th>
-                  <th className="px-4 py-3 font-black text-center w-40">DPMC Score (1-5)</th>
-                  <th className="px-4 py-3 font-black">DPMC Comments & Resolution</th>
+                  <th className="px-4 py-3 font-black w-56 min-w-[200px]">Employee Self Score & Comments</th>
+                  <th className="px-4 py-3 font-black w-56 min-w-[200px]">Internal Auditor Review (Score & Comments)</th>
+                  <th className="px-4 py-3 font-black text-center w-48 min-w-[180px]">DPMC Score (1-5)</th>
+                  <th className="px-4 py-3 font-black min-w-[200px]">DPMC Comments & Resolution</th>
                   <th className="px-4 py-3 font-black text-center w-24">Status</th>
                 </tr>
               </thead>
@@ -2381,11 +2412,11 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
                             <span className="text-gray-400 italic font-medium text-[10px]">Audit pending</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 min-w-[180px]">
                           <select
-                            value={qData.dpmcScore || ''}
+                            value={qData.dpmcScore ? String(qData.dpmcScore) : ''}
                             onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                              const val = parseInt(e.target.value, 10) || 0;
                               const updated = rows.map(r => r.id === row.id ? {
                                 ...r,
                                 [selectedQuarter]: {
@@ -2396,7 +2427,7 @@ export function JSCDpmcReviewSection({ currentUser, activeTenantId, defaultEmplo
                               setRows(updated);
                               handleSaveToDatabase(updated);
                             }}
-                            className="w-full bg-white border border-gray-300 rounded-lg px-2.5 py-1 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
+                            className="w-full min-w-[165px] bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-gray-800 focus:outline-none focus:border-purple-500"
                           >
                             <option value="">Select DPMC Score</option>
                             <option value="1">1 - Unsatisfactory</option>

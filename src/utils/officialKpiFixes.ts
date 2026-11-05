@@ -847,8 +847,9 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
 
   // 13. Mr. Mark Ephraim Maseko (masekome@nkangaladm.gov.za)
   if (normEmail === 'masekome@nkangaladm.gov.za' || normEmail.includes('masekome')) {
-    // Collect any POE files attached to KPI 1 ("Maintain clean audit opinion")
+    // Collect any POE files attached to KPI 1 ("Maintain clean audit opinion") or KPA 1 KPI 6 ("informal performance evaluation")
     let misplacedPoeDocs: any[] = [];
+    let bathoPelePoeDocs: any[] = [];
     result.forEach((kpi, index) => {
       const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
       if (index === 0 || desc.includes('clean audit opinion')) {
@@ -856,13 +857,19 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
           misplacedPoeDocs = [...kpi.q1PoeDocs];
         }
       }
+      if (index === 5 || desc.includes('informal performance evaluation conducted with all subordinates')) {
+        if (Array.isArray(kpi.q1PoeDocs) && kpi.q1PoeDocs.length > 0) {
+          bathoPelePoeDocs = [...kpi.q1PoeDocs];
+        }
+      }
     });
 
-    const hrPlanDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('hr plan') || (d.name || '').toLowerCase().includes('hr plan'));
+    const hrPlanDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('hr plan'));
     const vacancyDocs = misplacedPoeDocs.filter(d => (d.name || '').toLowerCase().includes('vacancy'));
 
     result = result.map((kpi, index) => {
       const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim();
+      const kpaStr = (kpi.kpa || '').toString().toLowerCase();
       const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
 
       // Clean Audit KPI (Index 0 / Maintain Clean Audit)
@@ -874,15 +881,19 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
           q1Locked: true,
           q1Applicable: false,
           q1PoeStatus: 'N/A',
+          reviewStatus: 'N/A',
+          reviewApprovalStatus: '',
           q1Actual: '',
-          q1Poe: '',
-          poe: '',
+          q1Poe: 'AG’s Audit Report',
+          poe: 'AG’s Audit Report',
           q1PoeDocs: [],
+          poeDocs: [],
+          poeFileName: '',
           q1Score: ''
         };
       }
 
-      // Unlock KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Quarter 1
+      // Unlock KPA 1 KPI 5 ("Submission of 2024/2025 Annual performance evaluation on E-PMS by 29 August 2026") for Quarter 1
       if (
         index === 4 ||
         (ref === '5' && (desc.includes('annual performance evaluation') || desc.includes('29 august'))) ||
@@ -895,6 +906,83 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
           q1Target: '1 (annual assessment)',
           '1st qtr target': '1 (annual assessment)',
           lockedQuarters: (kpi.lockedQuarters || []).filter((q: string) => q.toUpperCase() !== 'Q1')
+        };
+      }
+
+      // Lock KPA 1 KPI 6 ("Number of informal performance evaluation conducted with all subordinates per quarter") for Quarter 1 and clear duplicated Q1 actuals/POEs
+      if (
+        index === 5 ||
+        String(kpi.id || '') === 'ipp-kpi-1790668545717-6' ||
+        desc.includes('informal performance evaluation conducted with all subordinates')
+      ) {
+        return {
+          ...kpi,
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q2Target: kpi.q2Target && kpi.q2Target !== 'N/A' ? kpi.q2Target : '1 (Q1)',
+          q3Target: 'N/A',
+          q4Target: kpi.q4Target && kpi.q4Target !== 'N/A' ? kpi.q4Target : '1 (Q3)',
+          q1Locked: true,
+          q1Applicable: false,
+          q1Actual: '',
+          actual: '',
+          actualAchieved: '',
+          q1Score: '',
+          managerScore: '',
+          review: '',
+          reviewStatus: 'N/A',
+          reviewApprovalStatus: '',
+          q1PoeStatus: 'N/A',
+          q1PoeDocs: [],
+          poeDocs: [],
+          poeFileName: '',
+          resubmittedAt: '',
+          resubmissionUnlocked: false,
+          lockedQuarters: ['Q1', 'q1', 'Q3', 'q3']
+        };
+      }
+
+      // Lock KPA 3 KPI 5 ("Number of reports on the maintenance of the Organisational Structure by 30 June 2027") for Quarter 1 (only applicable in Q4)
+      if (
+        index === 12 ||
+        String(kpi.id || '') === 'ipp-kpi-1790668545717-13' ||
+        desc.includes('maintenance of the organisational structure')
+      ) {
+        return {
+          ...kpi,
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q2Target: 'N/A',
+          q3Target: 'N/A',
+          q4Target: '1',
+          q1Locked: true,
+          q1Applicable: false,
+          reviewStatus: 'N/A',
+          reviewApprovalStatus: '',
+          q1PoeStatus: 'N/A',
+          lockedQuarters: ['Q1', 'q1', 'Q2', 'q2', 'Q3', 'q3']
+        };
+      }
+
+      // Preserve KPA 3 KPI 6 ("Number of Batho Pele Local Committee Meetings Coordinated") with its Q1 actuals, score, and Batho Pele POE files
+      if (
+        index === 13 ||
+        String(kpi.id || '') === 'ipp-kpi-1790668545717-14' ||
+        (kpaStr.includes('kpa 3') && ref === '6') ||
+        desc.includes('batho pele local committee meetings')
+      ) {
+        const existingDocs = Array.isArray(kpi.q1PoeDocs) ? kpi.q1PoeDocs : [];
+        const mergedDocs = Array.from(new Map([...existingDocs, ...bathoPelePoeDocs].map(d => [d.id || d.name, d])).values());
+        return {
+          ...kpi,
+          q1Target: '1',
+          '1st qtr target': '1',
+          q1Locked: false,
+          q1Applicable: true,
+          q1Actual: kpi.q1Actual || '1',
+          q1Score: kpi.q1Score || '3',
+          q1PoeDocs: mergedDocs,
+          poeFileName: mergedDocs[0]?.name || kpi.poeFileName
         };
       }
 
@@ -2059,6 +2147,45 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
           q1Locked: false,
           lockedQuarters: ['Q2', 'Q3', 'Q4'],
           budget: "OPEX"
+        };
+      }
+      return item;
+    });
+  }
+
+  // 24. Cedrive Makitla (makitlac@nkangaladm.gov.za) - Lock KPI 1 on KPA 2 for Quarter 1 (Not Applicable in Q1)
+  if (normEmail === 'makitlac@nkangaladm.gov.za' || normEmail.includes('makitlac')) {
+    result = result.map((item: any, idx: number) => {
+      const kNo = String(item.kpiNo || '').trim();
+      const kpaStr = String(item.kpa || '').toLowerCase();
+      const desc = String(item.kpi || item.description || '').toLowerCase();
+      const isKpa2Kpi1 =
+        String(item.id || '') === 'extracted-sync-1790030926695-9' ||
+        ((kpaStr.includes('kpa 2') || kpaStr.includes('supply chain')) &&
+          (kNo === '1' || desc.includes('departmental procurement plan developed'))) ||
+        (idx === 8 && desc.includes('departmental procurement plan developed'));
+
+      if (isKpa2Kpi1) {
+        return {
+          ...item,
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q1Locked: true,
+          q1Applicable: false,
+          q1Actual: '',
+          actual: '',
+          actualAchieved: '',
+          q1Score: '',
+          managerScore: '',
+          review: '',
+          reviewStatus: 'N/A',
+          reviewApprovalStatus: '',
+          q1PoeStatus: 'N/A',
+          resubmittedAt: '',
+          resubmissionUnlocked: false,
+          lockedQuarters: Array.isArray(item.lockedQuarters)
+            ? Array.from(new Set([...item.lockedQuarters, 'Q1', 'q1']))
+            : ['Q1', 'q1']
         };
       }
       return item;
