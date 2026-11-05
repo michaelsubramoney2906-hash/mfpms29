@@ -9823,8 +9823,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       let userRole = u.role;
       const emailLower = (u.email || '').toLowerCase().trim();
-      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za'].includes(emailLower) ||
-                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs') || emailLower.includes('maphanga');
+      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za', 'mthimunyedmn@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za', 'mtshalib@nkangaladm.gov.za'].includes(emailLower) ||
+                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs') || emailLower.includes('mthimunyedmn') || emailLower.includes('maphanga') || emailLower.includes('mtshalinb') || emailLower.includes('mtshalib');
       if (isTargetManager) {
         userRole = 'Manager';
       }
@@ -9864,7 +9864,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicManager = 'Johannes MT. Tlou';
         dynamicReportTo = 'Johannes MT. Tlou';
         dynamicManagerEmail = 'tloujmt@nkangaladm.gov.za';
-      } else if (emailLower.includes('mthimunyedmn') || emailLower.includes('serememj') || emailLower.includes('sitholedm') || emailLower.includes('shongwesb') || emailLower.includes('mokwenarm') || emailLower.includes('mtswenins') || (emailLower.includes('mthimunye') && !emailLower.includes('mthimunyepm'))) {
+      } else if (emailLower.includes('serememj') || emailLower.includes('sitholedm') || emailLower.includes('shongwesb') || emailLower.includes('mokwenarm') || emailLower.includes('mtswenins')) {
+        dynamicManager = 'Nokuthula Mthimunye';
+        dynamicReportTo = 'Nokuthula Mthimunye';
+        dynamicManagerEmail = 'mthimunyedmn@nkangaladm.gov.za';
+      } else if (emailLower.includes('mthimunyedmn') || (emailLower.includes('mthimunye') && !emailLower.includes('mthimunyepm'))) {
         dynamicManager = 'Bongani S. Khumalo';
         dynamicReportTo = 'Bongani S. Khumalo';
         dynamicManagerEmail = 'khumalobs@nkangaladm.gov.za';
@@ -10517,14 +10521,35 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
 
     // Ensure Bongani S. Khumalo appears under both nkosibs@nkangaladm.gov.za and khumalobs@nkangaladm.gov.za in User Management Current Directory
+    // and Nokuthula Mthimunye (mthimunyedmn@nkangaladm.gov.za) has her 5 ICT subordinates
     const ictSubordinateEmails = [
-      'mthimunyedmn@nkangaladm.gov.za',
-      'serememj@nkangaladm.gov.za',
+      'mthimunyedmn@nkangaladm.gov.za'
+    ];
+    const mthimunyeSubordinateEmails = [
       'sitholedm@nkangaladm.gov.za',
       'shongwesb@nkangaladm.gov.za',
-      'mokwenarm@nkangaladm.gov.za',
-      'mtswenins@nkangaladm.gov.za'
+      'mtswenins@nkangaladm.gov.za',
+      'serememj@nkangaladm.gov.za',
+      'mokwenarm@nkangaladm.gov.za'
     ];
+    const primaryMthimunye = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'mthimunyedmn@nkangaladm.gov.za');
+    if (primaryMthimunye) {
+      primaryMthimunye.role = 'Manager';
+      primaryMthimunye.manager = 'Bongani S. Khumalo';
+      primaryMthimunye.reportTo = 'Bongani S. Khumalo';
+      primaryMthimunye.managerEmail = 'khumalobs@nkangaladm.gov.za';
+      primaryMthimunye.hasSubordinates = true;
+      primaryMthimunye.subordinateCount = mthimunyeSubordinateEmails.length;
+      primaryMthimunye.subordinateEmails = mthimunyeSubordinateEmails;
+    }
+    sanitizedFormatted.forEach((u: any) => {
+      const em = (u.email || '').toLowerCase().trim();
+      if (mthimunyeSubordinateEmails.includes(em)) {
+        u.manager = 'Nokuthula Mthimunye';
+        u.reportTo = 'Nokuthula Mthimunye';
+        u.managerEmail = 'mthimunyedmn@nkangaladm.gov.za';
+      }
+    });
     const primaryNkosi = sanitizedFormatted.find((u: any) => (u.email || '').toLowerCase().trim() === 'nkosibs@nkangaladm.gov.za');
     if (primaryNkosi) {
       primaryNkosi.fullName = 'Bongani S. Khumalo';
@@ -18693,12 +18718,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'maphangan': ['mahlangutp@nkangaladm.gov.za', 'thomasm@nkangaladm.gov.za'],
             'mahlanguml': ['shabangusm@nkangaladm.gov.za', 'shabangugm@nkangaladm.gov.za'],
             'khumalobs': [
-              'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
-              'shongwesb@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za'
+              'mthimunyedmn@nkangaladm.gov.za'
             ],
             'nkosibs': [
-              'mthimunyedmn@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'sitholedm@nkangaladm.gov.za',
-              'shongwesb@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za'
+              'mthimunyedmn@nkangaladm.gov.za'
+            ],
+            'mthimunyedmn': [
+              'sitholedm@nkangaladm.gov.za',
+              'shongwesb@nkangaladm.gov.za',
+              'mtswenins@nkangaladm.gov.za',
+              'serememj@nkangaladm.gov.za',
+              'mokwenarm@nkangaladm.gov.za'
             ],
             'mtshalinb': [
               'jiyanevj@nkangaladm.gov.za',
@@ -19143,12 +19173,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               entry.plan.metadata.department = uProfile.department;
             }
             if (uProfile.manager) {
-              if (subId.includes('zulune') || subId.includes('nsibande') || !entry.plan.metadata.manager) {
+              if (subId.includes('zulune') || subId.includes('nsibande') || ['sitholedm@nkangaladm.gov.za', 'shongwesb@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mthimunyedmn@nkangaladm.gov.za'].includes(subId) || !entry.plan.metadata.manager) {
                 entry.plan.metadata.manager = uProfile.manager;
+                entry.plan.metadata.reportTo = uProfile.reportTo || uProfile.manager;
               }
             }
             if (uProfile.managerEmail) {
-              if (subId.includes('zulune') || subId.includes('nsibande') || !entry.plan.metadata.managerEmail) {
+              if (subId.includes('zulune') || subId.includes('nsibande') || ['sitholedm@nkangaladm.gov.za', 'shongwesb@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za', 'mthimunyedmn@nkangaladm.gov.za'].includes(subId) || !entry.plan.metadata.managerEmail) {
                 entry.plan.metadata.managerEmail = uProfile.managerEmail;
               }
             }
@@ -25218,6 +25249,109 @@ User Request: ${prompt}`;
         }).ilike('email', '%chillint%');
       } catch (userUpdErr) {
         console.warn("Notice updating Nokubonga Chilli in Supabase:", userUpdErr);
+      }
+
+      // Reconcile ICT Reporting Structure with zero data loss and zero cross-contamination:
+      // 1) sitholedm, shongwesb, mtswenins, serememj, and mokwenarm report to Nokuthula Mthimunye (mthimunyedmn@nkangaladm.gov.za)
+      // 2) Nokuthula Mthimunye (mthimunyedmn@nkangaladm.gov.za) is elevated to Manager and reports to Bongani S. Khumalo (khumalobs@nkangaladm.gov.za)
+      try {
+        const ictFiveEmails = [
+          'sitholedm@nkangaladm.gov.za',
+          'shongwesb@nkangaladm.gov.za',
+          'mtswenins@nkangaladm.gov.za',
+          'serememj@nkangaladm.gov.za',
+          'mokwenarm@nkangaladm.gov.za'
+        ];
+
+        // Update users table for Nokuthula Mthimunye and her 5 subordinates
+        await supabase.from('users').update({
+          role: 'Manager',
+          manager: 'Bongani S. Khumalo',
+          report_to: 'Bongani S. Khumalo',
+          manager_email: 'khumalobs@nkangaladm.gov.za'
+        }).ilike('email', 'mthimunyedmn@nkangaladm.gov.za');
+
+        await supabase.from('users').update({
+          manager: 'Nokuthula Mthimunye',
+          report_to: 'Nokuthula Mthimunye',
+          manager_email: 'mthimunyedmn@nkangaladm.gov.za'
+        }).in('email', ictFiveEmails);
+
+        // Update users_extra_metadata in messages if present
+        const { data: extraRow } = await supabase.from('messages').select('content').eq('id', 'users_extra_metadata').maybeSingle();
+        if (extraRow?.content) {
+          try {
+            const extraMap = JSON.parse(extraRow.content);
+            const { data: ictDbUsers } = await supabase.from('users').select('id, email').in('email', [...ictFiveEmails, 'mthimunyedmn@nkangaladm.gov.za']);
+            if (Array.isArray(ictDbUsers)) {
+              for (const u of ictDbUsers) {
+                const em = (u.email || '').toLowerCase().trim();
+                if (!extraMap[u.id]) extraMap[u.id] = {};
+                if (em === 'mthimunyedmn@nkangaladm.gov.za') {
+                  extraMap[u.id].manager = 'Bongani S. Khumalo';
+                  extraMap[u.id].reportTo = 'Bongani S. Khumalo';
+                  extraMap[u.id].managerEmail = 'khumalobs@nkangaladm.gov.za';
+                } else if (ictFiveEmails.includes(em)) {
+                  extraMap[u.id].manager = 'Nokuthula Mthimunye';
+                  extraMap[u.id].reportTo = 'Nokuthula Mthimunye';
+                  extraMap[u.id].managerEmail = 'mthimunyedmn@nkangaladm.gov.za';
+                }
+              }
+              await supabase.from('messages').update({ content: JSON.stringify(extraMap), updated_at: nowIso }).eq('id', 'users_extra_metadata');
+              memoryCache.delete('users_extra_metadata');
+            }
+          } catch {}
+        }
+
+        // Non-destructively update only the metadata header of pplan_* and draft_doc_* for the 5 ICT officials and Nokuthula Mthimunye
+        for (const ictEmail of [...ictFiveEmails, 'mthimunyedmn@nkangaladm.gov.za']) {
+          const isMthimunye = ictEmail === 'mthimunyedmn@nkangaladm.gov.za';
+          const targetMgrName = isMthimunye ? 'Bongani S. Khumalo' : 'Nokuthula Mthimunye';
+          const targetMgrEmail = isMthimunye ? 'khumalobs@nkangaladm.gov.za' : 'mthimunyedmn@nkangaladm.gov.za';
+
+          for (const tId of ['tenant-229', 'nkangala_auto', 'global']) {
+            const pId = `pplan_${tId}_${ictEmail}`;
+            const { data: pRow } = await supabase.from('messages').select('content').eq('id', pId).maybeSingle();
+            if (pRow?.content) {
+              try {
+                const parsedP = JSON.parse(pRow.content);
+                if (parsedP && typeof parsedP === 'object' && !Array.isArray(parsedP)) {
+                  parsedP.metadata = {
+                    ...(parsedP.metadata || {}),
+                    manager: targetMgrName,
+                    reportTo: targetMgrName,
+                    managerEmail: targetMgrEmail
+                  };
+                  const updatedRaw = JSON.stringify(parsedP);
+                  pplanCache.set(pId, { raw: updatedRaw, timestamp: Date.now() });
+                  memoryCache.delete(pId);
+                  await supabase.from('messages').update({ content: updatedRaw, updated_at: nowIso }).eq('id', pId);
+                }
+              } catch {}
+            }
+
+            const dId = `draft_doc_${tId}_${ictEmail}`;
+            const { data: dRow } = await supabase.from('messages').select('content').eq('id', dId).maybeSingle();
+            if (dRow?.content) {
+              try {
+                const parsedD = JSON.parse(dRow.content);
+                const stateObj = parsedD.html && typeof parsedD.html === 'object' ? parsedD.html : parsedD;
+                if (stateObj && typeof stateObj === 'object') {
+                  stateObj.managerName = targetMgrName;
+                  stateObj.employerName = targetMgrName;
+                  stateObj.supervisorName = targetMgrName;
+                  stateObj.managerEmail = targetMgrEmail;
+                  const newDraftRaw = JSON.stringify(parsedD.html ? { html: stateObj } : stateObj);
+                  draftDocCache.set(dId, { raw: newDraftRaw, timestamp: Date.now() });
+                  memoryCache.delete(dId);
+                  await supabase.from('messages').update({ content: newDraftRaw, updated_at: nowIso }).eq('id', dId);
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch (ictSyncErr) {
+        console.warn("Notice updating ICT reporting structure in Supabase:", ictSyncErr);
       }
 
       // 1a. Pheladi Naka (nakapm@nkangaladm.gov.za):

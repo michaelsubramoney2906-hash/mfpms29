@@ -74,6 +74,12 @@ export const getTargetManagerForUser = (userEmail: string, fallbackManager?: str
   if (norm.includes('myenispl')) {
     return 'nkosije@nkangaladm.gov.za';
   }
+  if (['sitholedm', 'shongwesb', 'mtswenins', 'serememj', 'mokwenarm'].some(id => norm.includes(id))) {
+    return 'mthimunyedmn@nkangaladm.gov.za';
+  }
+  if (norm.includes('mthimunyedmn')) {
+    return 'khumalobs@nkangaladm.gov.za';
+  }
   return fallbackManager || 'singhn@nkangaladm.gov.za';
 };
 
@@ -793,6 +799,13 @@ export function JSCManagerApprovalSection({ currentUser, activeTenantId, default
           // 2. Check getTargetManagerForUser mapping
           const mappedManager = getTargetManagerForUser(empNorm).toLowerCase().trim();
           if (mappedManager === currNorm) return true;
+          if ((currNorm.includes('khumalobs') || currNorm.includes('nkosibs')) && (mappedManager.includes('khumalobs') || mappedManager.includes('nkosibs'))) {
+            return true;
+          }
+          // Strictly isolate the 5 ICT subordinates to Nokuthula Mthimunye (preventing stale DB attributes from showing them under Bongani Khumalo)
+          if (['sitholedm@nkangaladm.gov.za', 'shongwesb@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za'].includes(empNorm)) {
+            return currNorm === 'mthimunyedmn@nkangaladm.gov.za' || currNorm.includes('mthimunyedmn');
+          }
 
           // 3. Check user object manager attributes from DB
           const uObj = userObjMap.get(empNorm);

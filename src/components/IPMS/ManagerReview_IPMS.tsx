@@ -713,16 +713,25 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         maphangaSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
-      // Explicit list for Bongani S. Khumalo (khumalobs@nkangaladm.gov.za / nkosibs@nkangaladm.gov.za)
-      const khumaloSubordinates = [
-        'mthimunyedmn@nkangaladm.gov.za',
-        'serememj@nkangaladm.gov.za',
+      // Explicit list for Nokuthula Mthimunye (mthimunyedmn@nkangaladm.gov.za)
+      const mthimunyeSubordinates = [
         'sitholedm@nkangaladm.gov.za',
         'shongwesb@nkangaladm.gov.za',
-        'mokwenarm@nkangaladm.gov.za',
-        'mtswenins@nkangaladm.gov.za'
+        'mtswenins@nkangaladm.gov.za',
+        'serememj@nkangaladm.gov.za',
+        'mokwenarm@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('mthimunyedmn') || normCurrent.includes('nokuthula mthimunye') || (normCurrent.includes('mthimunye') && !normCurrent.includes('portia') && !managerEmail.includes('mthimunyepm'))) {
+        mySubordinateEmails.clear();
+        mthimunyeSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
+      // Explicit list for Bongani S. Khumalo (khumalobs@nkangaladm.gov.za / nkosibs@nkangaladm.gov.za)
+      const khumaloSubordinates = [
+        'mthimunyedmn@nkangaladm.gov.za'
       ];
       if (managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) {
+        mySubordinateEmails.clear();
         khumaloSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
@@ -872,6 +881,16 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           return mtshaliSubordinates.includes(targetEmail);
         }
 
+        // Strict isolation for Nokuthula Mthimunye (strictly her 5 ICT direct subordinates)
+        if (managerEmail.includes('mthimunyedmn') || normCurrent.includes('nokuthula mthimunye') || (normCurrent.includes('mthimunye') && !normCurrent.includes('portia') && !managerEmail.includes('mthimunyepm'))) {
+          return mthimunyeSubordinates.includes(targetEmail);
+        }
+
+        // Strict isolation for Bongani S. Khumalo (strictly his direct ICT subordinate Nokuthula Mthimunye)
+        if (managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) {
+          return khumaloSubordinates.includes(targetEmail);
+        }
+
         const pManager = normalize(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '');
         const pManagerEmail = (p.plan?.metadata?.managerEmail || '').toLowerCase().trim();
         
@@ -891,6 +910,11 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           }
         }
 
+        // Rule: The 5 ICT officials report strictly to Nokuthula Mthimunye, NOT Bongani Khumalo
+        if (mthimunyeSubordinates.includes(targetEmail)) {
+          return managerEmail.includes('mthimunyedmn') || normCurrent.includes('nokuthula mthimunye') || isSystemDeveloper;
+        }
+
         const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
           doesManagerMatchCurrentUser(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '', pManagerEmail) ||
           ((managerEmail.includes('shabangusm') || normCurrent.includes('sibusiso') || (normCurrent.includes('shabangu') && !normCurrent.includes('mandla'))) && (shabanguSubordinates.includes(targetEmail) || pManager.includes('shabangu'))) ||
@@ -906,7 +930,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           ((managerEmail.includes('msiza') || normCurrent.includes('msiza') || normCurrent.includes('ali')) && (msizaSubordinates.includes(targetEmail) || pManager.includes('msiza'))) ||
           ((managerEmail.includes('maphangant') || managerEmail.includes('maphangan') || normCurrent.includes('maphanga') || normCurrent.includes('nomhle')) && (maphangaSubordinates.includes(targetEmail) || pManager.includes('maphanga'))) ||
           (managerEmail.includes('khuboni') && khuboniSubordinates.includes(targetEmail)) ||
-          ((managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) && (khumaloSubordinates.includes(targetEmail) || pManager.includes('khumalo') || pManager.includes('bongani') || pManagerEmail.includes('khumalobs') || pManagerEmail.includes('nkosibs'))) ||
+          ((managerEmail.includes('mthimunyedmn') || normCurrent.includes('nokuthula mthimunye')) && mthimunyeSubordinates.includes(targetEmail)) ||
+          ((managerEmail.includes('khumalobs') || managerEmail.includes('nkosibs') || normCurrent.includes('khumalo') || (normCurrent.includes('bongani') && !normCurrent.includes('delphine'))) && khumaloSubordinates.includes(targetEmail)) ||
           ((managerEmail.includes('nkosije') || normCurrent.includes('elmon') || normCurrent.includes('nkosi')) && (targetEmail.includes('myeni') || pManager.includes('nkosi') || pManager.includes('elmon') || nkosiSubordinates.includes(targetEmail))) ||
           ((managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) && (targetEmail === 'user@mzansiflow.co.za' || pManager.includes('demo line manager')))
         );

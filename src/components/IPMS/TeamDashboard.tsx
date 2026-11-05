@@ -57,6 +57,13 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
             return true;
           }
         }
+        // Explicit Rule: 5 ICT officials report to Nokuthula Mthimunye (mthimunyedmn), NOT directly to Bongani S. Khumalo
+        if (['sitholedm@nkangaladm.gov.za', 'shongwesb@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za'].includes(uEmail)) {
+          return mEmail === 'mthimunyedmn@nkangaladm.gov.za' || mEmail.includes('mthimunyedmn') || mName.includes('nokuthula mthimunye');
+        }
+        if (uEmail === 'mthimunyedmn@nkangaladm.gov.za') {
+          return mEmail.includes('khumalobs') || mEmail.includes('nkosibs') || mName.includes('khumalo');
+        }
 
         const uManFields = [u.manager || '', u.reportTo || '', u.managerEmail || ''];
         return uManFields.some(field => {
@@ -148,6 +155,13 @@ export function TeamDashboard({ currentUser, activeTenantId }: TeamDashboardProp
             if (normManagerEmail.includes('mahlanguml') || normM.includes('mahlangu') || normM.includes('mandla')) {
               return true;
             }
+          }
+          // Explicit Rule: 5 ICT officials report to Nokuthula Mthimunye (mthimunyedmn), NOT directly to Bongani S. Khumalo
+          if (['sitholedm@nkangaladm.gov.za', 'shongwesb@nkangaladm.gov.za', 'mtswenins@nkangaladm.gov.za', 'serememj@nkangaladm.gov.za', 'mokwenarm@nkangaladm.gov.za'].includes(uEmail)) {
+            return normM.includes('nokuthula mthimunye') || normM.includes('mthimunyedmn');
+          }
+          if (uEmail === 'mthimunyedmn@nkangaladm.gov.za') {
+            return normM.includes('khumalo') || normM.includes('khumalobs') || normM.includes('nkosibs');
           }
 
           const checkFields = [u.manager || '', u.reportTo || '', u.managerEmail || ''];
