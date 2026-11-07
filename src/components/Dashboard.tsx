@@ -68,6 +68,7 @@ import { AuditLogs } from './Admin/AuditLogs';
 import { SystemControlPanel } from './Admin/SystemControlPanel';
 import { NkangalaBackupVault } from './Admin/NkangalaBackupVault';
 import { ComplianceCertificate } from './Admin/ComplianceCertificate';
+import { AdminIPMSReports } from './Admin/AdminIPMSReports';
 import { logUserAccess } from '../utils/auditLogger';
 import { RiskManagement } from './RiskManagement';
 import { FredExtractionAgent } from './FredExtractionAgent';
@@ -1386,6 +1387,13 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                   setActiveSubModule(null);
                   window.dispatchEvent(new CustomEvent('command-center-force-refresh'));
                 }}
+              />
+            </div>
+          ) : activeSubModule.id === 'admin-ipms-reports' ? (
+            <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
+              <AdminIPMSReports
+                currentUser={fullUserProfile}
+                activeTenantId={activeTenantId}
               />
             </div>
           ) : activeSubModule.id === 'compliance-cert' ? (

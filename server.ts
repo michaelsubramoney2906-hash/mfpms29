@@ -19201,6 +19201,604 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
+  app.get(["/api/admin/ipms-reports-summary", "/api/tenant/:tenantId/admin/ipms-reports-summary"], async (req, res) => {
+    const quarterParam = String(req.query.quarter || 'q1').toLowerCase().trim();
+    const activeQuarter = ['q1', 'q2', 'q3', 'q4', 'annual'].includes(quarterParam) ? quarterParam : 'q1';
+    try {
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("Supabase is not initialized");
+
+      const [nkangalaUsers, nedaUsers, pplanQueryRes, kpisQueryRes, gmPlansRes] = await Promise.all([
+        getConsolidatedUsersList('tenant-229'),
+        getConsolidatedUsersList('neda'),
+        supabase
+          .from('messages')
+          .select('id, tenant_id, sender_email, content, created_at, message_type')
+          .eq('message_type', 'pplan_list'),
+        supabase
+          .from('messages')
+          .select('id, tenant_id, sender_email, content, created_at, message_type')
+          .eq('message_type', 'kpis_list'),
+        supabase
+          .from('ipms_gm_performance_plans')
+          .select('user_email, items_payload, source_file_name')
+      ]);
+
+      const isSyntheticTeamKpi = (it: any): boolean => {
+        if (!it) return true;
+        const desc = String(it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase().trim();
+        const goal = String(it.strategicGoal || it.priorityIssue || '').toLowerCase().trim();
+        return (
+          desc.startsWith('achieve target deliverable kpi-') ||
+          desc.startsWith('achieve 100% statutory compliance and operational targets for') ||
+          desc.startsWith('ensure 100% adherence to departmental budget control and mfma expenditure guidelines in') ||
+          desc.includes('maintain 100% resolution of public service queries and operational requests within prescribed slas') ||
+          desc.includes('complete all mandatory individual performance reviews and personal development plan (pdp) targets for 2026/2027') ||
+          goal.includes('aspirant local municipal aligned performance objective') ||
+          goal.includes('local statutory priority target')
+        );
+      };
+
+      const allTenantPrefixes = ['tenant-229', 'nkangala_auto', 'neda', 'tenant-neda', 'neda_auto', 'global'];
+      const kpisByUser = new Map<string, any[][]>();
+      const pplansByUser = new Map<string, any[]>();
+
+      const combinedRows = [...(pplanQueryRes.data || []), ...(kpisQueryRes.data || [])];
+      for (const row of combinedRows) {
+        const rowId = String(row.id || '');
+        if (rowId === 'team_pplan_tenant-229_all' || rowId === 'team_evaluation_tenant-229_all') continue;
+        const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
+        const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
+        let userId = '';
+        const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
+        if (foundTenantId) {
+          userId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
+        } else {
+          const parts = rowId.split('_');
+          userId = parts[parts.length - 1] || row.sender_email || '';
+        }
+        userId = (normalizeNkangalaEmail(userId.toLowerCase().trim()) || userId.toLowerCase().trim());
+        if (!userId || !userId.includes('@') || userId.endsWith('@mzansiflow.co.za') || userId.endsWith('@system.local')) continue;
+
+        if (isKpiRow) {
+          if (row.content) {
+            try {
+              const rawKpi = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              const kList = Array.isArray(rawKpi) ? rawKpi : (rawKpi?.kpis || rawKpi?.items || rawKpi?.rows || []);
+              if (Array.isArray(kList) && kList.length > 0) {
+                if (!kpisByUser.has(userId)) kpisByUser.set(userId, []);
+                kpisByUser.get(userId)!.push(kList);
+              }
+            } catch {}
+          }
+        } else {
+          if (row.content) {
+            try {
+              const rawObj = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+              const planObj = Array.isArray(rawObj) ? { metadata: {}, items: rawObj } : rawObj;
+              if (!pplansByUser.has(userId)) pplansByUser.set(userId, []);
+              pplansByUser.get(userId)!.push({
+                id: row.id,
+                tenantId: row.tenant_id,
+                createdAt: row.created_at,
+                plan: planObj
+              });
+            } catch {}
+          }
+        }
+      }
+
+      const gmPlansByUser = new Map<string, any[]>();
+      if (Array.isArray(gmPlansRes.data)) {
+        for (const gmRow of gmPlansRes.data) {
+          const em = (normalizeNkangalaEmail(String(gmRow.user_email || '').toLowerCase().trim()) || String(gmRow.user_email || '').toLowerCase().trim());
+          if (em && Array.isArray(gmRow.items_payload) && gmRow.items_payload.length > 0) {
+            gmPlansByUser.set(em, gmRow.items_payload);
+          }
+        }
+      }
+
+      const usersMap = new Map<string, any>();
+      const registerUser = (u: any, defaultEntity: 'Nkangala DM' | 'NEDA') => {
+        if (!u || !u.email) return;
+        const rawEm = String(u.email).toLowerCase().trim();
+        const em = normalizeNkangalaEmail(rawEm) || rawEm;
+        if (!em || !em.includes('@') || em.endsWith('@mzansiflow.co.za') || em.endsWith('@system.local') || em.endsWith('@massivedynamixdistributors.com')) return;
+        const isNeda = em.endsWith('@neda.gov.za') || em.endsWith('@neda.co.za') || defaultEntity === 'NEDA' || Boolean(findNedaPackageByEmailOrName(em));
+        const existing = usersMap.get(em);
+        if (!existing) {
+          usersMap.set(em, {
+            ...u,
+            email: em,
+            entity: isNeda ? 'NEDA' : 'Nkangala DM'
+          });
+        } else {
+          usersMap.set(em, {
+            ...existing,
+            ...u,
+            email: em,
+            fullName: u.fullName && !u.fullName.includes('@') ? u.fullName : existing.fullName,
+            department: u.department || existing.department,
+            jobFunction: u.jobFunction || existing.jobFunction,
+            manager: u.manager || existing.manager,
+            managerEmail: u.managerEmail || existing.managerEmail,
+            reportTo: u.reportTo || existing.reportTo,
+            entity: isNeda ? 'NEDA' : existing.entity
+          });
+        }
+      };
+
+      for (const u of (nkangalaUsers || [])) registerUser(u, 'Nkangala DM');
+      for (const u of (nedaUsers || [])) registerUser(u, 'NEDA');
+      if (Array.isArray(NEDA_EXTRACTED_PACKAGES)) {
+        for (const pkg of NEDA_EXTRACTED_PACKAGES) {
+          registerUser({
+            email: pkg.primaryEmail,
+            fullName: pkg.fullName,
+            department: pkg.department,
+            directorate: pkg.directorate,
+            jobFunction: pkg.jobFunction,
+            manager: pkg.supervisorName,
+            managerEmail: pkg.supervisorEmail,
+            reportTo: pkg.supervisorName
+          }, 'NEDA');
+        }
+      }
+      for (const em of pplansByUser.keys()) {
+        if (!usersMap.has(em)) {
+          registerUser({ email: em, fullName: em.split('@')[0] }, em.includes('neda') ? 'NEDA' : 'Nkangala DM');
+        }
+      }
+      for (const em of kpisByUser.keys()) {
+        if (!usersMap.has(em)) {
+          registerUser({ email: em, fullName: em.split('@')[0] }, em.includes('neda') ? 'NEDA' : 'Nkangala DM');
+        }
+      }
+
+      const resolveCanonicalItemsForUser = (userId: string): { items: any[]; metadata: any } => {
+        const candidates = pplansByUser.get(userId) || [];
+        const kpiLists = kpisByUser.get(userId) || [];
+
+        const scoreCandidate = (cand: any) => {
+          const items = Array.isArray(cand.plan?.items) ? cand.plan.items : (Array.isArray(cand.plan?.rows) ? cand.plan.rows : (Array.isArray(cand.plan?.kpis) ? cand.plan.kpis : []));
+          const isCleared = Boolean(cand.plan?.metadata?._isCleared === true);
+          const isReplacePlan = Boolean(cand.plan?.metadata && (cand.plan.metadata._replacePlan === true || cand.plan.metadata._allowItemDeletion === true || cand.plan.metadata._isFredExtracted === true));
+          const isCanonical = cand.id === `pplan_tenant-229_${userId}` || cand.id === `pplan_neda_${userId}`;
+          const tsStr = cand.plan?.metadata?._pushedAt || cand.plan?.metadata?.updatedAt || cand.createdAt || '';
+          const ts = tsStr ? (new Date(tsStr).getTime() || 0) : 0;
+          let reviewCount = 0;
+          let realItemCount = 0;
+          if (!isCleared && Array.isArray(items)) {
+            for (const it of items) {
+              if (!isSyntheticTeamKpi(it)) realItemCount++;
+              const st = it.reviewStatus || it.reviewApprovalStatus || '';
+              if (st === 'Approved' || st === 'Revision Required' || st === 'Rejected' || st === 'Reviewed' || st === 'Dispatched to Audit') reviewCount += 2;
+              else if (st === 'Submitted for Approval' || st === 'Submitted for Review' || st === 'Submitted') reviewCount += 1;
+              const docsLen = (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
+              if (docsLen > 0) reviewCount += 1;
+            }
+          }
+          return { cand, items, isCleared, isReplacePlan, isCanonical, ts, reviewCount, realItemCount };
+        };
+
+        const scored = candidates.map(scoreCandidate).filter(c => c.isCleared || c.items.length > 0);
+        scored.sort((a, b) => {
+          const aReal = (a.isCleared || a.realItemCount > 0) ? 1 : 0;
+          const bReal = (b.isCleared || b.realItemCount > 0) ? 1 : 0;
+          if (bReal !== aReal) return bReal - aReal;
+          if (a.isCleared || b.isCleared || a.isReplacePlan || b.isReplacePlan) {
+            if (b.ts !== a.ts) return b.ts - a.ts;
+            if (b.isCanonical !== a.isCanonical) return (b.isCanonical ? 1 : 0) - (a.isCanonical ? 1 : 0);
+          }
+          if (b.isCanonical !== a.isCanonical && b.ts >= a.ts) return (b.isCanonical ? 1 : 0) - (a.isCanonical ? 1 : 0);
+          if (b.ts !== a.ts) return b.ts - a.ts;
+          if (b.reviewCount !== a.reviewCount) return b.reviewCount - a.reviewCount;
+          return b.realItemCount - a.realItemCount;
+        });
+
+        let metadata: any = {};
+        let resolvedItems: any[] = [];
+        let isExplicitlyCleared = false;
+
+        if (scored.length > 0) {
+          const best = scored[0];
+          metadata = { ...(best.cand.plan?.metadata || {}) };
+          isExplicitlyCleared = best.isCleared;
+          if (!isExplicitlyCleared) {
+            const nonSynth = best.items.filter((it: any) => !isSyntheticTeamKpi(it));
+            const baseList = nonSynth.length > 0 ? nonSynth : best.items;
+            const secondaryLists: any[][] = [];
+            for (let i = 1; i < scored.length; i++) {
+              if (scored[i].isCleared) continue;
+              const sec = scored[i].items.filter((it: any) => !isSyntheticTeamKpi(it));
+              if (sec.length > 0) secondaryLists.push(sec);
+            }
+            for (const kl of kpiLists) {
+              const cleanKl = kl.filter((it: any) => !isSyntheticTeamKpi(it));
+              if (cleanKl.length > 0) secondaryLists.push(cleanKl);
+            }
+            resolvedItems = secondaryLists.length > 0
+              ? mergePlanItemsWithSecondary(baseList, secondaryLists, baseList.length === 0)
+              : baseList;
+          }
+        } else if (kpiLists.length > 0) {
+          const cleanLists = kpiLists.map(kl => kl.filter((it: any) => !isSyntheticTeamKpi(it))).filter(kl => kl.length > 0);
+          if (cleanLists.length > 0) {
+            resolvedItems = cleanLists.length > 1
+              ? mergePlanItemsWithSecondary(cleanLists[0], cleanLists.slice(1), false)
+              : cleanLists[0];
+          }
+        } else if (gmPlansByUser.has(userId)) {
+          resolvedItems = gmPlansByUser.get(userId) || [];
+        }
+
+        if (!isExplicitlyCleared && userId.includes('shabangusm') && resolvedItems.length < 31) {
+          const shabanguPplan = SHABANGUSM_OFFICIAL_KPIS.map((k, idx) => ({
+            id: `pplan-shabangu-${idx + 1}`,
+            kpiNo: k["kpi no"],
+            strategicGoal: k["functional kpa"],
+            kpi: k["kpi description"],
+            baseline: k["baseline"],
+            annualTarget: k["annual target"],
+            q1Target: k["1st qtr target"],
+            q2Target: k["2nd qtr target"],
+            q3Target: k["3rd qtr target"],
+            q4Target: k["4th qtr target"],
+            budget: k["budget"],
+            weighting: k["%wt"],
+            poe: k["poe"]
+          }));
+          const existingMap = new Map<string, any>();
+          resolvedItems.forEach((it: any) => {
+            if (it.kpiNo) existingMap.set(String(it.kpiNo).toLowerCase().trim(), it);
+          });
+          resolvedItems = shabanguPplan.map(officialItem => {
+            const match = existingMap.get(String(officialItem.kpiNo).toLowerCase().trim());
+            return match ? { ...officialItem, ...match } : officialItem;
+          });
+        }
+
+        const nedaPkg = findNedaPackageByEmailOrName(userId);
+        if (nedaPkg && !isExplicitlyCleared) {
+          const existingMap = new Map<string, any>();
+          resolvedItems.forEach((it: any) => {
+            const kNo = String(it.kpiNo || '').toLowerCase().trim();
+            if (kNo) existingMap.set(kNo, it);
+          });
+          resolvedItems = nedaPkg.kpis.map((officialKpi: any) => {
+            const match = existingMap.get(String(officialKpi.kpiNo).toLowerCase().trim());
+            return match
+              ? {
+                  ...officialKpi,
+                  ...match,
+                  kpi: officialKpi.kpi,
+                  strategicGoal: officialKpi.strategicGoal,
+                  annualTarget: officialKpi.annualTarget,
+                  q1Target: officialKpi.q1Target,
+                  q2Target: officialKpi.q2Target,
+                  q3Target: officialKpi.q3Target,
+                  q4Target: officialKpi.q4Target,
+                  poe: officialKpi.poe
+                }
+              : officialKpi;
+          });
+        }
+
+        if (!isExplicitlyCleared && resolvedItems.length > 0) {
+          const nonSynth = resolvedItems.filter((it: any) => !isSyntheticTeamKpi(it));
+          resolvedItems = applyOfficialUserKpiFixes(
+            nonSynth.map((it: any) => sanitizePplanItem(it, userId)),
+            userId
+          ).map((it: any) => sanitizePplanItem(it, userId));
+
+          if (userId.includes('moepis')) {
+            resolvedItems = resolvedItems.filter((it: any) => {
+              const no = String(it.kpiNo || '').replace(/[^0-9]/g, '');
+              const id = String(it.id || '').toLowerCase();
+              const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+              if (no === '25' || no === '26' || id.endsWith('-25') || id.endsWith('-26')) return false;
+              if (desc.includes('percentage of staff vacancy') || desc.includes('vacant posts filled')) return false;
+              return true;
+            });
+          }
+          if (userId.includes('matherets')) {
+            resolvedItems = resolvedItems.filter((it: any) => {
+              const no = String(it.kpiNo || it['kpi no'] || '').replace(/[^0-9]/g, '');
+              const id = String(it.id || '').toLowerCase();
+              const desc = (it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase();
+              if (no === '13' || no === '14' || no === '15' || id.endsWith('-13') || id.endsWith('-14') || id.endsWith('-15')) return false;
+              if (desc.includes('achieve target deliverable kpi-13') || desc.includes('achieve target deliverable kpi-14') || desc.includes('achieve target deliverable kpi-15')) return false;
+              return true;
+            });
+          }
+          if (userId.includes('nakapm')) {
+            resolvedItems = resolvedItems.filter((it: any) => {
+              const id = String(it.id || '').toLowerCase();
+              const desc = (it.kpi || it.description || it.desc || '').toLowerCase();
+              if (id.startsWith('kpi-sync-178970925981')) return false;
+              if (desc.includes('staff vacancy rate') || desc.includes('vacant posts filled') || desc.includes('workplace skills plan') || desc.includes('suspended officials') || desc.includes('active suspensions') || desc.includes('declared their financial interests')) return false;
+              return true;
+            });
+          }
+        }
+
+        return { items: resolvedItems, metadata };
+      };
+
+      const hasVal = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toUpperCase() !== 'N/A';
+      const hasScore = (v: any) => v !== undefined && v !== null && !isNaN(parseFloat(String(v))) && parseFloat(String(v)) > 0;
+
+      const userReports: any[] = [];
+
+      for (const [email, uProfile] of usersMap.entries()) {
+        const { items, metadata } = resolveCanonicalItemsForUser(email);
+
+        let totalKpis = items.length;
+        let naKpis = 0;
+        let applicableKpis = 0;
+        let submittedKpis = 0;
+        let notSubmittedKpis = 0;
+        let approvedKpis = 0;
+        let notApprovedKpis = 0;
+        let awaitingManagerApprovalKpis = 0;
+        let revisionRequiredKpis = 0;
+        let draftInProgressKpis = 0;
+
+        const kpiDetails = items.map((it: any, idx: number) => {
+          const kpiNo = String(it.kpiNo || it['kpi no'] || it.refNum || `${idx + 1}`).trim();
+          const kpiTitle = String(it.kpi || it.kpiDescription || it['kpi description'] || it.description || it.desc || `KPI ${idx + 1}`).trim();
+          const descLower = kpiTitle.toLowerCase();
+
+          const qTargetKey = activeQuarter === 'annual' ? 'annualTarget' : `${activeQuarter}Target`;
+          const qAltTargetKey = activeQuarter === 'q1' ? '1st qtr target' : activeQuarter === 'q2' ? '2nd qtr target' : activeQuarter === 'q3' ? '3rd qtr target' : activeQuarter === 'q4' ? '4th qtr target' : 'annual target';
+          const qActualKey = activeQuarter === 'annual' ? 'annualActual' : `${activeQuarter}Actual`;
+          const qScoreKey = activeQuarter === 'annual' ? 'ownScore' : `${activeQuarter}Score`;
+          const qPoeDocsKey = activeQuarter === 'annual' ? 'annualPoeDocs' : `${activeQuarter}PoeDocs`;
+          const qPoeStatusKey = `${activeQuarter}PoeStatus`;
+          const qApplicableKey = `${activeQuarter}Applicable`;
+
+          const targetVal = String(it[qTargetKey] ?? it[qAltTargetKey] ?? it.annualTarget ?? '').trim();
+          const actualVal = String(it[qActualKey] ?? (activeQuarter === 'q1' ? it.q1Actual : '') ?? '').trim();
+          const selfScoreVal = String(it[qScoreKey] ?? it.ownScore ?? (it.myScore && String(it.myScore).trim() !== '3.0' ? it.myScore : '') ?? '').trim();
+          const managerScoreVal = String(it.managerScore ?? it[`${activeQuarter}ManagerScore`] ?? '').trim();
+          const poeDocsArr = Array.isArray(it[qPoeDocsKey]) ? it[qPoeDocsKey] : (activeQuarter === 'q1' && Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : []);
+          const poeDocsCount = poeDocsArr.length;
+          const poeDocNames = poeDocsArr.map((d: any) => d?.name || 'Attachment').filter(Boolean);
+
+          const rawReviewStatus = String(it.reviewStatus || '').trim();
+          const rawApprovalStatus = String(it.reviewApprovalStatus || '').trim();
+          const rawQPoeStatus = String(it[qPoeStatusKey] || '').trim();
+
+          const isCleanAuditQ1 = activeQuarter === 'q1' && (descLower.includes('clean audit opinion') || kpiNo.toUpperCase() === 'M_21' || kpiNo.toUpperCase() === 'M-21');
+          const isNa =
+            isCleanAuditQ1 ||
+            it[qApplicableKey] === false ||
+            rawReviewStatus.toUpperCase() === 'N/A' ||
+            rawQPoeStatus.toUpperCase() === 'N/A' ||
+            targetVal.toUpperCase() === 'N/A';
+
+          const hasGenuineEvidence =
+            poeDocsCount > 0 ||
+            Boolean(it.poeFileBase64 || it.poeFileName) ||
+            hasVal(actualVal) ||
+            hasScore(selfScoreVal) ||
+            hasVal(it[`${activeQuarter}Comment`]) ||
+            hasVal(it.evaluationComment);
+
+          const isRevisionRequired =
+            !isNa && (
+              rawReviewStatus === 'Revision Required' ||
+              rawApprovalStatus === 'Rejected' ||
+              rawQPoeStatus === 'Revision Required' ||
+              rawQPoeStatus === 'Rejected'
+            );
+
+          const isSubmittedStatus =
+            rawReviewStatus === 'Submitted for Approval' ||
+            rawReviewStatus === 'Submitted for Review' ||
+            rawReviewStatus === 'Submitted' ||
+            rawReviewStatus === 'Pending Manager Review' ||
+            rawReviewStatus === 'Approved' ||
+            rawReviewStatus === 'Reviewed' ||
+            rawReviewStatus === 'Verified' ||
+            rawReviewStatus === 'Dispatched to Audit' ||
+            rawReviewStatus === 'Dispatched to Internal Audit' ||
+            rawReviewStatus === 'Pushed to PMS' ||
+            rawApprovalStatus === 'Approved' ||
+            rawQPoeStatus === 'Approved' ||
+            rawQPoeStatus === 'Verified' ||
+            rawQPoeStatus === 'Pending Verification' ||
+            rawQPoeStatus === 'Submitted';
+
+          const isSubmitted = !isNa && !isRevisionRequired && (
+            (isSubmittedStatus && (hasGenuineEvidence || hasScore(managerScoreVal))) ||
+            (poeDocsCount > 0 && hasVal(actualVal) && rawReviewStatus !== 'Draft')
+          );
+
+          const isApproved = !isNa && isSubmitted && (
+            rawReviewStatus === 'Approved' ||
+            rawReviewStatus === 'Reviewed' ||
+            rawReviewStatus === 'Verified' ||
+            rawReviewStatus === 'Dispatched to Audit' ||
+            rawReviewStatus === 'Dispatched to Internal Audit' ||
+            rawReviewStatus === 'Pushed to PMS' ||
+            rawApprovalStatus === 'Approved'
+          );
+
+          const isAwaitingManager = !isNa && isSubmitted && !isApproved;
+          const isDraftInProgress = !isNa && !isSubmitted && !isRevisionRequired && hasGenuineEvidence;
+
+          if (isNa) {
+            naKpis++;
+          } else {
+            applicableKpis++;
+            if (isSubmitted) {
+              submittedKpis++;
+            } else {
+              notSubmittedKpis++;
+            }
+            if (isApproved) {
+              approvedKpis++;
+            } else {
+              notApprovedKpis++;
+            }
+            if (isAwaitingManager) {
+              awaitingManagerApprovalKpis++;
+            }
+            if (isRevisionRequired) {
+              revisionRequiredKpis++;
+            }
+            if (isDraftInProgress) {
+              draftInProgressKpis++;
+            }
+          }
+
+          let statusLabel = 'Not Submitted (Draft)';
+          if (isNa) statusLabel = 'Not Applicable (N/A)';
+          else if (isApproved) statusLabel = 'Approved by Manager';
+          else if (isAwaitingManager) statusLabel = 'Submitted — Awaiting Manager Approval';
+          else if (isRevisionRequired) statusLabel = 'Returned for Revision';
+          else if (isDraftInProgress) statusLabel = 'In Progress (Draft — Not Yet Submitted)';
+
+          return {
+            index: idx + 1,
+            id: it.id || `kpi-${idx + 1}`,
+            kpiNo,
+            kpiTitle,
+            target: targetVal || '—',
+            actual: actualVal || '—',
+            selfScore: selfScoreVal || '—',
+            managerScore: isApproved || (isSubmitted && hasScore(managerScoreVal)) ? (managerScoreVal || '—') : '—',
+            poeDocsCount,
+            poeDocNames,
+            reviewStatus: rawReviewStatus || 'Draft',
+            qPoeStatus: rawQPoeStatus || 'Draft',
+            statusLabel,
+            isNa,
+            isSubmitted,
+            isApproved,
+            isAwaitingManager,
+            isRevisionRequired,
+            isDraftInProgress
+          };
+        });
+
+        let overallStatus = 'No KPIs Assigned';
+        if (totalKpis > 0 && applicableKpis === 0) {
+          overallStatus = 'All N/A This Quarter';
+        } else if (applicableKpis > 0) {
+          if (approvedKpis === applicableKpis) {
+            overallStatus = 'Fully Approved';
+          } else if (submittedKpis === applicableKpis && approvedKpis > 0) {
+            overallStatus = 'Partially Approved';
+          } else if (submittedKpis === applicableKpis && approvedKpis === 0) {
+            overallStatus = 'Awaiting Manager Approval';
+          } else if (revisionRequiredKpis > 0) {
+            overallStatus = 'Revision Required';
+          } else if (submittedKpis > 0) {
+            overallStatus = 'Partially Submitted';
+          } else if (draftInProgressKpis > 0) {
+            overallStatus = 'In Progress (Draft)';
+          } else {
+            overallStatus = 'Not Submitted';
+          }
+        }
+
+        const fullName =
+          (uProfile.fullName && !uProfile.fullName.includes('@') ? uProfile.fullName : '') ||
+          (metadata.name && !metadata.name.includes('@') ? metadata.name : '') ||
+          email.split('@')[0];
+
+        const department =
+          uProfile.department ||
+          metadata.department ||
+          uProfile.directorate ||
+          metadata.directorate ||
+          (uProfile.entity === 'NEDA' ? 'Nkangala Economic Development Agency (NEDA)' : 'Municipal Administration');
+
+        const jobFunction =
+          uProfile.jobFunction ||
+          metadata.position ||
+          metadata.jobTitle ||
+          'Municipal Official';
+
+        const manager =
+          uProfile.manager ||
+          uProfile.reportTo ||
+          metadata.manager ||
+          metadata.reportTo ||
+          '—';
+
+        const managerEmail =
+          uProfile.managerEmail ||
+          metadata.managerEmail ||
+          '';
+
+        userReports.push({
+          email,
+          fullName,
+          entity: uProfile.entity || 'Nkangala DM',
+          department,
+          jobFunction,
+          manager,
+          managerEmail,
+          totalKpis,
+          naKpis,
+          applicableKpis,
+          submittedKpis,
+          notSubmittedKpis,
+          approvedKpis,
+          notApprovedKpis,
+          awaitingManagerApprovalKpis,
+          revisionRequiredKpis,
+          draftInProgressKpis,
+          submissionRate: applicableKpis > 0 ? Math.round((submittedKpis / applicableKpis) * 100) : 0,
+          approvalRate: applicableKpis > 0 ? Math.round((approvedKpis / applicableKpis) * 100) : 0,
+          overallStatus,
+          kpiDetails
+        });
+      }
+
+      // Sort users: users with assigned KPIs first (sorted by fullName), then users without KPIs (sorted by fullName)
+      userReports.sort((a, b) => {
+        const aHasKpis = a.totalKpis > 0 ? 1 : 0;
+        const bHasKpis = b.totalKpis > 0 ? 1 : 0;
+        if (bHasKpis !== aHasKpis) return bHasKpis - aHasKpis;
+        return String(a.fullName || '').localeCompare(String(b.fullName || ''));
+      });
+
+      const summary = {
+        totalUsers: userReports.length,
+        usersWithKpis: userReports.filter(u => u.totalKpis > 0).length,
+        usersWithoutKpis: userReports.filter(u => u.totalKpis === 0).length,
+        fullySubmittedUsers: userReports.filter(u => u.applicableKpis > 0 && u.submittedKpis === u.applicableKpis).length,
+        partiallySubmittedUsers: userReports.filter(u => u.applicableKpis > 0 && u.submittedKpis > 0 && u.submittedKpis < u.applicableKpis).length,
+        notSubmittedUsers: userReports.filter(u => u.applicableKpis > 0 && u.submittedKpis === 0).length,
+        fullyApprovedUsers: userReports.filter(u => u.applicableKpis > 0 && u.approvedKpis === u.applicableKpis).length,
+        partiallyApprovedUsers: userReports.filter(u => u.applicableKpis > 0 && u.approvedKpis > 0 && u.approvedKpis < u.applicableKpis).length,
+        notApprovedUsers: userReports.filter(u => u.applicableKpis > 0 && u.approvedKpis === 0).length,
+        totalKpisSystemWide: userReports.reduce((acc, u) => acc + u.totalKpis, 0),
+        totalNaKpisSystemWide: userReports.reduce((acc, u) => acc + u.naKpis, 0),
+        totalApplicableKpisSystemWide: userReports.reduce((acc, u) => acc + u.applicableKpis, 0),
+        totalSubmittedKpisSystemWide: userReports.reduce((acc, u) => acc + u.submittedKpis, 0),
+        totalNotSubmittedKpisSystemWide: userReports.reduce((acc, u) => acc + u.notSubmittedKpis, 0),
+        totalApprovedKpisSystemWide: userReports.reduce((acc, u) => acc + u.approvedKpis, 0),
+        totalNotApprovedKpisSystemWide: userReports.reduce((acc, u) => acc + u.notApprovedKpis, 0),
+        totalAwaitingManagerKpisSystemWide: userReports.reduce((acc, u) => acc + u.awaitingManagerApprovalKpis, 0),
+        quarter: activeQuarter.toUpperCase(),
+        generatedAt: new Date().toISOString()
+      };
+
+      return res.json({
+        summary,
+        users: userReports
+      });
+    } catch (err: any) {
+      console.error("admin ipms-reports-summary error:", err);
+      return res.status(500).json({ error: err.message || "Failed to generate IPMS summary report" });
+    }
+  });
+
   app.post("/api/tenant/:tenantId/clear-subordinates-ledger", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const { userIds } = req.body;

@@ -413,6 +413,7 @@ export const modules: Module[] = [
     name: 'Administrator',
     icon: Shield,
     subModules: [
+      { id: 'admin-ipms-reports', name: 'IPMS Reports', icon: FileBarChart },
       { id: 'compliance-cert', name: 'Compliance Certificate', icon: Award },
       { id: 'perf', name: 'Performance & Bottlenecks', icon: Activity },
       { id: 'backups', name: 'Nkangala Backups & 1-Click Restore', icon: Archive },
