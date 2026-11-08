@@ -19208,9 +19208,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       if (!supabase) throw new Error("Supabase is not initialized");
 
-      const [nkangalaUsers, nedaUsers, pplanQueryRes, kpisQueryRes, gmPlansRes] = await Promise.all([
+      const [consolidatedUsers, pplanQueryRes, kpisQueryRes, gmPlansRes] = await Promise.all([
         getConsolidatedUsersList('tenant-229'),
-        getConsolidatedUsersList('neda'),
         supabase
           .from('messages')
           .select('id, tenant_id, sender_email, content, created_at, message_type')
@@ -19224,6 +19223,51 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           .select('user_email, items_payload, source_file_name')
       ]);
 
+      const ALIAS_TO_CANONICAL: Record<string, string> = {
+        'nkosibs@nkangaladm.gov.za': 'khumalobs@nkangaladm.gov.za',
+        'mothlabanerc@nkangaladm.gov.za': 'motlhabanerc@nkangaladm.gov.za',
+        'affulph@nkangaladm.gov.za': 'giyasi-affulph@nkangaladm.gov.za',
+        'mthimunyen@nkangaladm.gov.za': 'mthimunyedmn@nkangaladm.gov.za',
+        'mahlangulm@nkangaladm.gov.za': 'mahlanguml@nkangaladm.gov.za',
+        'shabangugm@nkangaladm.gov.za': 'shabangusm@nkangaladm.gov.za',
+        'morari@nkangaladm.gov.za': 'morarj@nkangaladm.gov.za',
+        'phetlav@nkangaladm.gov.za': 'phetlavm@nkangaladm.gov.za',
+        'mangweget@nkangaladm.gov.za': 'mangwegete@nkangaladm.gov.za',
+        'masimulat@nkangaladm.gov.za': 'masimulats@nkangaladm.gov.za',
+        'mtshalib@nkangaladm.gov.za': 'mtshalinb@nkangaladm.gov.za',
+        'mazwit@nkangaladm.gov.za': 'mazwitc@nkangaladm.gov.za',
+        'maphangan@nkangaladm.gov.za': 'maphangant@nkangaladm.gov.za',
+        'parbhoon@nkangaladm.gov.za': 'nparbhoo@nkangaladm.gov.za',
+        'manganijp@nkangaladm.gov.za': 'manganijp@neda.gov.za',
+        'chaukekc@nkangaladm.gov.za': 'chaukekc@neda.gov.za',
+        'sehlakols@nkangaladm.gov.za': 'sehlakols@neda.gov.za',
+        'ngomanennc@nkangaladm.gov.za': 'ngomanennc@neda.gov.za',
+        'chaukenh@nkangaladm.gov.za': 'chaukenh@neda.gov.za'
+      };
+
+      const canonicalizeOfficialEmail = (rawEmail: string): string => {
+        if (!rawEmail) return '';
+        let em = normalizeNkangalaEmail(String(rawEmail).toLowerCase().trim()) || String(rawEmail).toLowerCase().trim();
+        if (!em || !em.includes('@')) return '';
+        if (ALIAS_TO_CANONICAL[em]) {
+          em = ALIAS_TO_CANONICAL[em];
+        }
+        const isOfficialDomain =
+          em.endsWith('@nkangaladm.gov.za') ||
+          em.endsWith('@neda.gov.za') ||
+          em.endsWith('@neda.co.za');
+        if (!isOfficialDomain) return '';
+        if (
+          em.startsWith('healthmailbox') ||
+          em === 'financewc@nkangaladm.gov.za' ||
+          em === 'bono@nkangaladm.gov.za' ||
+          em.startsWith('test@')
+        ) {
+          return '';
+        }
+        return em;
+      };
+
       const isSyntheticTeamKpi = (it: any): boolean => {
         if (!it) return true;
         const desc = String(it.kpi || it.description || it.desc || it['kpi description'] || '').toLowerCase().trim();
@@ -19234,6 +19278,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           desc.startsWith('ensure 100% adherence to departmental budget control and mfma expenditure guidelines in') ||
           desc.includes('maintain 100% resolution of public service queries and operational requests within prescribed slas') ||
           desc.includes('complete all mandatory individual performance reviews and personal development plan (pdp) targets for 2026/2027') ||
+          desc === 'quarterly oversight review and portfolio committee attendance' ||
+          desc === 'community idp and budget consultation meetings held' ||
+          desc === 'adherence to councillor code of conduct & declaration of interests' ||
+          desc === 'ensure 100% execution of approved departmental operational workplans and service delivery targets' ||
+          desc === 'ensure 100% adherence to institutional performance management and statutory governance reporting timelines' ||
+          desc === 'ensure 100% compliance with municipal finance management act (mfma) standards and zero unauthorized/irregular expenditure' ||
+          (desc.startsWith('operational execution of ') && desc.endsWith(' departmental kpis')) ||
+          desc === 'submission of monthly compliance registers and audit portfolios' ||
+          desc === 'adherence to internal controls, risk mitigation and batho pele standards' ||
           goal.includes('aspirant local municipal aligned performance objective') ||
           goal.includes('local statutory priority target')
         );
@@ -19249,16 +19302,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (rowId === 'team_pplan_tenant-229_all' || rowId === 'team_evaluation_tenant-229_all') continue;
         const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
         const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
-        let userId = '';
+        let rawUserId = '';
         const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
         if (foundTenantId) {
-          userId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
+          rawUserId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
         } else {
           const parts = rowId.split('_');
-          userId = parts[parts.length - 1] || row.sender_email || '';
+          rawUserId = parts[parts.length - 1] || row.sender_email || '';
         }
-        userId = (normalizeNkangalaEmail(userId.toLowerCase().trim()) || userId.toLowerCase().trim());
-        if (!userId || !userId.includes('@') || userId.endsWith('@mzansiflow.co.za') || userId.endsWith('@system.local')) continue;
+        const userId = canonicalizeOfficialEmail(rawUserId);
+        if (!userId) continue;
 
         if (isKpiRow) {
           if (row.content) {
@@ -19291,7 +19344,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const gmPlansByUser = new Map<string, any[]>();
       if (Array.isArray(gmPlansRes.data)) {
         for (const gmRow of gmPlansRes.data) {
-          const em = (normalizeNkangalaEmail(String(gmRow.user_email || '').toLowerCase().trim()) || String(gmRow.user_email || '').toLowerCase().trim());
+          const em = canonicalizeOfficialEmail(String(gmRow.user_email || ''));
           if (em && Array.isArray(gmRow.items_payload) && gmRow.items_payload.length > 0) {
             gmPlansByUser.set(em, gmRow.items_payload);
           }
@@ -19299,12 +19352,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const usersMap = new Map<string, any>();
-      const registerUser = (u: any, defaultEntity: 'Nkangala DM' | 'NEDA') => {
+      const registerUser = (u: any) => {
         if (!u || !u.email) return;
-        const rawEm = String(u.email).toLowerCase().trim();
-        const em = normalizeNkangalaEmail(rawEm) || rawEm;
-        if (!em || !em.includes('@') || em.endsWith('@mzansiflow.co.za') || em.endsWith('@system.local') || em.endsWith('@massivedynamixdistributors.com')) return;
-        const isNeda = em.endsWith('@neda.gov.za') || em.endsWith('@neda.co.za') || defaultEntity === 'NEDA' || Boolean(findNedaPackageByEmailOrName(em));
+        const em = canonicalizeOfficialEmail(String(u.email));
+        if (!em) return;
+        const tId = String(u.tenantId || '').toLowerCase().trim();
+        const dept = String(u.department || '').toLowerCase().trim();
+        const isNeda =
+          em.endsWith('@neda.gov.za') ||
+          em.endsWith('@neda.co.za') ||
+          tId === 'neda' ||
+          tId === 'tenant-neda' ||
+          dept.includes('neda') ||
+          Boolean(findNedaPackageByEmailOrName(em));
+
         const existing = usersMap.get(em);
         if (!existing) {
           usersMap.set(em, {
@@ -19328,8 +19389,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       };
 
-      for (const u of (nkangalaUsers || [])) registerUser(u, 'Nkangala DM');
-      for (const u of (nedaUsers || [])) registerUser(u, 'NEDA');
+      for (const u of (consolidatedUsers || [])) registerUser(u);
       if (Array.isArray(NEDA_EXTRACTED_PACKAGES)) {
         for (const pkg of NEDA_EXTRACTED_PACKAGES) {
           registerUser({
@@ -19340,18 +19400,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             jobFunction: pkg.jobFunction,
             manager: pkg.supervisorName,
             managerEmail: pkg.supervisorEmail,
-            reportTo: pkg.supervisorName
-          }, 'NEDA');
+            reportTo: pkg.supervisorName,
+            tenantId: 'neda'
+          });
         }
       }
       for (const em of pplansByUser.keys()) {
         if (!usersMap.has(em)) {
-          registerUser({ email: em, fullName: em.split('@')[0] }, em.includes('neda') ? 'NEDA' : 'Nkangala DM');
+          registerUser({ email: em, fullName: em.split('@')[0] });
         }
       }
       for (const em of kpisByUser.keys()) {
         if (!usersMap.has(em)) {
-          registerUser({ email: em, fullName: em.split('@')[0] }, em.includes('neda') ? 'NEDA' : 'Nkangala DM');
+          registerUser({ email: em, fullName: em.split('@')[0] });
         }
       }
 
@@ -19381,7 +19442,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           return { cand, items, isCleared, isReplacePlan, isCanonical, ts, reviewCount, realItemCount };
         };
 
-        const scored = candidates.map(scoreCandidate).filter(c => c.isCleared || c.items.length > 0);
+        const scored = candidates.map(scoreCandidate).filter(c => c.isCleared || c.realItemCount > 0);
         scored.sort((a, b) => {
           const aReal = (a.isCleared || a.realItemCount > 0) ? 1 : 0;
           const bReal = (b.isCleared || b.realItemCount > 0) ? 1 : 0;
@@ -19405,8 +19466,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           metadata = { ...(best.cand.plan?.metadata || {}) };
           isExplicitlyCleared = best.isCleared;
           if (!isExplicitlyCleared) {
-            const nonSynth = best.items.filter((it: any) => !isSyntheticTeamKpi(it));
-            const baseList = nonSynth.length > 0 ? nonSynth : best.items;
+            const baseList = best.items.filter((it: any) => !isSyntheticTeamKpi(it));
             const secondaryLists: any[][] = [];
             for (let i = 1; i < scored.length; i++) {
               if (scored[i].isCleared) continue;
@@ -19429,7 +19489,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               : cleanLists[0];
           }
         } else if (gmPlansByUser.has(userId)) {
-          resolvedItems = gmPlansByUser.get(userId) || [];
+          resolvedItems = (gmPlansByUser.get(userId) || []).filter((it: any) => !isSyntheticTeamKpi(it));
         }
 
         if (!isExplicitlyCleared && userId.includes('shabangusm') && resolvedItems.length < 31) {
@@ -19610,9 +19670,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             rawQPoeStatus === 'Pending Verification' ||
             rawQPoeStatus === 'Submitted';
 
-          const isSubmitted = !isNa && !isRevisionRequired && (
+          // Align with team-pplans: if an item has POE docs or captured actuals (or explicit submitted status with evidence), count as Submitted unless explicitly Unlocked for Resubmission
+          const isExplicitlyUnlockedDraft = Boolean(it.resubmissionUnlocked === true && rawReviewStatus === 'Draft' && !hasVal(actualVal) && poeDocsCount === 0);
+          const isSubmitted = !isNa && !isRevisionRequired && !isExplicitlyUnlockedDraft && (
             (isSubmittedStatus && (hasGenuineEvidence || hasScore(managerScoreVal))) ||
-            (poeDocsCount > 0 && hasVal(actualVal) && rawReviewStatus !== 'Draft')
+            poeDocsCount > 0 ||
+            hasVal(actualVal)
           );
 
           const isApproved = !isNa && isSubmitted && (
@@ -19709,12 +19772,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           (metadata.name && !metadata.name.includes('@') ? metadata.name : '') ||
           email.split('@')[0];
 
-        const department =
+        const rawDepartment =
           uProfile.department ||
           metadata.department ||
           uProfile.directorate ||
           metadata.directorate ||
-          (uProfile.entity === 'NEDA' ? 'Nkangala Economic Development Agency (NEDA)' : 'Municipal Administration');
+          '';
 
         const jobFunction =
           uProfile.jobFunction ||
@@ -19734,11 +19797,129 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           metadata.managerEmail ||
           '';
 
+        const resolveCanonicalDepartment = (): string => {
+          if (uProfile.entity === 'NEDA' || email.endsWith('@neda.gov.za') || email.endsWith('@neda.co.za')) {
+            return 'Nkangala Economic Development Agency (NEDA)';
+          }
+          const combined = `${rawDepartment} ${uProfile.directorate || ''} ${metadata.directorate || ''}`.toLowerCase();
+          const jobLow = jobFunction.toLowerCase();
+          const mgrLow = `${manager} ${managerEmail}`.toLowerCase();
+
+          if (combined.includes('speaker') || combined.includes('mpac') || combined.includes('whip') || jobLow.includes('speaker')) {
+            return 'Office of the Speaker';
+          }
+          if (combined.includes('mayor')) {
+            return 'Office of the Executive Mayor';
+          }
+          if (
+            combined.includes('finance') ||
+            combined.includes('financial') ||
+            combined.includes('scm') ||
+            combined.includes('supply chain') ||
+            combined.includes('budget') ||
+            combined.includes('treasury') ||
+            mgrLow.includes('stander') ||
+            mgrLow.includes('joubert') ||
+            mgrLow.includes('parbhoo') ||
+            mgrLow.includes('matsebulan') ||
+            mgrLow.includes('mathenjwabh')
+          ) {
+            return 'Financial Services';
+          }
+          if (
+            combined.includes('technical') ||
+            combined.includes('pmu') ||
+            combined.includes('project management unit') ||
+            combined.includes('infrastructure') ||
+            combined.includes('water') ||
+            mgrLow.includes('rampedi') ||
+            mgrLow.includes('mtshweniwm') ||
+            mgrLow.includes('skosanaj') ||
+            mgrLow.includes('msizaas')
+          ) {
+            return 'Technical Services';
+          }
+          if (
+            combined.includes('planning') ||
+            combined === 'ped' ||
+            combined.startsWith('ped ') ||
+            combined.includes('(ped)') ||
+            combined.includes('pedu') ||
+            combined.includes('economic development') ||
+            combined.includes('spatial') ||
+            mgrLow.includes('mahlangupt') ||
+            mgrLow.includes('fenyane') ||
+            mgrLow.includes('madihlaba')
+          ) {
+            return 'Planning and Economic Development';
+          }
+          if (
+            combined.includes('community') ||
+            combined.includes('social services') ||
+            combined.includes('disaster') ||
+            combined.includes('fire') ||
+            combined.includes('environmental health') ||
+            combined.includes('municipal health') ||
+            mgrLow.includes('lengwate') ||
+            mgrLow.includes('magampe') ||
+            mgrLow.includes('maphanga') ||
+            mgrLow.includes('mtshalinb') ||
+            mgrLow.includes('khuboni') ||
+            mgrLow.includes('nkosiso') ||
+            mgrLow.includes('nkosije')
+          ) {
+            return 'Community Development Services';
+          }
+          if (
+            combined.includes('municipal manager') ||
+            combined.includes('office of the mm') ||
+            combined.includes('office of mm') ||
+            combined.includes('internal audit') ||
+            combined.includes('performance management') ||
+            combined.includes('pms') ||
+            combined.includes('risk') ||
+            mgrLow.includes('mahlanguml') ||
+            mgrLow.includes('linkss') ||
+            mgrLow.includes('solly links') ||
+            mgrLow.includes('tloujmt') ||
+            mgrLow.includes('shabangusm') ||
+            mgrLow.includes('segami') ||
+            mgrLow.includes('mazwi') ||
+            mgrLow.includes('motshwene')
+          ) {
+            return 'Office of the Municipal Manager';
+          }
+          if (
+            combined.includes('corporate') ||
+            combined.includes('information and communication') ||
+            combined.includes('ict') ||
+            combined.includes('it consulting') ||
+            combined.includes('human resource') ||
+            combined.includes('administration') ||
+            mgrLow.includes('bvuma') ||
+            mgrLow.includes('singhn') ||
+            mgrLow.includes('khumalobs') ||
+            mgrLow.includes('nkosibs') ||
+            mgrLow.includes('mthimunyedmn') ||
+            mgrLow.includes('nhlapho') ||
+            mgrLow.includes('mokhabela') ||
+            mgrLow.includes('nakapm') ||
+            mgrLow.includes('marxc') ||
+            mgrLow.includes('rachidi')
+          ) {
+            return 'Corporate Services';
+          }
+          return 'Corporate Services';
+        };
+
+        const department = resolveCanonicalDepartment();
+
         userReports.push({
           email,
           fullName,
           entity: uProfile.entity || 'Nkangala DM',
           department,
+          subDepartment: rawDepartment && rawDepartment !== department ? rawDepartment : '',
           jobFunction,
           manager,
           managerEmail,
