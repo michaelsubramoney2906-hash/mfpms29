@@ -22047,29 +22047,52 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
 
+      const deptTeamMatch = reqDocumentId
+        ? reqDocumentId.toLowerCase().match(/^draft_doc_(cds|firefighters|technical_services|corporate_services|pms_team)_team_(\d+)/i)
+        : null;
+      const isDeptTeamDoc = Boolean(deptTeamMatch);
+      const deptSuffix = deptTeamMatch ? (deptTeamMatch[1].toLowerCase() === 'firefighters' ? 'cds' : deptTeamMatch[1].toLowerCase()) : '';
+      const deptTeamNum = deptTeamMatch ? Number(deptTeamMatch[2]) : 0;
+
       const isPmsTeamDoc = Boolean(reqDocumentId && reqDocumentId.toLowerCase().includes('pms_team'));
+      const isPmsTeam1Doc = Boolean(isPmsTeamDoc && (!deptTeamNum || deptTeamNum === 1));
+
       let documentId = reqDocumentId || `draft_doc_${tenantId}`;
-      if (userId && userId !== 'default' && !isPmsTeamDoc) {
+      if (userId && userId !== 'default' && !isPmsTeamDoc && !isDeptTeamDoc) {
         if (reqDocumentId) {
           const resolvedDocumentId = reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
           documentId = resolvedDocumentId.toLowerCase().includes(userId.toLowerCase()) ? resolvedDocumentId : `${resolvedDocumentId}_${userId}`;
         } else {
           documentId = `draft_doc_${tenantId}_${userId}`;
         }
+      } else if (isDeptTeamDoc && reqDocumentId) {
+        documentId = `draft_doc_${deptSuffix}_team_${deptTeamNum}_${tenantId}`.toLowerCase();
       }
       documentId = documentId.toLowerCase();
 
-      const isCdsTeam2Doc = Boolean(reqDocumentId && reqDocumentId.toLowerCase().includes('team_2'));
+      const isCdsTeam2Doc = Boolean(deptSuffix === 'cds' && deptTeamNum === 2);
       const isCdsTeam1Doc = Boolean(
         !isCdsTeam2Doc && (
-          (reqDocumentId && (reqDocumentId.toLowerCase().includes('cds_team_1') || (reqDocumentId.toLowerCase().includes('cds') && !reqDocumentId.toLowerCase().includes('team_')))) ||
-          isDisasterControlTeamMember(userId)
+          (deptSuffix === 'cds' && deptTeamNum === 1) ||
+          (reqDocumentId && reqDocumentId.toLowerCase().includes('cds') && !reqDocumentId.toLowerCase().includes('team_')) ||
+          (!reqDocumentId && isDisasterControlTeamMember(userId))
         )
       );
       const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : [];
       const candidateDraftIds = Array.from(new Set([
         documentId,
-        ...(isPmsTeamDoc ? [
+        ...(isDeptTeamDoc ? [
+          `draft_doc_${deptSuffix}_team_${deptTeamNum}_${tenantId}`.toLowerCase(),
+          `draft_doc_${deptSuffix}_team_${deptTeamNum}_tenant-229`.toLowerCase(),
+          `draft_doc_${deptSuffix}_team_${deptTeamNum}_nkangala_auto`.toLowerCase(),
+          `draft_doc_${deptSuffix}_team_${deptTeamNum}_global`.toLowerCase(),
+          ...(userId && userId !== 'default' ? [
+            `draft_doc_${deptSuffix}_team_${deptTeamNum}_${tenantId}_${userId}`.toLowerCase(),
+            `draft_doc_${deptSuffix}_team_${deptTeamNum}_tenant-229_${userId}`.toLowerCase(),
+            `draft_doc_${deptSuffix}_team_${deptTeamNum}_nkangala_auto_${userId}`.toLowerCase()
+          ] : [])
+        ] : []),
+        ...(isPmsTeam1Doc ? [
           'draft_doc_pms_team_team_1_tenant-229',
           'draft_doc_pms_team_team_1_nkangala_auto',
           'draft_doc_pms_team_team_1',
@@ -22140,11 +22163,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         data = draftBatchRes.data[0];
       }
 
-      // Fallback to global draft ONLY if NOT in NEDA context and user is NOT a NEDA official
+      // Fallback to global draft ONLY if NOT in NEDA context, NOT a specific department team slot (1..10), and user is NOT a NEDA official
       const nedaDraftPkg = findNedaPackageByEmailOrName(userId);
       const isNedaDraftContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaDraftPkg;
 
-      if ((!data || !data.content) && userId && userId !== 'default' && !isNedaDraftContext) {
+      if ((!data || !data.content) && userId && userId !== 'default' && !isNedaDraftContext && !isDeptTeamDoc) {
         const globalId = reqDocumentId 
           ? reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId).toLowerCase() 
           : `draft_doc_${tenantId}`;
@@ -22354,10 +22377,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         (typeof html === 'object' && Object.keys(html).length === 0) ||
         (typeof html === 'object' && html.html === '' && !html.pulledPplanItems && !html.coverPage && !html.purpose);
 
+      const postDeptTeamMatch = htmlDocumentId
+        ? String(htmlDocumentId).toLowerCase().match(/^draft_doc_(cds|firefighters|technical_services|corporate_services|pms_team)_team_(\d+)/i)
+        : null;
+      const isDeptTeamSave = Boolean(postDeptTeamMatch);
+      const postDeptSuffix = postDeptTeamMatch
+        ? (postDeptTeamMatch[1].toLowerCase() === 'firefighters' ? 'cds' : postDeptTeamMatch[1].toLowerCase())
+        : '';
+      const postDeptTeamNum = postDeptTeamMatch ? Number(postDeptTeamMatch[2]) : 0;
+
       const targetUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : ['default'];
       for (const u of targetUsers) {
         let documentId = htmlDocumentId || `draft_doc_${tenantId}`;
-        if (u && u !== 'default') {
+        if (isDeptTeamSave) {
+          documentId = `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_${tenantId}`.toLowerCase();
+        } else if (u && u !== 'default') {
           if (htmlDocumentId) {
             const resolvedHtmlDocumentId = htmlDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
             documentId = resolvedHtmlDocumentId.toLowerCase().includes(u.toLowerCase()) ? resolvedHtmlDocumentId : `${resolvedHtmlDocumentId}_${u}`;
@@ -22368,11 +22402,28 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         documentId = documentId.toLowerCase();
 
         // Check if existing content is already present in DB
-        const { data: existingDoc } = await supabase
+        const existingLookupIds = isDeptTeamSave
+          ? Array.from(new Set([
+              documentId,
+              `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_tenant-229`.toLowerCase(),
+              `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_nkangala_auto`.toLowerCase(),
+              ...(u && u !== 'default' ? [
+                `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_${tenantId}_${u}`.toLowerCase(),
+                `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_tenant-229_${u}`.toLowerCase()
+              ] : [])
+            ]))
+          : [documentId];
+
+        const { data: existingDocs } = await supabase
           .from('messages')
-          .select('content')
-          .eq('id', documentId)
-          .maybeSingle();
+          .select('id, content, created_at')
+          .in('id', existingLookupIds);
+
+        let existingDoc: any = null;
+        if (Array.isArray(existingDocs) && existingDocs.length > 0) {
+          existingDocs.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          existingDoc = existingDocs[0];
+        }
 
         if (existingDoc && existingDoc.content && existingDoc.content.length > 50 && isHtmlEmpty) {
           console.warn(`[Anti-Tombstone Guard]: Blocked empty payload overwrite for document ${documentId}`);
@@ -22416,7 +22467,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 dispute: (html.dispute && html.dispute.trim()) ? html.dispute : existingState.dispute,
                 amendment: (html.amendment && html.amendment.trim()) ? html.amendment : existingState.amendment,
                 evaluation: (html.evaluation && html.evaluation.trim()) ? html.evaluation : existingState.evaluation,
-                annexureC: (html.annexureC && html.annexureC.trim()) ? html.annexureC : existingState.annexureC,
+                annexureC: (html.annexureC !== undefined && typeof html.annexureC === 'string' && html.annexureC.trim()) ? html.annexureC : (typeof html.annexureC === 'boolean' ? html.annexureC : existingState.annexureC),
                 frameworkBelowJsc: (html.frameworkBelowJsc && html.frameworkBelowJsc.trim()) ? html.frameworkBelowJsc : existingState.frameworkBelowJsc,
                 khuboniJscNotes: (html.khuboniJscNotes && html.khuboniJscNotes.trim()) ? html.khuboniJscNotes : existingState.khuboniJscNotes,
                 // Preserve and sync dynamicSections properly
@@ -22453,13 +22504,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           created_at: timestamp
         }];
 
-        if (u && u !== 'default' && !htmlDocumentId) {
-          for (const altT of ['tenant-229', 'nkangala_auto', 'global']) {
-            const altDocId = `draft_doc_${altT}_${u}`.toLowerCase();
-            if (altDocId !== documentId) {
+        if (isDeptTeamSave) {
+          const deptSyncEntries = [
+            { id: `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_tenant-229`.toLowerCase(), tenant_id: 'tenant-229' },
+            { id: `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_nkangala_auto`.toLowerCase(), tenant_id: 'nkangala_auto' },
+            { id: `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_global`.toLowerCase(), tenant_id: 'global' },
+            ...(u && u !== 'default' ? [
+              { id: `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_${tenantId}_${u}`.toLowerCase(), tenant_id: tenantId },
+              { id: `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_tenant-229_${u}`.toLowerCase(), tenant_id: 'tenant-229' }
+            ] : [])
+          ];
+          for (const entry of deptSyncEntries) {
+            if (entry.id !== documentId && !syncDraftRows.some(r => r.id === entry.id)) {
               syncDraftRows.push({
-                id: altDocId,
-                tenant_id: altT,
+                id: entry.id,
+                tenant_id: entry.tenant_id,
                 sender_id: 'pa_editor_tool',
                 sender_email: 'pa@system.local',
                 sender_name: 'PA Editor',
@@ -22469,29 +22528,44 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               });
             }
           }
-        } else if (documentId.includes('pms_team')) {
-          const pmsTeamSyncIds = [
-            { id: 'draft_doc_pms_team_team_1', tenant_id: tenantId },
-            { id: 'draft_doc_pms_team_team_1_tenant-229', tenant_id: 'tenant-229' },
-            { id: 'draft_doc_pms_team_team_1_nkangala_auto', tenant_id: 'nkangala_auto' },
-            { id: 'draft_doc_pms_team_tenant-229', tenant_id: 'tenant-229' },
-            { id: 'draft_doc_pms_team_nkangala_auto', tenant_id: 'nkangala_auto' },
-            { id: 'draft_doc_pms_team_team_1_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
-            { id: 'draft_doc_pms_team_team_1_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
-            { id: 'draft_doc_pms_team_team_1_global_zulune@nkangaladm.gov.za', tenant_id: 'global' },
-            { id: 'draft_doc_pms_team_team_1_tenant-229_nsibandenp@nkangaladm.gov.za', tenant_id: 'tenant-229' },
-            { id: 'draft_doc_pms_team_team_1_nkangala_auto_nsibandenp@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
-            { id: 'draft_doc_pms_team_team_1_global_nsibandenp@nkangaladm.gov.za', tenant_id: 'global' },
-            { id: 'draft_doc_pms_team_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
-            { id: 'draft_doc_pms_team_tenant-229_nsibandenp@nkangaladm.gov.za', tenant_id: 'tenant-229' },
-            { id: 'draft_doc_pms_team_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
-            { id: 'draft_doc_pms_team_nkangala_auto_nsibandenp@nkangaladm.gov.za', tenant_id: 'nkangala_auto' }
-          ];
-          for (const entry of pmsTeamSyncIds) {
-            if (entry.id !== documentId) {
+          if (postDeptSuffix === 'pms_team' && postDeptTeamNum === 1) {
+            const pmsTeamSyncIds = [
+              { id: 'draft_doc_pms_team_team_1', tenant_id: tenantId },
+              { id: 'draft_doc_pms_team_tenant-229', tenant_id: 'tenant-229' },
+              { id: 'draft_doc_pms_team_nkangala_auto', tenant_id: 'nkangala_auto' },
+              { id: 'draft_doc_pms_team_team_1_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+              { id: 'draft_doc_pms_team_team_1_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
+              { id: 'draft_doc_pms_team_team_1_global_zulune@nkangaladm.gov.za', tenant_id: 'global' },
+              { id: 'draft_doc_pms_team_team_1_tenant-229_nsibandenp@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+              { id: 'draft_doc_pms_team_team_1_nkangala_auto_nsibandenp@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
+              { id: 'draft_doc_pms_team_team_1_global_nsibandenp@nkangaladm.gov.za', tenant_id: 'global' },
+              { id: 'draft_doc_pms_team_tenant-229_zulune@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+              { id: 'draft_doc_pms_team_tenant-229_nsibandenp@nkangaladm.gov.za', tenant_id: 'tenant-229' },
+              { id: 'draft_doc_pms_team_nkangala_auto_zulune@nkangaladm.gov.za', tenant_id: 'nkangala_auto' },
+              { id: 'draft_doc_pms_team_nkangala_auto_nsibandenp@nkangaladm.gov.za', tenant_id: 'nkangala_auto' }
+            ];
+            for (const entry of pmsTeamSyncIds) {
+              if (entry.id !== documentId && !syncDraftRows.some(r => r.id === entry.id)) {
+                syncDraftRows.push({
+                  id: entry.id,
+                  tenant_id: entry.tenant_id,
+                  sender_id: 'pa_editor_tool',
+                  sender_email: 'pa@system.local',
+                  sender_name: 'PA Editor',
+                  content: contentPayload,
+                  message_type: 'drafting_suite_doc',
+                  created_at: timestamp
+                });
+              }
+            }
+          }
+        } else if (u && u !== 'default' && !htmlDocumentId) {
+          for (const altT of ['tenant-229', 'nkangala_auto', 'global']) {
+            const altDocId = `draft_doc_${altT}_${u}`.toLowerCase();
+            if (altDocId !== documentId) {
               syncDraftRows.push({
-                id: entry.id,
-                tenant_id: entry.tenant_id,
+                id: altDocId,
+                tenant_id: altT,
                 sender_id: 'pa_editor_tool',
                 sender_email: 'pa@system.local',
                 sender_name: 'PA Editor',
@@ -22567,8 +22641,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           paVersionsMemoryStore.set(u, [memEntry, ...uVersions.slice(0, 49)]);
         } catch (mErr) {}
 
-        // Auto-overwrite the target user's other profile modules (PPLAN, Core Competencies, PDP)
-        if (u && u !== 'default') {
+        // Auto-overwrite the target user's other profile modules (PPLAN, Core Competencies, PDP) ONLY for individual PA saves
+        if (u && u !== 'default' && !isDeptTeamSave) {
           let stateObj: any = {};
           if (typeof html === 'string') {
             try {

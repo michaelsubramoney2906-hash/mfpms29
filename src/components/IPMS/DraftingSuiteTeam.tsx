@@ -1071,48 +1071,69 @@ export function DraftingSuiteTeam({
   const handlePullFilteredTeamPA = async () => {
     setPullingFilteredTeamPA(true);
     try {
-      const emailToUse = getEmailScope(currentUser?.email || (documentIdSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : documentIdSuffix === 'cds' ? 'myenispl@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
-      const candidateEmails = documentIdSuffix === 'pms_team'
-        ? Array.from(new Set(['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', emailToUse]))
-        : documentIdSuffix === 'cds'
-          ? Array.from(new Set([emailToUse, 'myenispl@nkangaladm.gov.za', 'mpofuhd@nkangaladm.gov.za', 'maditsipc@nkangaladm.gov.za', 'nhlabathise@nkangaladm.gov.za', 'vallaa@nkangaladm.gov.za', 'khumalomd@nkangaladm.gov.za', 'sibekops@nkangaladm.gov.za', 'mashiloanedt@nkangaladm.gov.za', 'selobamc@nkangaladm.gov.za']))
-          : [emailToUse];
+      const teamNum = activeTeamIndex + 1;
+      const activeTeamName = teamList[activeTeamIndex]?.name || `Team ${teamNum}`;
+      const normalizedSuffix = documentIdSuffix === 'firefighters' ? 'cds' : documentIdSuffix;
+      const deptTeamScope = `dept_team_${normalizedSuffix}_team_${teamNum}`;
 
-      for (const candidateEmail of candidateEmails) {
-        const res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(candidateEmail)}&t=${Date.now()}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && Array.isArray(data.items) && data.items.length > 0) {
-            setPulledFilteredPplanItems(data.items);
-            setIsPPlanAdopted(true);
-            setAnnexureA(true);
-            triggerNotification(`Successfully adopted ${data.items.length} Filtered Team Performance Plan items into Annexure A!`, "success");
-            return;
-          }
-        }
-      }
-      // Try tenant all fallback
-      const allRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=all&t=${Date.now()}`);
-      if (allRes.ok) {
-        const allData = await allRes.json();
-        if (allData && Array.isArray(allData.items) && allData.items.length > 0) {
-          setPulledFilteredPplanItems(allData.items);
+      // 1. Check the dedicated department + team slot key pushed from Fred Performance Plan Extractor
+      const slotRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(deptTeamScope)}&t=${Date.now()}`);
+      if (slotRes.ok) {
+        const slotData = await slotRes.json();
+        if (slotData && Array.isArray(slotData.items) && slotData.items.length > 0) {
+          setPulledFilteredPplanItems(slotData.items);
           setIsPPlanAdopted(true);
           setAnnexureA(true);
-          triggerNotification(`Successfully adopted ${allData.items.length} Filtered Team Performance Plan items into Annexure A!`, "success");
+          triggerNotification(`Successfully adopted ${slotData.items.length} KPIs for ${teamTitle} — Team ${teamNum} (${activeTeamName}) into Annexure A!`, "success");
           return;
         }
       }
-      setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
-      setIsPPlanAdopted(true);
-      setAnnexureA(true);
-      triggerNotification("Adopted Filtered Team Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
+
+      // 2. Check the saved draft document for this exact department & team number
+      const docId = getDocumentIdForTeam(activeTeamIndex);
+      const draftRes = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=default&documentId=${encodeURIComponent(docId)}&force=true&t=${Date.now()}`);
+      if (draftRes.ok) {
+        const draftData = await draftRes.json();
+        const parsedDraft = typeof draftData?.html === 'string'
+          ? (() => { try { return JSON.parse(draftData.html); } catch { return null; } })()
+          : draftData?.html;
+        if (parsedDraft && Array.isArray(parsedDraft.pulledFilteredPplanItems) && parsedDraft.pulledFilteredPplanItems.length > 0) {
+          setPulledFilteredPplanItems(parsedDraft.pulledFilteredPplanItems);
+          setIsPPlanAdopted(true);
+          setAnnexureA(true);
+          triggerNotification(`Successfully adopted ${parsedDraft.pulledFilteredPplanItems.length} saved KPIs for ${teamTitle} — Team ${teamNum} (${activeTeamName})!`, "success");
+          return;
+        }
+      }
+
+      // 3. Backward-compatible fallback strictly for Team 1 (activeTeamIndex === 0)
+      if (activeTeamIndex === 0) {
+        const emailToUse = getEmailScope(currentUser?.email || (normalizedSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : normalizedSuffix === 'cds' ? 'myenispl@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
+        const candidateEmails = normalizedSuffix === 'pms_team'
+          ? Array.from(new Set(['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', emailToUse]))
+          : normalizedSuffix === 'cds'
+            ? Array.from(new Set([emailToUse, 'myenispl@nkangaladm.gov.za', 'mpofuhd@nkangaladm.gov.za', 'maditsipc@nkangaladm.gov.za', 'nhlabathise@nkangaladm.gov.za', 'vallaa@nkangaladm.gov.za', 'khumalomd@nkangaladm.gov.za', 'sibekops@nkangaladm.gov.za', 'mashiloanedt@nkangaladm.gov.za', 'selobamc@nkangaladm.gov.za']))
+            : [emailToUse];
+
+        for (const candidateEmail of candidateEmails) {
+          const res = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(candidateEmail)}&t=${Date.now()}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && Array.isArray(data.items) && data.items.length > 0) {
+              setPulledFilteredPplanItems(data.items);
+              setIsPPlanAdopted(true);
+              setAnnexureA(true);
+              triggerNotification(`Successfully adopted ${data.items.length} Team Performance Plan items into Annexure A!`, "success");
+              return;
+            }
+          }
+        }
+      }
+
+      triggerNotification(`No extracted KPIs found yet for ${teamTitle} — Team ${teamNum} (${activeTeamName}). Please push from Fred → Performance Plan Extractor to this team.`, "error");
     } catch (err: any) {
       console.error(err);
-      setPulledFilteredPplanItems(DEFAULT_FILTERED_PPLAN_ITEMS);
-      setIsPPlanAdopted(true);
-      setAnnexureA(true);
-      triggerNotification("Adopted Filtered Team Performance Plan (KPA & KPI matrix) into Annexure A!", "success");
+      triggerNotification("Failed to pull Team Performance Plan from Supabase.", "error");
     } finally {
       setPullingFilteredTeamPA(false);
     }
@@ -2026,7 +2047,34 @@ export function DraftingSuiteTeam({
           if (state.teamRosterNotes !== undefined) setTeamRosterNotes(state.teamRosterNotes);
           if (Array.isArray(state.dynTableHeaders)) setDynTableHeaders(state.dynTableHeaders);
           if (Array.isArray(state.dynTableRows)) setDynTableRows(state.dynTableRows);
-          if (state.pulledFilteredPplanItems !== undefined) setPulledFilteredPplanItems(state.pulledFilteredPplanItems);
+          if (Array.isArray(state.pulledFilteredPplanItems) && state.pulledFilteredPplanItems.length > 0) {
+            setPulledFilteredPplanItems(state.pulledFilteredPplanItems);
+            setIsPPlanAdopted(state.isPPlanAdopted !== undefined ? state.isPPlanAdopted : true);
+          } else {
+            // Check dedicated department + team slot key pushed from Fred Performance Plan Extractor
+            const normalizedSuffix = documentIdSuffix === 'firefighters' ? 'cds' : documentIdSuffix;
+            const deptTeamScope = `dept_team_${normalizedSuffix}_team_${teamIdx + 1}`;
+            try {
+              const slotRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(deptTeamScope)}&t=${Date.now()}`);
+              if (slotRes.ok) {
+                const slotData = await slotRes.json();
+                if (slotData && Array.isArray(slotData.items) && slotData.items.length > 0) {
+                  setPulledFilteredPplanItems(slotData.items);
+                  setIsPPlanAdopted(true);
+                  setAnnexureA(true);
+                } else {
+                  setPulledFilteredPplanItems([]);
+                  setIsPPlanAdopted(false);
+                }
+              } else {
+                setPulledFilteredPplanItems([]);
+                setIsPPlanAdopted(false);
+              }
+            } catch {
+              setPulledFilteredPplanItems([]);
+              setIsPPlanAdopted(false);
+            }
+          }
           if (state.pulledPdpItems !== undefined) setPulledPdpItems(state.pulledPdpItems);
           if (state.pulledJscRows !== undefined) setPulledJscRows(state.pulledJscRows);
           if (state.khuboniJscNotes !== undefined) setKhuboniJscNotes(state.khuboniJscNotes);
@@ -2037,7 +2085,6 @@ export function DraftingSuiteTeam({
           }
           if (state.isPdpAdopted !== undefined) setIsPdpAdopted(state.isPdpAdopted);
           if (state.isJscAdopted !== undefined) setIsJscAdopted(state.isJscAdopted);
-          if (state.isPPlanAdopted !== undefined) setIsPPlanAdopted(state.isPPlanAdopted);
           if (state.pulledPerfAssessmentRows !== undefined) setPulledPerfAssessmentRows(state.pulledPerfAssessmentRows);
           if (state.pulledPerfAssessmentHeaders !== undefined) setPulledPerfAssessmentHeaders(state.pulledPerfAssessmentHeaders);
           if (state.pulledPerfAssessmentTitle !== undefined) setPulledPerfAssessmentTitle(state.pulledPerfAssessmentTitle);
@@ -2095,7 +2142,31 @@ export function DraftingSuiteTeam({
         }
       }
 
-      // If no saved draft, set fresh team default
+      // If no saved draft, check if Fred pushed KPIs to this specific department + team slot
+      const normalizedSuffix = documentIdSuffix === 'firefighters' ? 'cds' : documentIdSuffix;
+      const deptTeamScope = `dept_team_${normalizedSuffix}_team_${teamIdx + 1}`;
+      try {
+        const slotRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(deptTeamScope)}&t=${Date.now()}`);
+        if (slotRes.ok) {
+          const slotData = await slotRes.json();
+          if (slotData && Array.isArray(slotData.items) && slotData.items.length > 0) {
+            setPulledFilteredPplanItems(slotData.items);
+            setIsPPlanAdopted(true);
+            setAnnexureA(true);
+          } else {
+            setPulledFilteredPplanItems([]);
+            setIsPPlanAdopted(false);
+          }
+        } else {
+          setPulledFilteredPplanItems([]);
+          setIsPPlanAdopted(false);
+        }
+      } catch {
+        setPulledFilteredPplanItems([]);
+        setIsPPlanAdopted(false);
+      }
+
+      // Set fresh team default
       const teamPreset = teamList[teamIdx] || initialTeams[teamIdx] || initialTeams[0];
       const defaultTeamName = teamPreset.name.toUpperCase();
       setFinancialYear('2026/2027 Financial Year');
@@ -2117,6 +2188,21 @@ export function DraftingSuiteTeam({
   useEffect(() => {
     const handlePmsTeamPaUpdated = (e: any) => {
       if (documentIdSuffix === 'pms_team' && e?.detail?.items && Array.isArray(e.detail.items)) {
+        const targetTeamNum = e?.detail?.teamNum;
+        if (!targetTeamNum || targetTeamNum === activeTeamIndex + 1) {
+          setPulledFilteredPplanItems(e.detail.items);
+          setIsPPlanAdopted(true);
+          setAnnexureA(true);
+        }
+      }
+    };
+    const handleDeptTeamPplanUpdated = (e: any) => {
+      const normalizedSuffix = documentIdSuffix === 'firefighters' ? 'cds' : documentIdSuffix;
+      if (
+        e?.detail?.deptSuffix === normalizedSuffix &&
+        Number(e?.detail?.teamNum) === activeTeamIndex + 1 &&
+        Array.isArray(e?.detail?.items)
+      ) {
         setPulledFilteredPplanItems(e.detail.items);
         setIsPPlanAdopted(true);
         setAnnexureA(true);
@@ -2137,6 +2223,7 @@ export function DraftingSuiteTeam({
     };
 
     window.addEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
+    window.addEventListener('dept-team-pplan-updated', handleDeptTeamPplanUpdated);
     window.addEventListener('pms-team-draft-saved', handlePmsTeamDraftSaved);
     window.addEventListener('storage', handleStorageChange);
 
@@ -2150,6 +2237,7 @@ export function DraftingSuiteTeam({
 
     return () => {
       window.removeEventListener('pms-team-pa-updated', handlePmsTeamPaUpdated);
+      window.removeEventListener('dept-team-pplan-updated', handleDeptTeamPplanUpdated);
       window.removeEventListener('pms-team-draft-saved', handlePmsTeamDraftSaved);
       window.removeEventListener('storage', handleStorageChange);
       if (syncInterval) clearInterval(syncInterval);

@@ -31,6 +31,14 @@ import {
   type ExtractedMappedKPI,
   type ExtractedKpaDefinition
 } from '../utils/ippParser';
+import { TEAM_MODULE_CONFIGS } from './IPMS/teamPADefaults';
+
+const DEPARTMENT_TEAM_GROUPS: { key: 'cds' | 'technical_services' | 'corporate_services' | 'pms_team'; label: string }[] = [
+  { key: 'cds', label: 'CDS (Community & Disaster Services) — Teams 1 to 10' },
+  { key: 'technical_services', label: 'Technical Services — Teams 1 to 10' },
+  { key: 'corporate_services', label: 'Corporate Services — Teams 1 to 10' },
+  { key: 'pms_team', label: 'PMS Team — Teams 1 to 10' }
+];
 
 export const NEDA_ALLOWED_RECIPIENTS = [
   {
@@ -102,7 +110,7 @@ export function FredPerformancePlanExtractor({
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [targetEmployeeEmail, setTargetEmployeeEmail] = useState<string>(currentUser?.email || 'manganijp@nkangaladm.gov.za');
   const [selectedTargetUser, setSelectedTargetUser] = useState<any>(currentUser);
-  const [selectedPlanDestination, setSelectedPlanDestination] = useState<'individual' | 'team-1' | 'team-2' | 'team-leader-dual'>('team-1');
+  const [selectedPlanDestination, setSelectedPlanDestination] = useState<string>('team-1');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -757,7 +765,223 @@ export function FredPerformancePlanExtractor({
     }
   };
 
+  // Push Extracted Data Verbatim to a specific Departmental Team (CDS, Technical Services, Corporate Services, PMS Team — Teams 1 to 10)
+  const handlePushToDepartmentTeam = async (deptSuffix: string, teamNum: number) => {
+    const selected = extractedItems.filter(it => it._selected !== false);
+    if (selected.length === 0) {
+      setStatusMessage({ type: 'error', text: 'Please select at least one KPI to push to the selected Departmental Team.' });
+      return;
+    }
+
+    const deptConfig = TEAM_MODULE_CONFIGS[deptSuffix];
+    const teamPreset = deptConfig?.teams?.[teamNum - 1];
+    const deptTitle = deptConfig?.title || deptSuffix.toUpperCase();
+    const teamName = teamPreset?.name || `Team ${teamNum}`;
+    const fullDestinationLabel = `${deptTitle} — Team ${teamNum} (${teamName})`;
+
+    setIsPushing(true);
+    setStatusMessage({
+      type: 'info',
+      text: `Pushing ${selected.length} verbatim KPIs directly into ${fullDestinationLabel}...`
+    });
+
+    try {
+      const effectiveTenantId = 'tenant-229';
+      const deptTeamScope = `dept_team_${deptSuffix}_team_${teamNum}`;
+      const docId = `draft_doc_${deptSuffix}_team_${teamNum}_${effectiveTenantId}`;
+
+      const planItems = selected.map((it, idx) => {
+        const functionalKpa = it["functional kpa"] || it["kpa"] || 'Functional Performance Area';
+        const poeVal = it["poe"] || it["portfolio of evidence"] || it["means of verification"] || '';
+        const kpiNoVal = it["kpi no"] || `KPI-${idx + 1}`;
+        const kpiDescVal = it["kpi description"] || it["kpi"] || '';
+        const wtVal = it["wt"] || it["%wt"] || '0';
+        const baselineVal = it["baseline"] || '';
+        const annualTargetVal = it["annual target"] || '';
+        const q1Val = it["1st qtr target"] || '';
+        const q2Val = it["2nd qtr target"] || '';
+        const q3Val = it["3rd qtr target"] || '';
+        const q4Val = it["4th qtr target"] || '';
+        const budgetVal = it["budget"] || 'R0.00';
+
+        return {
+          id: `${deptSuffix}-team${teamNum}-kpi-${Date.now()}-${idx + 1}`,
+          kpiNo: kpiNoVal,
+          "kpi no": kpiNoVal,
+          kpi: kpiDescVal,
+          kpiDescription: kpiDescVal,
+          "kpi description": kpiDescVal,
+          weighting: wtVal,
+          wt: wtVal,
+          "%wt": wtVal,
+          baseline: baselineVal,
+          annualTarget: annualTargetVal,
+          "annual target": annualTargetVal,
+          q1Target: q1Val,
+          "1st qtr target": q1Val,
+          q2Target: q2Val,
+          "2nd qtr target": q2Val,
+          q3Target: q3Val,
+          "3rd qtr target": q3Val,
+          q4Target: q4Val,
+          "4th qtr target": q4Val,
+          poe: poeVal,
+          annualRequiredPoe: poeVal,
+          q1Poe: poeVal,
+          q2Poe: poeVal,
+          midtermPoe: poeVal,
+          q3Poe: poeVal,
+          q4Poe: poeVal,
+          budget: budgetVal,
+          kpa: functionalKpa,
+          functionalKpa: functionalKpa,
+          mscoaCode: 'Operational',
+          strategicGoal: 'To ensure sustainable service delivery and clean audit compliance',
+          myScore: '3.0'
+        };
+      });
+
+      const planMetadata = {
+        name: fullDestinationLabel,
+        period: '2026/2027 Financial Year',
+        department: deptTitle,
+        position: `Team ${teamNum} (${teamName})`,
+        email: deptTeamScope,
+        _isFredExtracted: true,
+        _isCleared: false,
+        _extractedFrom: sourceFileName || 'Performance Agreement',
+        _pushedAt: new Date().toISOString()
+      };
+
+      // 1. Save to the compartmented team-pplan key for this exact department & team slot (1..10)
+      const teamPlanRes = await fetch(`/api/tenant/${effectiveTenantId}/team-pplan?userId=${encodeURIComponent(deptTeamScope)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: planMetadata,
+          items: planItems
+        })
+      });
+
+      if (!teamPlanRes.ok) {
+        throw new Error(`Server returned error status ${teamPlanRes.status}`);
+      }
+
+      // 2. Non-destructively merge pulledFilteredPplanItems into the team's PA Drafting Document (draft_doc_<dept>_team_<1..10>_tenant-229)
+      let existingDraftState: any = {};
+      try {
+        const existingRes = await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=default&documentId=${encodeURIComponent(docId)}&force=true&t=${Date.now()}`);
+        if (existingRes.ok) {
+          const existingData = await existingRes.json();
+          if (existingData?.html) {
+            existingDraftState = typeof existingData.html === 'string'
+              ? JSON.parse(existingData.html)
+              : existingData.html;
+          }
+        }
+      } catch {}
+
+      const mergedDraftState = {
+        ...existingDraftState,
+        customTeamName: existingDraftState?.customTeamName || teamName,
+        teamIndex: teamNum - 1,
+        financialYear: existingDraftState?.financialYear || '2026/2027 Financial Year',
+        headers: Array.isArray(existingDraftState?.headers) && existingDraftState.headers.length > 0
+          ? existingDraftState.headers
+          : (deptConfig?.defaultHeaders || ['No.', 'Full Name (Team Members)', 'Employee Number / Designation', 'Team Role']),
+        tableRows: Array.isArray(existingDraftState?.tableRows) && existingDraftState.tableRows.length > 0
+          ? existingDraftState.tableRows
+          : (teamPreset?.defaultRows || []),
+        coverPage: existingDraftState?.coverPage ||
+          `PERFORMANCE AGREEMENT\n\nENTERED INTO BY AND BETWEEN:\nThe Municipality herein represented by the Municipal Manager\n\n&\n\n${deptTitle.toUpperCase()} — ${teamName.toUpperCase()}\n\nFOR THE FINANCIAL YEAR: 2026/2027`,
+        purpose: existingDraftState?.purpose ||
+          `The purpose of this agreement is to specify performance expectations and operational standards for members of the ${deptTitle} (${teamName}), aligning operational deliverables with municipal strategic goals.`,
+        validity: existingDraftState?.validity ||
+          'This agreement will be valid for the 2026/2027 financial year or until superseded by a revised team agreement.',
+        reporting: existingDraftState?.reporting ||
+          `Members of the ${deptTitle} (${teamName}) will report directly through their designated team leaders and line managers to the Municipal Manager and Executive Leadership.`,
+        pulledFilteredPplanItems: planItems,
+        isPPlanAdopted: true,
+        annexureA: true,
+        updatedAt: new Date().toISOString()
+      };
+
+      await fetch(`/api/tenant/${effectiveTenantId}/pa-drafting-doc?userId=default&documentId=${encodeURIComponent(docId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          html: mergedDraftState,
+          htmlDocumentId: docId
+        })
+      });
+
+      window.dispatchEvent(
+        new CustomEvent('dept-team-pplan-updated', {
+          detail: { deptSuffix, teamNum, items: planItems }
+        })
+      );
+      if (deptSuffix === 'pms_team') {
+        window.dispatchEvent(
+          new CustomEvent('pms-team-pa-updated', {
+            detail: { teamNum, items: planItems }
+          })
+        );
+      }
+
+      // Clear local extractor state and server extraction snapshot
+      setExtractedItems([]);
+      setExtractedKpas([]);
+      setSourceFileName('');
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+
+      const targetEmail = (targetEmployeeEmail || currentUser.email || '').toLowerCase().trim();
+      try {
+        await Promise.allSettled([
+          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/performance_agreement?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' }),
+          fetch(`/api/tenant/${effectiveTenantId}/fred-extraction/ipp?userId=${encodeURIComponent(targetEmail)}`, { method: 'DELETE' })
+        ]);
+      } catch {}
+
+      setStatusMessage({
+        type: 'success',
+        text: `Successfully pushed ${selected.length} KPIs verbatim into ${fullDestinationLabel}! Open ${deptTitle} → Team ${teamNum} in IPMS to view Annexure A.`
+      });
+    } catch (err: any) {
+      console.error(`Push to ${fullDestinationLabel} error:`, err);
+      setStatusMessage({
+        type: 'error',
+        text: `Failed to push to ${fullDestinationLabel}: ${err.message || 'Unknown server error.'}`
+      });
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  const getDestinationShortLabel = (dest: string) => {
+    if (dest === 'team-1') return 'Team 1';
+    if (dest === 'team-2') return 'Team 2';
+    if (dest === 'individual') return 'Individual Plan';
+    if (dest === 'team-leader-dual') return 'Dual Plan';
+    if (dest.startsWith('dept:')) {
+      const [, deptSuffix, teamNumStr] = dest.split(':');
+      const shortDept =
+        deptSuffix === 'cds' ? 'CDS' :
+        deptSuffix === 'technical_services' ? 'Technical Svcs' :
+        deptSuffix === 'corporate_services' ? 'Corporate Svcs' :
+        deptSuffix === 'pms_team' ? 'PMS' : deptSuffix;
+      return `${shortDept} Team ${teamNumStr}`;
+    }
+    return 'Selected Plan';
+  };
+
   const handlePushToSelectedDestination = async () => {
+    if (selectedPlanDestination.startsWith('dept:')) {
+      const [, deptSuffix, teamNumStr] = selectedPlanDestination.split(':');
+      const teamNum = Number(teamNumStr) || 1;
+      await handlePushToDepartmentTeam(deptSuffix, teamNum);
+      return;
+    }
     if (selectedPlanDestination === 'individual') {
       await handlePushToPerformancePlan();
     } else if (selectedPlanDestination === 'team-2') {
@@ -1099,13 +1323,31 @@ export function FredPerformancePlanExtractor({
                 <span className="text-[11px] font-bold text-slate-300">Target Plan / Team:</span>
                 <select
                   value={selectedPlanDestination}
-                  onChange={(e) => setSelectedPlanDestination(e.target.value as any)}
-                  className="bg-slate-950 text-emerald-300 font-bold text-xs px-2 py-1 rounded-lg border border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+                  onChange={(e) => setSelectedPlanDestination(e.target.value)}
+                  className="bg-slate-950 text-emerald-300 font-bold text-xs px-2 py-1 rounded-lg border border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer max-w-[340px]"
                 >
-                  <option value="team-1">👥 Team Performance Plan (Team 1)</option>
-                  <option value="team-2">👥 Team Performance Plan 2 (Team 2)</option>
-                  <option value="individual">👤 Individual Performance Plan</option>
-                  <option value="team-leader-dual">👥 Team Leader Dual Plan (_team)</option>
+                  <optgroup label="Individual & General Team Plans">
+                    <option value="individual">👤 Individual Performance Plan (Selected Official)</option>
+                    <option value="team-1">👥 Team Performance Plan (Team 1)</option>
+                    <option value="team-2">👥 Team Performance Plan 2 (Team 2)</option>
+                    <option value="team-leader-dual">👥 Team Leader Dual Plan (_team)</option>
+                  </optgroup>
+                  {DEPARTMENT_TEAM_GROUPS.map(group => {
+                    const cfg = TEAM_MODULE_CONFIGS[group.key];
+                    if (!cfg || !Array.isArray(cfg.teams)) return null;
+                    return (
+                      <optgroup key={group.key} label={group.label}>
+                        {cfg.teams.map((t, idx) => {
+                          const teamNum = idx + 1;
+                          return (
+                            <option key={`${group.key}-${teamNum}`} value={`dept:${group.key}:${teamNum}`}>
+                              👥 Team {teamNum}: {t.name}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -1122,11 +1364,7 @@ export function FredPerformancePlanExtractor({
                   <Users className="w-3.5 h-3.5 text-emerald-200" />
                 )}
                 <span>
-                  Push {selectedCount} to {
-                    selectedPlanDestination === 'team-1' ? 'Team 1' :
-                    selectedPlanDestination === 'team-2' ? 'Team 2' :
-                    selectedPlanDestination === 'individual' ? 'Individual' : 'Dual Plan'
-                  }
+                  Push {selectedCount} to {getDestinationShortLabel(selectedPlanDestination)}
                 </span>
               </button>
 
@@ -1316,13 +1554,31 @@ export function FredPerformancePlanExtractor({
                 <span className="text-[11px] font-bold text-slate-300">Target Plan / Team:</span>
                 <select
                   value={selectedPlanDestination}
-                  onChange={(e) => setSelectedPlanDestination(e.target.value as any)}
-                  className="bg-slate-950 text-emerald-300 font-bold text-xs px-2.5 py-1 rounded-lg border border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer"
+                  onChange={(e) => setSelectedPlanDestination(e.target.value)}
+                  className="bg-slate-950 text-emerald-300 font-bold text-xs px-2.5 py-1 rounded-lg border border-indigo-500/50 focus:outline-none focus:ring-1 focus:ring-indigo-400 cursor-pointer max-w-[360px]"
                 >
-                  <option value="team-1">👥 Team Performance Plan (Team 1)</option>
-                  <option value="team-2">👥 Team Performance Plan 2 (Team 2)</option>
-                  <option value="individual">👤 Individual Performance Plan (Individual)</option>
-                  <option value="team-leader-dual">👥 Team Leader Dual Plan (_team)</option>
+                  <optgroup label="Individual & General Team Plans">
+                    <option value="individual">👤 Individual Performance Plan (Selected Official)</option>
+                    <option value="team-1">👥 Team Performance Plan (Team 1)</option>
+                    <option value="team-2">👥 Team Performance Plan 2 (Team 2)</option>
+                    <option value="team-leader-dual">👥 Team Leader Dual Plan (_team)</option>
+                  </optgroup>
+                  {DEPARTMENT_TEAM_GROUPS.map(group => {
+                    const cfg = TEAM_MODULE_CONFIGS[group.key];
+                    if (!cfg || !Array.isArray(cfg.teams)) return null;
+                    return (
+                      <optgroup key={group.key} label={group.label}>
+                        {cfg.teams.map((t, idx) => {
+                          const teamNum = idx + 1;
+                          return (
+                            <option key={`${group.key}-${teamNum}`} value={`dept:${group.key}:${teamNum}`}>
+                              👥 Team {teamNum}: {t.name}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -1349,11 +1605,7 @@ export function FredPerformancePlanExtractor({
                   <Users className="w-4 h-4 text-emerald-200" />
                 )}
                 <span>
-                  Push {selectedCount} to {
-                    selectedPlanDestination === 'team-1' ? 'Team Performance Plan' :
-                    selectedPlanDestination === 'team-2' ? 'Team Performance Plan 2' :
-                    selectedPlanDestination === 'individual' ? 'Individual Performance Plan' : 'Team Leader Dual Plan'
-                  }
+                  Push {selectedCount} to {getDestinationShortLabel(selectedPlanDestination)}
                 </span>
               </button>
 
