@@ -123,53 +123,7 @@ export const ensureQuarterlyData = (row: CompetencyRow): CompetencyRow => {
   };
 };
 
-export const DEFAULT_COMPETENCY_ROWS: CompetencyRow[] = [
-  {
-    id: 'row-1',
-    jscNo: 'JSC-101',
-    competency: 'Strategic Financial Policy Formulation',
-    definition: {
-      mainText: 'Designs and evaluates municipal finance systems in direct compliance to Section 57 of the MFMA.',
-      subsections: []
-    },
-    level: 'Level 4: Superior Leader',
-    weight: 35,
-    q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }
-  },
-  {
-    id: 'row-2',
-    jscNo: 'JSC-102',
-    competency: 'SDF Integration Mapping',
-    definition: {
-      mainText: 'Provides core administrative framework oversight for spatial integration projects.',
-      subsections: []
-    },
-    level: 'Level 3: Advanced Architect',
-    weight: 35,
-    q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }
-  },
-  {
-    id: 'row-3',
-    jscNo: 'JSC-103',
-    competency: 'Auditing Compliance Control Matrix',
-    definition: {
-      mainText: 'Prepares Auditor-General response sheets ensuring full validation of operational assets.',
-      subsections: []
-    },
-    level: 'Level 3: Advanced Architect',
-    weight: 30,
-    q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' },
-    q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', internalAuditorScore: 0, internalAuditorComments: '', dpmcScore: 0, dpmcComments: '', status: 'draft' }
-  }
-];
+export const DEFAULT_COMPETENCY_ROWS: CompetencyRow[] = [];
 
 // ==========================================
 // 1. JSC Self / Team Evaluation Section
@@ -2644,11 +2598,11 @@ export function JSCAllInOneCompetenciesTable({ currentUser, activeTenantId }: JS
 // ==========================================
 // 6. JSC Analytical Reporting Section
 // ==========================================
-export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
+export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, defaultEmployeeEmail, isTeamJSC, isTeamJSC2 }: JSCModuleProps) {
   const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
   const [rows, setRows] = useState<CompetencyRow[]>(DEFAULT_COMPETENCY_ROWS);
   const [loading, setLoading] = useState<boolean>(true);
-  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const userEmail = (defaultEmployeeEmail || currentUser?.email || '').toLowerCase().trim();
 
   useEffect(() => {
     let active = true;
@@ -2666,7 +2620,7 @@ export function JSCAnalyticalReportingSection({ currentUser, activeTenantId, isT
           }
         }
       } catch (err) {
-        console.warn("Using default competencies for analytical report:", err);
+        console.warn("Could not load competencies for analytical report:", err);
       } finally {
         if (active) setLoading(false);
       }

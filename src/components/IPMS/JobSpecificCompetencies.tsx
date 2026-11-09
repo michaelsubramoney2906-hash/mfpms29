@@ -203,61 +203,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
   const [newWeightVal, setNewWeightVal] = useState<number>(20);
   const [editingWeightId, setEditingWeightId] = useState<string | null>(null);
 
-  // 2. Main Live Grid Columns & Rows State
-  const [rows, setRows] = useState<CompetencyRow[]>([
-    {
-      id: 'row-1',
-      jscNo: 'JSC-101',
-      competency: 'Strategic Financial Policy Formulation',
-      definition: {
-        mainText: 'Designs and evaluates municipal finance systems in direct compliance to Section 57 of the MFMA.',
-        subsections: [
-          { heading: 'Key Knowledge Core', paragraphs: ['Advanced municipal budgeting standards', 'GRAP-17 accounting standards compliance frameworks'] }
-        ]
-      },
-      level: 'Level 3: Advanced Architect',
-      weight: 30,
-      customFields: {},
-      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
-    },
-    {
-      id: 'row-2',
-      jscNo: 'JSC-103',
-      competency: 'Water Backlog Engineering Controls',
-      definition: {
-        mainText: 'Standard pipeline commissioning process with high capacity filter operations alignment.',
-        subsections: [
-          { heading: 'Regulatory Codes', paragraphs: ['SANS standards for sanitations and water delivery indices.'] }
-        ]
-      },
-      level: 'Level 2: Competent Operator',
-      weight: 40,
-      customFields: {},
-      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
-    },
-    {
-      id: 'row-3',
-      jscNo: 'JSC-104',
-      competency: 'Auditing Compliance Control Matrix',
-      definition: {
-        mainText: 'Prepares Auditor-General response sheets ensuring full validation of operational assets.',
-        subsections: []
-      },
-      level: 'Level 3: Advanced Architect',
-      weight: 30,
-      customFields: {},
-      q1: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q2: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q3: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' },
-      q4: { selfScore: 0, selfComments: '', managerScore: 0, managerMotivation: '', status: 'draft' }
-    }
-  ]);
+  // 2. Main Live Grid Columns & Rows State (Strict Zero-Mock Initialization)
+  const [rows, setRows] = useState<CompetencyRow[]>([]);
 
   const [customColumns, setCustomColumns] = useState<JSCColumn[]>([]);
   const [isAddColModalOpen, setIsAddColModalOpen] = useState(false);
@@ -266,22 +213,29 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
   const [editingColTitle, setEditingColTitle] = useState('');
 
   const [selectedQuarter, setSelectedQuarter] = useState<'q1' | 'q2' | 'q3' | 'q4'>('q1');
-  const [selectedUserEmailState, setSelectedUserEmailState] = useState<string>('');
+  const [selectedUserEmailState, setSelectedUserEmailState] = useState<string>(() => {
+    const norm = (currentUser?.email || '').toLowerCase().trim();
+    if (norm.includes('singhn')) return 'rachidimb@nkangaladm.gov.za';
+    return norm;
+  });
+  const [searchInputText, setSearchInputText] = useState<string>(() => {
+    const norm = (currentUser?.email || '').toLowerCase().trim();
+    if (norm.includes('singhn')) return 'rachidimb@nkangaladm.gov.za';
+    return norm;
+  });
   
   const isDualLayerTeamLeader = getIsDualLayerTeamLeader(currentUser?.email);
   const [agreementScope, setAgreementScope] = useState<'individual' | 'team'>('individual');
 
-  const userTargetEmail = isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email;
-  const selectedUserEmail = selectedUserEmailState || userTargetEmail;
+  const userTargetEmail = (isDualLayerTeamLeader && agreementScope === 'team' ? currentUser.email + '_team' : currentUser.email).toLowerCase().trim();
+  const selectedUserEmail = (selectedUserEmailState || userTargetEmail).toLowerCase().trim();
 
   useEffect(() => {
     if (currentUser.email) {
       const norm = currentUser.email.toLowerCase().trim();
-      if (norm.includes('singhn')) {
-        setSelectedUserEmailState('rachidimb@nkangaladm.gov.za');
-      } else {
-        setSelectedUserEmailState(currentUser.email);
-      }
+      const target = norm.includes('singhn') ? 'rachidimb@nkangaladm.gov.za' : norm;
+      setSelectedUserEmailState(target);
+      setSearchInputText(target);
     }
   }, [currentUser.email]);
 
@@ -325,6 +279,8 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
         if (active && data) {
           if (Array.isArray(data.competencies)) {
             setRows(data.competencies.map(ensureQuarterlyData));
+          } else {
+            setRows([]);
           }
           if (Array.isArray(data.customColumns)) {
             setCustomColumns(data.customColumns);
@@ -346,12 +302,12 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
           }
         }
       } catch (err) {
-        console.warn("Could not find previous competencies or table failed to load, keeping system defaults:", err);
+        console.warn("Could not load previous competencies:", err);
       } finally {
         if (active) setLoading(false);
       }
     };
-    fetchCompetencies();
+    if (selectedUserEmail) fetchCompetencies();
     return () => { active = false; };
   }, [activeTenantId, selectedUserEmail, apiEndpoint]);
 
@@ -1516,19 +1472,43 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
         </div>
 
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
-          <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 min-w-[280px]">
+          <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 min-w-[300px]">
             <span className="text-[10px] uppercase font-bold text-orange-400 whitespace-nowrap">Target User:</span>
             <div className="w-full">
               <TeamAzureSearchInput
-                value={selectedUserEmail}
+                value={searchInputText || selectedUserEmail}
                 placeholder="Search Azure AD Directory..."
                 compact={true}
-                onChange={(val) => setSelectedUserEmailState(val)}
+                onChange={(val) => {
+                  setSearchInputText(val);
+                  const clean = (val || '').toLowerCase().trim();
+                  if (clean.includes('@') && clean.includes('.')) {
+                    setSelectedUserEmailState(clean);
+                  }
+                }}
                 onSelectUser={(u) => {
-                  if (u && u.email) setSelectedUserEmailState(u.email);
+                  if (u && u.email) {
+                    const clean = u.email.toLowerCase().trim();
+                    setSelectedUserEmailState(clean);
+                    setSearchInputText(`${u.fullName} (${clean})`);
+                  }
                 }}
               />
             </div>
+            {currentUser?.email && selectedUserEmail !== currentUser.email.toLowerCase().trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  const myEmail = currentUser.email.toLowerCase().trim();
+                  setSelectedUserEmailState(myEmail);
+                  setSearchInputText(myEmail);
+                }}
+                className="px-2 py-1 rounded bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/40 text-[9px] font-bold uppercase whitespace-nowrap cursor-pointer transition"
+                title={`Switch back to ${currentUser.email}`}
+              >
+                My Profile
+              </button>
+            )}
           </div>
 
           {isDualLayerTeamLeader && (
@@ -2620,7 +2600,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
           <JSCManagerApprovalSection 
             currentUser={currentUser} 
             activeTenantId={activeTenantId} 
-            defaultEmployeeEmail={(currentUser?.email || '').toLowerCase().includes('singhn') && (!selectedUserEmail || selectedUserEmail === currentUser?.email) ? 'rachidimb@nkangaladm.gov.za' : selectedUserEmail} 
+            defaultEmployeeEmail={(currentUser?.email || '').toLowerCase().includes('singhn') && (!selectedUserEmail || selectedUserEmail === currentUser?.email?.toLowerCase().trim()) ? 'rachidimb@nkangaladm.gov.za' : (selectedUserEmail !== (currentUser?.email || '').toLowerCase().trim() ? selectedUserEmail : '')} 
             isTeamJSC={isTeamJSC} 
             isTeamJSC2={isTeamJSC2} 
           />
@@ -2628,7 +2608,13 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
 
         {/* TAB 5: Analytical Reporting Statistics and Visualizations */}
         {activeTab === 'reporting' && (
-          <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamJSC} isTeamJSC2={isTeamJSC2} />
+          <JSCAnalyticalReportingSection
+            currentUser={currentUser}
+            activeTenantId={activeTenantId}
+            defaultEmployeeEmail={selectedUserEmail}
+            isTeamJSC={isTeamJSC}
+            isTeamJSC2={isTeamJSC2}
+          />
         )}
       </div>
 

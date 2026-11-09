@@ -1704,6 +1704,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           pulledFilteredPplanItems,
           pulledPdpItems,
           pulledCompetencyRows,
+          pulledKhuboniJscRows,
           pulledCfoCompetencyRows,
           pulledPedCompetencyRows,
           pulledCorpCompetencyRows,
@@ -1813,6 +1814,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           pulledFilteredPplanItems,
           pulledPdpItems,
           pulledCompetencyRows,
+          pulledKhuboniJscRows,
           pulledCfoCompetencyRows,
           pulledPedCompetencyRows,
           pulledCorpCompetencyRows,
@@ -2009,6 +2011,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               pulledFilteredPplanItems,
               pulledPdpItems,
               pulledCompetencyRows,
+              pulledKhuboniJscRows,
               pulledCfoCompetencyRows,
               pulledPedCompetencyRows,
               pulledCorpCompetencyRows,
@@ -2250,25 +2253,24 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setPullingKhuboniJsc(true);
     try {
       const activeEmail = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
-      const activeName = currentUser?.fullName || activeEmail;
-      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${activeEmail}&t=${Date.now()}`);
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
           setPulledKhuboniJscRows(data.competencies);
           triggerNotification(`Successfully pulled entire JSC Table (${data.competencies.length} items) from profile ${activeEmail} into Section 4.4!`, "success");
-        } else {
+        } else if (activeEmail.includes('khuboniy')) {
           setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
           triggerNotification(`Adopted entire JSC Table from profile ${activeEmail} into Section 4.4!`, "success");
+        } else {
+          triggerNotification(`No Job Specific Competencies found yet in the JSC Planner for ${activeEmail}.`, "error");
         }
-      } else {
+      } else if (activeEmail.includes('khuboniy')) {
         setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
         triggerNotification(`Adopted entire JSC Table from profile ${activeEmail} into Section 4.4!`, "success");
       }
     } catch (err: any) {
       console.error(err);
-      setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
-      triggerNotification(`Adopted entire JSC Table from profile ${(currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim()} into Section 4.4!`, "success");
     } finally {
       setPullingKhuboniJsc(false);
     }
@@ -2789,6 +2791,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         pulledFilteredPplanItems,
         pulledPdpItems,
         pulledCompetencyRows,
+        pulledKhuboniJscRows,
         pulledCfoCompetencyRows,
         pulledPedCompetencyRows,
         pulledCorpCompetencyRows,
@@ -5970,7 +5973,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
 
               {/* DYNAMIC PAGES FOR EACH CHAPTER */}
               {dynamicSections.map((sec, secIdx) => {
-                const isSection6 = sec.heading.trim().startsWith('6') || sec.heading.toLowerCase().includes('6.') || sec.heading.toLowerCase().includes('competenc');
+                const isSec4 = sec.heading.toLowerCase().includes('4.4') || sec.heading.toLowerCase().includes('performance plan') || sec.heading.trim().startsWith('4.');
+                const isSection6 = !isSec4 && (
+                  sec.id === 'section6' ||
+                  sec.heading.trim().startsWith('6') ||
+                  sec.heading.toLowerCase().includes('6.') ||
+                  sec.heading.toLowerCase().includes('evaluating performance') ||
+                  sec.heading.toLowerCase().includes('core competenc')
+                );
                 return (
                   <div 
                     key={sec.id}
@@ -6003,6 +6013,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                         </div>
                         <RenderCustomTables sectionId={sec.id} />
                         {sec.content2 && <div className="leading-normal whitespace-pre-wrap text-[10px] min-h-[1.5em] mt-2">{sec.content2}</div>}
+                        {isSec4 && (
+                          <>
+                            <RenderKhuboniJscTableBelow4_4 />
+                            {pulledPplanItems === null && pulledFilteredPplanItems === null && (
+                              <RenderPdpTable />
+                            )}
+                          </>
+                        )}
                         {isSection6 && (
                           <>
                             <RenderCompetenciesTable />

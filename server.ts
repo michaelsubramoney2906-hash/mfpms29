@@ -14472,7 +14472,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   // 17.3 Fetch Job Specific Competencies for a tenant
   app.get("/api/tenant/:tenantId/job-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const rawUserParam = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const extractedEmail = rawUserParam.match(/([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i)?.[1];
+    const rawUserId = extractedEmail ? extractedEmail.trim() : rawUserParam;
     const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
@@ -14487,7 +14489,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `job_competencies_nkangala_auto_${aUser}`,
           `job_competencies_neda_${aUser}`,
           `job_competencies_tenant-neda_${aUser}`,
-          `job_competencies_global_${aUser}`
+          `job_competencies_global_${aUser}`,
+          `jsc_draft_${tenantId}_${aUser}`,
+          `jsc_draft_tenant-229_${aUser}`,
+          `jsc_draft_nkangala_auto_${aUser}`
         );
       }
       if (rawUserId !== userId) {
@@ -14497,7 +14502,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `job_competencies_nkangala_auto_${rawUserId}`,
           `job_competencies_neda_${rawUserId}`,
           `job_competencies_tenant-neda_${rawUserId}`,
-          `job_competencies_global_${rawUserId}`
+          `job_competencies_global_${rawUserId}`,
+          `jsc_draft_${tenantId}_${rawUserId}`,
+          `jsc_draft_tenant-229_${rawUserId}`,
+          `jsc_draft_nkangala_auto_${rawUserId}`
         );
       }
       const candidateDocIds = Array.from(new Set(rawCandidateIds));
@@ -14552,11 +14560,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         for (const dId of candidateDocIds) {
           const parsed = docById.get(dId);
           if (!parsed) continue;
-          if (parsed.isCleared || Array.isArray(parsed.competencies)) {
+          const compList = Array.isArray(parsed.competencies) ? parsed.competencies : (Array.isArray(parsed.rows) ? parsed.rows : null);
+          if (parsed.isCleared || Array.isArray(compList)) {
+            const normalizedParsed = Array.isArray(compList) ? { ...parsed, competencies: compList } : parsed;
             if (!primaryParsed) {
-              primaryParsed = parsed;
-            } else if (Array.isArray(parsed.competencies) && parsed.competencies.length > 0) {
-              secondaryCompetencyLists.push(parsed.competencies);
+              primaryParsed = normalizedParsed;
+            } else if (Array.isArray(compList) && compList.length > 0) {
+              secondaryCompetencyLists.push(compList);
             }
           }
         }
@@ -14574,9 +14584,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 sIdx === idx
               );
               if (!secRow) return baseRow;
+              const baseDocs = Array.isArray(baseRow.poeDocs) ? baseRow.poeDocs : [];
+              const secDocs = Array.isArray(secRow.poeDocs) ? secRow.poeDocs : [];
+              const rowDocMap = new Map<string, any>();
+              for (const d of [...baseDocs, ...secDocs]) {
+                if (d && (d.id || d.name)) {
+                  rowDocMap.set(String(d.id || d.name).toLowerCase().trim(), d);
+                }
+              }
               return {
                 ...secRow,
                 ...baseRow,
+                poeDocs: Array.from(rowDocMap.values()),
                 q1: mergeQuarterObj(baseRow.q1, secRow.q1),
                 q2: mergeQuarterObj(baseRow.q2, secRow.q2),
                 q3: mergeQuarterObj(baseRow.q3, secRow.q3),
@@ -14611,7 +14630,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const p = JSON.parse(dRow.content);
               const t = p.templates ? p.templates[0] : (p.html || p);
               if (t) {
-                const list = t.pulledKhuboniJscRows || t.pulledCompetencyRows || t.pulledCfoCompetencyRows || t.pulledPedCompetencyRows || t.pulledCorpCompetencyRows;
+                const khuboniJsc = Array.isArray(t.pulledKhuboniJscRows) && t.pulledKhuboniJscRows.length > 0 ? t.pulledKhuboniJscRows : null;
+                const compRows = Array.isArray(t.pulledCompetencyRows) && t.pulledCompetencyRows.length > 0 && t.pulledCompetencyRows.some((r: any) => r.jscNo || r.definition || r.weight !== undefined || r.weighting !== undefined)
+                  ? t.pulledCompetencyRows
+                  : null;
+                const list = khuboniJsc || compRows;
                 if (list && Array.isArray(list) && list.length > 0) {
                   return res.json({
                     competencies: list
@@ -14657,10 +14680,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         } catch (e) {}
       }
 
-      if (userId.includes('nkangaladm.gov.za') || userId.includes('@')) {
-        return res.json({ competencies: getGuaranteedUserJscs(userId) });
-      }
-
       return res.json({ competencies: [] });
     } catch (err: any) {
       console.error("Job competencies load exception:", err);
@@ -14671,7 +14690,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   // 17.4 Save Job Specific Competencies for a tenant
   app.post("/api/tenant/:tenantId/job-competencies", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const rawUserParam = req.query.userId ? String(req.query.userId).trim() : 'default';
+    const extractedEmail = rawUserParam.match(/([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i)?.[1];
+    const rawUserId = extractedEmail ? extractedEmail.trim() : rawUserParam;
     const userId = rawUserId.toLowerCase();
     try {
       const supabase = getSupabase();
@@ -14690,7 +14711,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         const { items: offloaded } = await offloadInlinePoeBlobs(req.body.competencies, userId, supabase);
         bodyToSave = { ...req.body, competencies: offloaded };
       }
-      const payload = JSON.stringify(bodyToSave);
 
       const baseTargetUsers = userId !== 'default' ? getKhumaloNkosiAliases(userId) : ['default'];
       const targetUsers = Array.from(new Set(
@@ -14698,9 +14718,73 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           ? [...baseTargetUsers, rawUserId]
           : baseTargetUsers
       ));
+
+      const mergeQuarterSave = (incomingQ: any, existingQ: any) => {
+        if (!incomingQ && !existingQ) return undefined;
+        if (!existingQ) return incomingQ;
+        if (!incomingQ) return existingQ;
+        const incDocs = Array.isArray(incomingQ.poeDocs) ? incomingQ.poeDocs : undefined;
+        const exDocs = Array.isArray(existingQ.poeDocs) ? existingQ.poeDocs : [];
+        return {
+          ...existingQ,
+          ...incomingQ,
+          selfScore: incomingQ.selfScore !== undefined && incomingQ.selfScore !== 0 ? incomingQ.selfScore : (existingQ.selfScore || 0),
+          selfComments: incomingQ.selfComments !== undefined && incomingQ.selfComments !== '' ? incomingQ.selfComments : (existingQ.selfComments || ''),
+          managerScore: incomingQ.managerScore !== undefined && incomingQ.managerScore !== 0 ? incomingQ.managerScore : (existingQ.managerScore || 0),
+          managerMotivation: incomingQ.managerMotivation !== undefined && incomingQ.managerMotivation !== '' ? incomingQ.managerMotivation : (existingQ.managerMotivation || ''),
+          internalAuditorScore: incomingQ.internalAuditorScore !== undefined && incomingQ.internalAuditorScore !== 0 ? incomingQ.internalAuditorScore : (existingQ.internalAuditorScore || 0),
+          internalAuditorComments: incomingQ.internalAuditorComments !== undefined && incomingQ.internalAuditorComments !== '' ? incomingQ.internalAuditorComments : (existingQ.internalAuditorComments || ''),
+          dpmcScore: incomingQ.dpmcScore !== undefined && incomingQ.dpmcScore !== 0 ? incomingQ.dpmcScore : (existingQ.dpmcScore || 0),
+          dpmcComments: incomingQ.dpmcComments !== undefined && incomingQ.dpmcComments !== '' ? incomingQ.dpmcComments : (existingQ.dpmcComments || ''),
+          poeText: incomingQ.poeText !== undefined && incomingQ.poeText !== '' ? incomingQ.poeText : (existingQ.poeText || ''),
+          poeDocs: incDocs !== undefined ? incDocs : exDocs,
+          status: (incomingQ.status && incomingQ.status !== 'draft') ? incomingQ.status : (existingQ.status || incomingQ.status || 'draft')
+        };
+      };
+
       for (const uKey of targetUsers) {
         for (const tKey of targetTenants) {
           const uDocId = `job_competencies_${tKey}_${uKey}`;
+          let finalBodyForKey = bodyToSave;
+
+          if (bodyToSave && Array.isArray(bodyToSave.competencies) && !bodyToSave.isCleared) {
+            try {
+              const { data: exDoc } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('id', uDocId)
+                .maybeSingle();
+              if (exDoc && exDoc.content) {
+                const parsedEx = JSON.parse(exDoc.content);
+                if (parsedEx && Array.isArray(parsedEx.competencies) && parsedEx.competencies.length > 0) {
+                  const mergedList = bodyToSave.competencies.map((incRow: any, idx: number) => {
+                    const exRow = parsedEx.competencies.find((r: any, rIdx: number) =>
+                      (r.id && incRow.id && String(r.id) === String(incRow.id)) ||
+                      (r.jscNo && incRow.jscNo && String(r.jscNo).trim() === String(incRow.jscNo).trim()) ||
+                      rIdx === idx
+                    );
+                    if (!exRow) return incRow;
+                    return {
+                      ...exRow,
+                      ...incRow,
+                      poeDocs: Array.isArray(incRow.poeDocs) ? incRow.poeDocs : (exRow.poeDocs || []),
+                      q1: mergeQuarterSave(incRow.q1, exRow.q1),
+                      q2: mergeQuarterSave(incRow.q2, exRow.q2),
+                      q3: mergeQuarterSave(incRow.q3, exRow.q3),
+                      q4: mergeQuarterSave(incRow.q4, exRow.q4)
+                    };
+                  });
+                  finalBodyForKey = {
+                    ...parsedEx,
+                    ...bodyToSave,
+                    competencies: mergedList
+                  };
+                }
+              }
+            } catch (_) {}
+          }
+
+          const payload = JSON.stringify(finalBodyForKey);
           const { error } = await supabase
             .from('messages')
             .upsert({ 
@@ -14714,6 +14798,42 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               created_at: new Date().toISOString()
             }, { onConflict: 'id' });
           if (error) throw error;
+
+          // Non-destructively keep the user's Performance Agreement Section 4.4 (pulledKhuboniJscRows) in sync
+          if (uKey.includes('@') && finalBodyForKey && Array.isArray(finalBodyForKey.competencies) && finalBodyForKey.competencies.length > 0) {
+            const paDraftId = `draft_doc_${tKey}_${uKey}`.toLowerCase();
+            try {
+              const { data: paRow } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('id', paDraftId)
+                .maybeSingle();
+              if (paRow && paRow.content) {
+                const parsedPa = JSON.parse(paRow.content);
+                const innerHtml = parsedPa.html && typeof parsedPa.html === 'object' ? parsedPa.html : parsedPa;
+                if (innerHtml && typeof innerHtml === 'object') {
+                  const updatedHtml = {
+                    ...innerHtml,
+                    pulledKhuboniJscRows: finalBodyForKey.competencies
+                  };
+                  const updatedContent = JSON.stringify({ html: updatedHtml });
+                  await supabase
+                    .from('messages')
+                    .upsert({
+                      id: paDraftId,
+                      tenant_id: tKey,
+                      sender_id: 'pa_editor_tool',
+                      sender_email: 'pa@system.local',
+                      sender_name: 'PA Editor',
+                      content: updatedContent,
+                      message_type: 'drafting_suite_doc',
+                      created_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+                  draftDocCache.set(paDraftId, { raw: updatedContent, timestamp: Date.now() });
+                }
+              }
+            } catch (_) {}
+          }
         }
       }
       res.json({ success: true });
@@ -22481,7 +22601,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                     }))
                   : (Array.isArray(existingState.dynamicSections) ? existingState.dynamicSections : []),
                 pdpCustomTable: (Array.isArray(html.pdpCustomTable) && html.pdpCustomTable.length > 0) ? html.pdpCustomTable : existingState.pdpCustomTable,
-                customTables: (Array.isArray(html.customTables) && html.customTables.length > 0) ? html.customTables : existingState.customTables
+                customTables: (Array.isArray(html.customTables) && html.customTables.length > 0) ? html.customTables : existingState.customTables,
+                pulledKhuboniJscRows: (Array.isArray(html.pulledKhuboniJscRows) && html.pulledKhuboniJscRows.length > 0) ? html.pulledKhuboniJscRows : existingState.pulledKhuboniJscRows,
+                pulledCompetencyRows: (Array.isArray(html.pulledCompetencyRows) && html.pulledCompetencyRows.length > 0) ? html.pulledCompetencyRows : existingState.pulledCompetencyRows,
+                pulledPplanItems: (Array.isArray(html.pulledPplanItems) && html.pulledPplanItems.length > 0) ? html.pulledPplanItems : existingState.pulledPplanItems,
+                pulledFilteredPplanItems: (Array.isArray(html.pulledFilteredPplanItems) && html.pulledFilteredPplanItems.length > 0) ? html.pulledFilteredPplanItems : existingState.pulledFilteredPplanItems,
+                pulledPdpItems: (Array.isArray(html.pulledPdpItems) && html.pulledPdpItems.length > 0) ? html.pulledPdpItems : existingState.pulledPdpItems
               };
             }
           } catch (mergeErr) {
@@ -22657,9 +22782,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           // 1) Do NOT overwrite Performance Plan (PPLAN) Module from pa-drafting-doc!
           // The Performance Plan (pplan) is the authoritative source of truth that feeds PADraftingSuite, never the reverse.
 
-          // 2) Overwrite Core Competencies (job-competencies) Module
-          const competencyRows = stateObj.pulledCompetencyRows;
-          if (competencyRows && Array.isArray(competencyRows) && competencyRows.length > 0) {
+          // 2) Non-destructively sync Section 4.4 Job Specific Competencies (pulledKhuboniJscRows) to job-competencies
+          // NEVER overwrite job_competencies with Section 6.6 Core Managerial Competencies (pulledCompetencyRows), and ALWAYS preserve existing q1..q4 scores and poeDocs!
+          const jscRowsFromPa = Array.isArray(stateObj.pulledKhuboniJscRows) && stateObj.pulledKhuboniJscRows.length > 0
+            ? stateObj.pulledKhuboniJscRows
+            : null;
+          if (jscRowsFromPa) {
             const compDocId = `job_competencies_${tenantId}_${u}`;
             
             const { data: existingComp } = await supabase
@@ -22673,6 +22801,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             let definitionMasters = [];
             let levelMasters = [];
             let weightMasters = [];
+            let existingCompetencies: any[] = [];
             
             if (existingComp && existingComp.content) {
               try {
@@ -22682,43 +22811,48 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 definitionMasters = parsed.definitionMasters || [];
                 levelMasters = parsed.levelMasters || [];
                 weightMasters = parsed.weightMasters || [];
+                existingCompetencies = Array.isArray(parsed.competencies) ? parsed.competencies : [];
               } catch (e) {}
             }
 
-            const mappedCompetencies = competencyRows.map((row: any, idx: number) => {
-              return {
+            // Only initialize job_competencies from PA if job_competencies doesn't already have rows, or non-destructively merge preserving all q1..q4 and poeDocs
+            if (existingCompetencies.length === 0) {
+              const mappedCompetencies = jscRowsFromPa.map((row: any, idx: number) => ({
+                ...row,
                 id: row.id || `comp-row-${idx}-${Date.now()}`,
-                jscNo: row.jscNo || `CORE-${idx + 1}`,
-                competency: row.title || row.competency || row.name || 'Core Competency',
-                definition: {
-                  mainText: row.mainText || row.description || row.competent || row.basic || 'Standard competency level mapping.',
-                  subsections: row.subsections || []
-                },
-                level: row.level || 'Level 2: Competent Operator',
-                weight: Number(row.weight || row.weighting || 10)
-              };
-            });
+                jscNo: row.jscNo || `${idx + 1}`,
+                competency: row.competency || row.title || row.name || 'Job Specific Competency',
+                definition: typeof row.definition === 'object' && row.definition !== null
+                  ? row.definition
+                  : {
+                      mainText: typeof row.definition === 'string' ? row.definition : (row.mainText || row.description || ''),
+                      subsections: row.subsections || []
+                    },
+                level: row.level || 'Level 3',
+                weight: Number(row.weight || row.weighting || 20)
+              }));
 
-            await supabase
-              .from('messages')
-              .upsert({
-                id: compDocId,
-                tenant_id: tenantId,
-                sender_id: 'job_competencies_editor',
-                sender_email: 'job_competencies@system.local',
-                sender_name: 'Job Competencies System',
-                content: JSON.stringify({
-                  competencies: mappedCompetencies,
-                  jscMasters,
-                  competencyMasters,
-                  definitionMasters,
-                  levelMasters,
-                  weightMasters,
-                  lastPushedFromTemplate: new Date().toISOString()
-                }),
-                message_type: 'job_specific_competencies',
-                created_at: new Date().toISOString()
-              });
+              await supabase
+                .from('messages')
+                .upsert({
+                  id: compDocId,
+                  tenant_id: tenantId,
+                  sender_id: 'job_competencies_editor',
+                  sender_email: 'job_competencies@system.local',
+                  sender_name: 'Job Competencies System',
+                  content: JSON.stringify({
+                    competencies: mappedCompetencies,
+                    jscMasters,
+                    competencyMasters,
+                    definitionMasters,
+                    levelMasters,
+                    weightMasters,
+                    lastPushedFromTemplate: new Date().toISOString()
+                  }),
+                  message_type: 'job_specific_competencies',
+                  created_at: new Date().toISOString()
+                });
+            }
           }
 
           // 3) Overwrite PDP (pdp) Module
@@ -23385,17 +23519,33 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           created_at: timestamp
         }).catch(() => {});
 
-        // 3. Restore JSCs
-        await supabase.from('messages').upsert({
-          id: `job_competencies_${tId}_${cleanEmail}`,
-          tenant_id: tId,
-          sender_id: 'nkangala_data_vault',
-          sender_email: 'vault@nkangaladm.gov.za',
-          sender_name: 'Nkangala Data Vault',
-          content: JSON.stringify({ competencies: userJscs }),
-          message_type: 'job_specific_competencies',
-          created_at: timestamp
-        }).catch(() => {});
+        // 3. Restore JSCs ONLY if no real JSC record already exists in Supabase
+        const { data: existingUserJsc } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', `job_competencies_${tId}_${cleanEmail}`)
+          .maybeSingle();
+        let hasExistingRealJscs = false;
+        if (existingUserJsc && existingUserJsc.content) {
+          try {
+            const pJsc = JSON.parse(existingUserJsc.content);
+            if (Array.isArray(pJsc.competencies) && pJsc.competencies.length > 0) {
+              hasExistingRealJscs = true;
+            }
+          } catch (_) {}
+        }
+        if (!hasExistingRealJscs) {
+          await supabase.from('messages').upsert({
+            id: `job_competencies_${tId}_${cleanEmail}`,
+            tenant_id: tId,
+            sender_id: 'nkangala_data_vault',
+            sender_email: 'vault@nkangaladm.gov.za',
+            sender_name: 'Nkangala Data Vault',
+            content: JSON.stringify({ competencies: userJscs }),
+            message_type: 'job_specific_competencies',
+            created_at: timestamp
+          }).catch(() => {});
+        }
 
         // 4. Restore PDP
         await supabase.from('messages').upsert({
@@ -23496,16 +23646,32 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             created_at: timestamp
           }).catch(() => {});
 
-          await supabase.from('messages').upsert({
-            id: `job_competencies_${tId}_${uEmail}`,
-            tenant_id: tId,
-            sender_id: 'nkangala_data_vault',
-            sender_email: 'vault@nkangaladm.gov.za',
-            sender_name: 'Nkangala Data Vault',
-            content: JSON.stringify({ competencies: userJscs }),
-            message_type: 'job_specific_competencies',
-            created_at: timestamp
-          }).catch(() => {});
+          const { data: existingBulkJsc } = await supabase
+            .from('messages')
+            .select('content')
+            .eq('id', `job_competencies_${tId}_${uEmail}`)
+            .maybeSingle();
+          let hasBulkRealJscs = false;
+          if (existingBulkJsc && existingBulkJsc.content) {
+            try {
+              const pJsc = JSON.parse(existingBulkJsc.content);
+              if (Array.isArray(pJsc.competencies) && pJsc.competencies.length > 0) {
+                hasBulkRealJscs = true;
+              }
+            } catch (_) {}
+          }
+          if (!hasBulkRealJscs) {
+            await supabase.from('messages').upsert({
+              id: `job_competencies_${tId}_${uEmail}`,
+              tenant_id: tId,
+              sender_id: 'nkangala_data_vault',
+              sender_email: 'vault@nkangaladm.gov.za',
+              sender_name: 'Nkangala Data Vault',
+              content: JSON.stringify({ competencies: userJscs }),
+              message_type: 'job_specific_competencies',
+              created_at: timestamp
+            }).catch(() => {});
+          }
 
           await supabase.from('messages').upsert({
             id: `pdp_${tId}_${uEmail}`,
