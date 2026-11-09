@@ -46,7 +46,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "lengwatertm@nkangaladm.gov.za": { email: "lengwatertm@nkangaladm.gov.za", kpis: 25, kpas: 5, jscs: 5, pdps: 2 },
   "lengwatetm_gm_cds@nkangaladm.gov.za": { email: "lengwatetm_gm_cds@nkangaladm.gov.za", kpis: 56, kpas: 5, jscs: 0, pdps: 0 },
   "linkss@nkangaladm.gov.za": { email: "linkss@nkangaladm.gov.za", kpis: 31, kpas: 5, jscs: 5, pdps: 6 },
-  "lukhelema@nkangaladm.gov.za": { email: "lukhelema@nkangaladm.gov.za", kpis: 17, kpas: 5, jscs: 6, pdps: 0 },
+  "lukhelema@nkangaladm.gov.za": { email: "lukhelema@nkangaladm.gov.za", kpis: 16, kpas: 5, jscs: 6, pdps: 0 },
   "mabenaam@nkangaladm.gov.za": { email: "mabenaam@nkangaladm.gov.za", kpis: 9, kpas: 5, jscs: 5, pdps: 0 },
   "madhilabapk@nkangaladm.gov.za": { email: "madhilabapk@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 3 },
   "madihlabapk@nkangaladm.gov.za": { email: "madihlabapk@nkangaladm.gov.za", kpis: 36, kpas: 6, jscs: 5, pdps: 3 },

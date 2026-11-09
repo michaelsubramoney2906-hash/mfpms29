@@ -26186,6 +26186,7 @@ User Request: ${prompt}`;
         'mankopanamm@nkangaladm.gov.za',
         'masekome@nkangaladm.gov.za',
         'hlezard@nkangaladm.gov.za',
+        'lukhelema@nkangaladm.gov.za',
         'makitlac@nkangaladm.gov.za',
         'motlhabanerc@nkangaladm.gov.za'
       ];
@@ -26207,6 +26208,35 @@ User Request: ${prompt}`;
             updatedMeta.submittedKpiIds = updatedMeta.submittedKpiIds.filter((id: string) => !draftIds.has(String(id || '')));
           }
           await upsertUserPlanAndKpis(em, updatedMeta, fixedItems);
+
+          // For Richard Dumisani Hleza, also sync his 5 KPAs (20% each) and 5 JSCs from his signed 2026/2027 PA
+          if (em === 'hlezard@nkangaladm.gov.za') {
+            const hlezaKpas = [
+              { id: 'kpa-hleza-1', kpaNo: '1.', nationalKpa: 'Good Governance and Public Participation', functionalKpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 20, weighting: '20%' },
+              { id: 'kpa-hleza-2', kpaNo: '2.', nationalKpa: 'Municipal Financial Viability and Management', functionalKpa: 'KPA 2: Financial viability', kpa: 'KPA 2: Financial viability', weight: 20, weighting: '20%' },
+              { id: 'kpa-hleza-3', kpaNo: '3.', nationalKpa: 'Good Governance and Public Participation', functionalKpa: 'KPA 3: Research and speech writing', kpa: 'KPA 3: Research and speech writing', weight: 20, weighting: '20%' },
+              { id: 'kpa-hleza-4', kpaNo: '4.', nationalKpa: 'Municipal Institutional Development and Transformation', functionalKpa: 'KPA 4: Administration functions', kpa: 'KPA 4: Administration functions', weight: 20, weighting: '20%' },
+              { id: 'kpa-hleza-5', kpaNo: '5.', nationalKpa: 'Basic Service Delivery', functionalKpa: "KPA 5: Executive Mayor's Service Delivery", kpa: "KPA 5: Executive Mayor's Service Delivery", weight: 20, weighting: '20%' }
+            ];
+            const hlezaJscs = [
+              { id: 'jsc-hleza-1', jscNo: '1.', category: 'Core Professional competencies', competency: 'Communication', definition: { mainText: 'Effectively conveys facts and ideas both orally and in writing, ensures mutual comprehension by using language and a communication style appropriate to the context and those being addressed', subsections: [] }, level: '3', weight: 20, weighting: '20%' },
+              { id: 'jsc-hleza-2', jscNo: '2.', category: 'Functional Competencies', competency: 'Use of Technology', definition: { mainText: 'The ability to utilise technology in the workplace to optimise the functioning of the Municipality.', subsections: [] }, level: '3', weight: 20, weighting: '20%' },
+              { id: 'jsc-hleza-3', jscNo: '3.', category: 'Public Service Orientation Competencies', competency: 'Interpersonal Relationships', definition: { mainText: 'The ability to establish and maintain productive relationships with people within and outside of the Municipality.', subsections: [] }, level: '3', weight: 20, weighting: '20%' },
+              { id: 'jsc-hleza-4', jscNo: '4.', category: 'Personal Competencies', competency: 'Action Orientation', definition: { mainText: 'Change Readiness: The ability to innovate and challenge the status quo and the ability to cope', subsections: [] }, level: '3', weight: 20, weighting: '20%' },
+              { id: 'jsc-hleza-5', jscNo: '5.', category: 'Management / leadership competencies', competency: 'Direction Setting', definition: { mainText: 'The ability to create a clear sense of common purpose and vision for others with a view to obtaining buy-in and commitment to the goals', subsections: [] }, level: '3', weight: 20, weighting: '20%' }
+            ];
+            const hlezaKpasRaw = JSON.stringify({ kpas: hlezaKpas });
+            const hlezaJscsRaw = JSON.stringify({ competencies: hlezaJscs });
+            const hlezaPdpRaw = JSON.stringify({ items: [] });
+            for (const tId of targetTenants) {
+              await supabase.from('messages').upsert([
+                { id: `kpas_${tId}_${em}`, tenant_id: tId, sender_id: 'kpa_manager_tool', sender_email: em, sender_name: 'Richard Dumisani Hleza', content: hlezaKpasRaw, message_type: 'kpas_list', created_at: nowIso },
+                { id: `job_competencies_${tId}_${em}`, tenant_id: tId, sender_id: 'job_competencies_editor', sender_email: em, sender_name: 'Richard Dumisani Hleza', content: hlezaJscsRaw, message_type: 'job_specific_competencies', created_at: nowIso },
+                { id: `jsc_draft_${tId}_${em}`, tenant_id: tId, sender_id: 'job_competencies_editor', sender_email: em, sender_name: 'Richard Dumisani Hleza', content: hlezaJscsRaw, message_type: 'job_specific_competencies', created_at: nowIso },
+                { id: `pdp_${tId}_${em}`, tenant_id: tId, sender_id: 'pdp_editor_tool', sender_email: em, sender_name: 'Richard Dumisani Hleza', content: hlezaPdpRaw, message_type: 'pdp_list', created_at: nowIso }
+              ], { onConflict: 'id' });
+            }
+          }
 
           // Also sync pulledPplanItems / pulledFilteredPplanItems in draft_doc_* so PA matches 100%
           for (const tId of targetTenants) {
@@ -26717,12 +26747,22 @@ User Request: ${prompt}`;
         const parsedDraft = JSON.parse(myeniDraftRow.content);
         const draftState = parsedDraft.html && typeof parsedDraft.html === 'object' ? parsedDraft.html : parsedDraft;
         const parsedTeamPlan = myeniTeamPlanRow?.content ? JSON.parse(myeniTeamPlanRow.content) : null;
-        const controlTeamKpis: any[] = (parsedTeamPlan?.items && Array.isArray(parsedTeamPlan.items) && parsedTeamPlan.items.length > 0)
+        const rawControlTeamKpis: any[] = (parsedTeamPlan?.items && Array.isArray(parsedTeamPlan.items) && parsedTeamPlan.items.length > 0)
           ? parsedTeamPlan.items
           : (Array.isArray(draftState?.pulledFilteredPplanItems) ? draftState.pulledFilteredPplanItems : []);
+        const controlTeamKpis: any[] = applyOfficialUserKpiFixes(rawControlTeamKpis, 'mpofuhd@nkangaladm.gov.za')
+          .map((it: any) => sanitizePplanItem(it, 'mpofuhd@nkangaladm.gov.za'))
+          .slice(0, 11);
         const controlTeamJscs: any[] = Array.isArray(draftState?.pulledJscRows) ? draftState.pulledJscRows : [];
         const controlTeamMemberPdps: any[] = Array.isArray(draftState?.memberPdps) ? draftState.memberPdps : [];
-        const controlTeamKpaRows: string[][] = Array.isArray(draftState?.dynTableRows) ? draftState.dynTableRows : [];
+        const canonicalControlKpaRows: string[][] = [
+          ['1.', 'Good Governance and Public Participation', 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', '35'],
+          ['2.', 'Basic Service Delivery', 'KPA 2: COMMUNICATION SYSTEM MAINTANANCE', '20'],
+          ['3.', 'Basic Service Delivery', 'KPA 3: CALL CENTER OPERATIONS', '20'],
+          ['4.', 'Basic Service Delivery', 'KPA 4: INFORMATION MANAGEMENT', '10'],
+          ['5.', 'Basic Service Delivery', 'KPA 5: AWERENESS CAMPAIGNS', '15']
+        ];
+        const controlTeamKpaRows: string[][] = canonicalControlKpaRows;
         const controlTeamKpas = controlTeamKpaRows.map((r: string[], i: number) => ({
           id: `kpa-control-room-${i + 1}`,
           kpaNo: r[0] || String(i + 1),
@@ -26736,6 +26776,7 @@ User Request: ${prompt}`;
         const draftContentStr = JSON.stringify({
           html: {
             ...draftState,
+            dynTableRows: controlTeamKpaRows,
             pulledPplanItems: controlTeamKpis,
             pulledFilteredPplanItems: controlTeamKpis,
             pulledCompetencyRows: controlTeamJscs,
@@ -26745,17 +26786,30 @@ User Request: ${prompt}`;
 
         const controlRoomBatch: any[] = [];
         for (const tId of targetTenants) {
-          controlRoomBatch.push({
-            id: `draft_doc_cds_team_1_${tId}`,
-            tenant_id: tId,
-            sender_id: 'pa_editor_tool',
-            sender_email: 'myenispl@nkangaladm.gov.za',
-            sender_name: 'Disaster Management Control Team',
-            content: draftContentStr,
-            message_type: 'drafting_suite_doc',
-            created_at: nowIso
-          });
+          controlRoomBatch.push(
+            {
+              id: `draft_doc_cds_team_1_${tId}`,
+              tenant_id: tId,
+              sender_id: 'pa_editor_tool',
+              sender_email: 'myenispl@nkangaladm.gov.za',
+              sender_name: 'Disaster Management Control Team',
+              content: draftContentStr,
+              message_type: 'drafting_suite_doc',
+              created_at: nowIso
+            },
+            {
+              id: `draft_doc_cds_team_1_${tId}_myenispl@nkangaladm.gov.za`,
+              tenant_id: tId,
+              sender_id: 'pa_editor_tool',
+              sender_email: 'myenispl@nkangaladm.gov.za',
+              sender_name: 'Disaster Management Control Team',
+              content: draftContentStr,
+              message_type: 'drafting_suite_doc',
+              created_at: nowIso
+            }
+          );
           draftDocCache.set(`draft_doc_cds_team_1_${tId}`, { raw: draftContentStr, timestamp: Date.now() });
+          draftDocCache.set(`draft_doc_cds_team_1_${tId}_myenispl@nkangaladm.gov.za`, { raw: draftContentStr, timestamp: Date.now() });
         }
 
         for (const memberEmail of DISASTER_CONTROL_TEAM_EMAILS) {
@@ -26777,11 +26831,16 @@ User Request: ${prompt}`;
             ? matchedMemberPdp.items
             : (controlTeamMemberPdps[0]?.items || []);
 
-          // Preserve any existing Q1 actuals/POEs if the member already had them on their plan
+          // Preserve any valid existing Q1 actuals/POEs on the 11 Control Room KPIs while strictly blocking secondary append of PMS KPIs 6..17
           const existingMemberPlan = await loadBestPlanForUser(memberEmail);
-          const mergedMemberKpis = (existingMemberPlan && existingMemberPlan.items.length > 0)
-            ? mergePlanItemsWithSecondary(controlTeamKpis, [existingMemberPlan.items], false, false).map((it: any) => sanitizePplanItem(it, memberEmail))
-            : controlTeamKpis.map((it: any) => sanitizePplanItem(it, memberEmail));
+          const cleanedMemberExisting = (existingMemberPlan && Array.isArray(existingMemberPlan.items) && existingMemberPlan.items.length > 0)
+            ? applyOfficialUserKpiFixes(existingMemberPlan.items, 'mpofuhd@nkangaladm.gov.za')
+            : [];
+          const mergedMemberKpis = (cleanedMemberExisting.length > 0)
+            ? mergePlanItemsWithSecondary(controlTeamKpis, [cleanedMemberExisting], false, false)
+                .slice(0, 11)
+                .map((it: any) => sanitizePplanItem(it, memberEmail))
+            : controlTeamKpis.slice(0, 11).map((it: any) => sanitizePplanItem(it, memberEmail));
 
           const memberPlanPayload = JSON.stringify({
             metadata: {
@@ -26937,13 +26996,16 @@ User Request: ${prompt}`;
         await supabase.from('messages').upsert(dedupedControlRoom, { onConflict: 'id' });
       }
 
-      // Clean up duplicate KPA 4 KPIs for M.A. Lukhele (lukhelema@nkangaladm.gov.za)
+      // Reconcile M.A. Lukhele (lukhelema@nkangaladm.gov.za) Amended PA:
+      // Remove PMS_D5 and amend PMS_D7 from 2026/2027 to 2027/2028 (16 KPIs total, KPA 4 = 30% [15% + 15%])
       const lukheleEmail = 'lukhelema@nkangaladm.gov.za';
       const lukheleDocIds = [
         `pplan_tenant-229_${lukheleEmail}`,
         `kpis_tenant-229_${lukheleEmail}`,
         `pplan_nkangala_auto_${lukheleEmail}`,
-        `kpis_nkangala_auto_${lukheleEmail}`
+        `kpis_nkangala_auto_${lukheleEmail}`,
+        `pplan_global_${lukheleEmail}`,
+        `kpis_global_${lukheleEmail}`
       ];
       const { data: lukheleRows } = await supabase.from('messages').select('id, content').in('id', lukheleDocIds);
       if (Array.isArray(lukheleRows)) {
@@ -26953,32 +27015,15 @@ User Request: ${prompt}`;
             const parsed = JSON.parse(row.content);
             const list = parsed.items || parsed.kpis || parsed.rows;
             if (Array.isArray(list) && list.length > 0) {
-              const kpa4SeenKeys = new Set<string>();
-              const cleanedList = list.filter((it: any) => {
-                const kpa = String(it.kpa || it.functionalKpa || it['functional kpa'] || '').trim().toUpperCase();
-                const isKpa4 = kpa.includes('KPA 4') || kpa.includes('KPA4') || kpa.includes('WATER QUALITY MONITORING');
-                if (isKpa4) {
-                  const kpiNo = String(it.kpiNo || it['kpi no'] || it.id || '').trim().toLowerCase();
-                  const desc = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').trim().toLowerCase();
-                  const dedupKey = kpiNo ? `kpi_${kpiNo}` : `desc_${desc.substring(0, 40)}`;
-                  if (kpa4SeenKeys.has(dedupKey)) {
-                    return false; // Remove duplicate entry in KPA 4
-                  }
-                  if (dedupKey) {
-                    kpa4SeenKeys.add(dedupKey);
-                  }
-                }
-                return true;
-              });
-
-              if (cleanedList.length < list.length) {
-                if (parsed.items) parsed.items = cleanedList;
-                if (parsed.kpis) parsed.kpis = cleanedList;
-                if (parsed.rows) parsed.rows = cleanedList;
-                const updatedContent = JSON.stringify(parsed);
-                await supabase.from('messages').update({ content: updatedContent, updated_at: nowIso }).eq('id', row.id);
-                memoryCache.delete(row.id);
-              }
+              const cleanedList = applyOfficialUserKpiFixes(list, lukheleEmail).map((it: any) => sanitizePplanItem(it, lukheleEmail));
+              if (parsed.items) parsed.items = cleanedList;
+              if (parsed.kpis) parsed.kpis = cleanedList;
+              if (parsed.rows) parsed.rows = cleanedList;
+              const updatedContent = JSON.stringify(parsed);
+              await supabase.from('messages').update({ content: updatedContent, updated_at: nowIso }).eq('id', row.id);
+              memoryCache.delete(row.id);
+              pplanCache.delete(row.id);
+              kpisCache.delete(row.id);
             }
           } catch (err) {}
         }

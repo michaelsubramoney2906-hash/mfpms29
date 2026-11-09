@@ -1046,29 +1046,191 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
-  // 14. Mr. Richard Dumisani Hleza (hlezard@nkangaladm.gov.za) - KPI 2 (Strategic Risks Identified) required POE = "Strategic Risk Report"
+  // 14. Mr. Richard Dumisani Hleza (hlezard@nkangaladm.gov.za) - Full 27-KPI Scorecard from signed 2026/2027 Performance Agreement (Chief of Staff)
   if (normEmail === 'hlezard@nkangaladm.gov.za' || normEmail.includes('hlezard')) {
-    result = result.map((kpi, index) => {
-      const ref = (kpi.kpiNo || kpi.refNum || kpi['kpi no'] || '').toString().trim().toUpperCase();
-      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
-      if (index === 1 || ref === '2' || ref === 'M_15' || desc.includes('strategic risks identified')) {
-        const reqPoe = 'Strategic Risk Report';
+    const isVipProtectionTeamPlan = result.some((k: any) => {
+      const d = String(k.kpiDescription || k['kpi description'] || k.kpi || k.description || '').toLowerCase();
+      return d.includes('vehicle safety inspections') || d.includes('fuel garage card') || d.includes('advanced security assessment');
+    });
+
+    if (!isVipProtectionTeamPlan) {
+      const hlezaCanonical27 = [
+        { kpiNo: 'M_11', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '70', annualTarget: '70', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '70', poe: 'Report to Council and Council Resolution(s)', budget: 'OPEX', kpi: 'Number of new/reviewed policies approved by Council by 30 June 2027', matchKey: 'new/reviewed policies approved by council' },
+        { kpiNo: 'M_15', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '90', annualTarget: '90%', q1Target: '90%', q2Target: '90%', q3Target: '90%', q4Target: '90%', poe: 'Strategic Risk Report', budget: 'OPEX', kpi: 'Percentage of action plans implemented to address Strategic Risks Identified per quarter (Office of the Executive Mayor)', matchKey: 'strategic risks identified' },
+        { kpiNo: 'M_16', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '98', annualTarget: '98%', q1Target: '98%', q2Target: '98%', q3Target: '98%', q4Target: '98%', poe: 'Signed Quarterly Operational Risk report', budget: 'OPEX', kpi: 'Percentage of action plans implemented to address Operational Risks Identified per quarter (Office of the Executive Mayor)', matchKey: 'operational risks identified' },
+        { kpiNo: 'M_17', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '96', annualTarget: '96%', q1Target: '96%', q2Target: '96%', q3Target: '96%', q4Target: '96%', poe: 'Signed Quarterly Fraud and corruption Risk report', budget: 'OPEX', kpi: 'Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (Office of the Executive Mayor)', matchKey: 'fraud and corruption risks identified' },
+        { kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '1 (Unqualified with matters)', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: "AG's Audit Report", budget: 'OPEX', kpi: 'Attain clean audit opinion by 31 December 2026.', matchKey: 'clean audit opinion' },
+        { kpiNo: 'M_22', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '1', annualTarget: '≤ 0', q1Target: 'N/A', q2Target: '≤ 0', q3Target: 'N/A', q4Target: 'N/A', poe: "AG's Audit Report", budget: 'OPEX', kpi: 'Number of repeat audit findings (circular 88) by 30 December 2026.', matchKey: 'repeat audit findings' },
+        { kpiNo: 'M_23', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'Audit Action Plan and Council resolution', budget: 'OPEX', kpi: 'Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.', matchKey: 'action plan on issues raised by the auditor general' },
+        { kpiNo: 'M_24', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '100%', annualTarget: '100%', q1Target: 'N/A', q2Target: 'N/A', q3Target: '40%', q4Target: '100%', poe: 'Signed Progress Report on the Implementation of the Audit Action Plan.', budget: 'OPEX', kpi: 'Percentage of AG Findings raised in the Management Letter resolved by 30 June 2027. (Office of the Executive Mayor)', matchKey: 'ag findings raised in the management letter' },
+        { kpiNo: 'M_36', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '100', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Strategic Lekgotla monitoring report', budget: 'OPEX', kpi: 'Percentage of strategic lekgotla resolutions implemented by 30 June 2027. (Office of the Executive Mayor)', matchKey: 'strategic lekgotla resolutions' },
+        { kpiNo: 'M_37', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: 'New', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly Reports and Council Resolution.', budget: 'OPEX', kpi: 'Number of reports on Council Resolutions submitted to Council per quarter (Office of the Executive Mayor)', matchKey: 'reports on council resolutions submitted to council' },
+        { kpiNo: 'M_40', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '100', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly IA report', budget: 'OPEX', kpi: 'Percentage of internal audit recommendations implemented by 30 June 2027. (Office of the Executive Mayor)', matchKey: 'internal audit recommendations implemented' },
+        { kpiNo: 'M_41', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '100', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Audit committee resolution register', budget: 'OPEX', kpi: 'Percentage of audit committee resolutions implemented by 30 June 2027. (Office of the Executive Mayor)', matchKey: 'audit committee resolutions implemented' },
+        { kpiNo: '13', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026.', matchKey: 'compile and sign the annual performance agreement' },
+        { kpiNo: '14', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '4', annualTarget: '4', q1Target: '4', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX', kpi: 'Number of performance agreements signed with subordinates and submitted to OPME & PMDS unit for the 2026/2027 financial year by 30 July 2026.', matchKey: 'performance agreements signed with subordinates' },
+        { kpiNo: '15', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '4', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS unit', budget: 'OPEX', kpi: 'Number of self-assessment report compiled and submitted to Supervisor per quarter.', matchKey: 'self-assessment report' },
+        { kpiNo: '16', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026.', matchKey: 'annual performance evaluation on e-pms' },
+        { kpiNo: '17', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Compliance certificate from corporate services', budget: 'OPEX', kpi: 'Number of quarterly leave reconciliation report submitted to Departmental General Manager (within 30 days after end of each quarter)', matchKey: 'leave reconciliation report submitted to departmental general manager' },
+        { kpiNo: '18', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services', budget: 'OPEX', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', matchKey: 'leave requests captured on the system' },
+        { kpiNo: '19', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services', budget: 'OPEX', kpi: 'Percentage of leave approvals processed within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', matchKey: 'leave approvals processed within the prescribed timeframes' },
+        { kpiNo: '20', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTION TRANSFORMATION', weight: 1, baseline: 'New', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Compliance Certificate issued by HRM&D Unit.', budget: 'OPEX', kpi: 'Number of departmental Training Needs Analysis submitted (TNA) by 30 March 2027', matchKey: 'training needs analysis submitted' },
+        { kpiNo: 'M_53', kpa: 'KPA 2: FINANCIAL VIABILITY', weight: 20, baseline: '90%', annualTarget: '90%', q1Target: '20%', q2Target: '40%', q3Target: '60%', q4Target: '90%', poe: 'Signed Operational Expenditure progress report', budget: 'R', kpi: 'Percentage of operational budget actually spent (circular 88) by 30 June 2027.', matchKey: 'operational budget actually spent' },
+        { kpiNo: '22', kpa: 'KPA 3: RESEARCH AND SPEECH WRITING', weight: 20, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed acknowledgement or email of sent to EM', budget: 'Opex', kpi: "Percentage of the Executive Mayor's speeches developed and submitted to the EM by 30 June 2027", matchKey: 'speeches developed and submitted' },
+        { kpiNo: 'M-31', kpa: 'KPA 4: ADMINISTRATION FUNCTIONS', weight: 5, baseline: '12', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Public participation report', budget: 'Opex', kpi: 'Number of public participation meeting held by June 2027', matchKey: 'public participation meeting held' },
+        { kpiNo: '24', kpa: 'KPA 4: ADMINISTRATION FUNCTIONS', weight: 5, baseline: '3', annualTarget: '3', q1Target: '1 (AFS)', q2Target: 'N/A', q3Target: '1 (adjusted SDBIP)', q4Target: '1(SDBIP)', poe: 'Foreword as proof of submission', budget: 'Opex', kpi: 'Number of Foreword compiled and submitted (PMS & Finance) by June 2027.', matchKey: 'foreword compiled and submitted' },
+        { kpiNo: '25', kpa: 'KPA 4: ADMINISTRATION FUNCTIONS', weight: 5, baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Invitations Attendance registers', budget: 'Opex', kpi: "Number of Co-ordinated Mayor's Forum Meetings conducted by June 2027", matchKey: "mayor's forum meetings conducted" },
+        { kpiNo: '26', kpa: 'KPA 4: ADMINISTRATION FUNCTIONS', weight: 5, baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Compliance certificate from Corporate Services', budget: 'Opex', kpi: 'Number of quarterly leave reconciliation report submitted to the General Manager/ Corporate Services [thirty days after end of quarter]', matchKey: 'leave reconciliation report submitted to the general manager/ corporate services' },
+        { kpiNo: '27', kpa: "KPA 5: EXECUTIVE MAYOR'S SERVICE DELIVERY", weight: 20, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Letter of notifications to municipalities', budget: 'R 1 413 328,00', kpi: 'Percentage monitoring of Mayoral Service Delivery Road Infrastructure Programme by June 2027', matchKey: 'mayoral service delivery road infrastructure programme' }
+      ];
+
+      result = hlezaCanonical27.map((canon, idx) => {
+        // Match existing item by description substring or kpiNo, or fallback to old 9-item positional index (0..8) when safe
+        let existing = result.find((it: any) => {
+          const d = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+          return d.includes(canon.matchKey);
+        });
+        if (!existing && idx < 9 && result.length === 9 && idx === 0) {
+          // Old row 0 was M_11 overwritten by M_21
+          existing = result[0];
+        }
+        const isQ1Na = canon.q1Target.toUpperCase() === 'N/A';
+        const isQ2Na = canon.q2Target.toUpperCase() === 'N/A';
+        const isQ3Na = canon.q3Target.toUpperCase() === 'N/A';
+        const isQ4Na = canon.q4Target.toUpperCase() === 'N/A';
+        const hasQ1Evidence = Boolean(
+          existing &&
+          !isQ1Na &&
+          ((existing.q1Actual && String(existing.q1Actual).trim() !== '' && String(existing.q1Actual).trim().toUpperCase() !== 'N/A') ||
+            (Array.isArray(existing.q1PoeDocs) && existing.q1PoeDocs.length > 0))
+        );
         return {
-          ...kpi,
-          poe: `Q1: ${reqPoe}\nQ2: ${reqPoe}\nQ3: ${reqPoe}\nQ4: ${reqPoe}`,
-          annualRequiredPoe: reqPoe,
-          q1Poe: reqPoe,
-          q2Poe: reqPoe,
-          midtermPoe: reqPoe,
-          q3Poe: reqPoe,
-          q4Poe: reqPoe
+          ...(existing || {}),
+          id: existing?.id || `team-ipp-kpi-1790604123780-${idx + 1}`,
+          kpiNo: canon.kpiNo,
+          'kpi no': canon.kpiNo,
+          kpa: canon.kpa,
+          functionalKpa: canon.kpa,
+          'functional kpa': canon.kpa,
+          kpi: canon.kpi,
+          description: canon.kpi,
+          kpiDescription: canon.kpi,
+          'kpi description': canon.kpi,
+          indicator: canon.kpi,
+          weight: canon.weight,
+          weighting: String(canon.weight),
+          '%wt': String(canon.weight),
+          baseline: canon.baseline,
+          'baseline 2025/26': canon.baseline,
+          annualTarget: canon.annualTarget,
+          'annual target': canon.annualTarget,
+          q1Target: canon.q1Target,
+          '1st qtr target': canon.q1Target,
+          q2Target: canon.q2Target,
+          '2nd qtr target': canon.q2Target,
+          q3Target: canon.q3Target,
+          '3rd qtr target': canon.q3Target,
+          q4Target: canon.q4Target,
+          '4th qtr target': canon.q4Target,
+          poe: `Q1: ${canon.poe}\nQ2: ${canon.poe}\nQ3: ${canon.poe}\nQ4: ${canon.poe}`,
+          annualRequiredPoe: canon.poe,
+          q1Poe: canon.poe,
+          q2Poe: canon.poe,
+          midtermPoe: canon.poe,
+          q3Poe: canon.poe,
+          q4Poe: canon.poe,
+          budget: canon.budget,
+          q1Locked: isQ1Na,
+          q2Locked: isQ2Na,
+          q3Locked: isQ3Na,
+          q4Locked: isQ4Na,
+          q1Applicable: !isQ1Na,
+          q1Actual: isQ1Na ? '' : (existing?.q1Actual || ''),
+          q1PoeDocs: isQ1Na ? [] : (Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : []),
+          reviewStatus: isQ1Na ? 'N/A' : (hasQ1Evidence ? (existing?.reviewStatus || 'Submitted for Approval') : (existing?.reviewStatus && existing.reviewStatus !== 'N/A' ? existing.reviewStatus : 'Draft')),
+          q1PoeStatus: isQ1Na ? 'N/A' : (hasQ1Evidence ? (existing?.q1PoeStatus || 'Pending Verification') : 'Draft')
         };
-      }
-      return kpi;
+      });
+    }
+  }
+
+  // 14b. Control Room Disaster Team (MpofuHD@nkangaladm.gov.za & 7 Control Operators) - Strictly 11 KPIs from signed 2026/2027 Control Room PA
+  const controlRoomOperatorPrefixes = ['mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc', 'seleshoatj'];
+  if (controlRoomOperatorPrefixes.some(p => normEmail === `${p}@nkangaladm.gov.za` || normEmail.startsWith(`${p}@`))) {
+    const controlRoomCanonical11 = [
+      { kpiNo: 'M_22', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '1 (Unqualified with matters)', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: "AG's Audit Report", budget: 'OPEX', kpi: 'Attain clean audit opinion by 31 December 2026.', matchKey: 'clean audit opinion' },
+      { kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2027', matchKey: 'compile and sign the annual performance agreement' },
+      { kpiNo: '3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '3', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', matchKey: 'self-assessment reports compiled' },
+      { kpiNo: '4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '2', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', matchKey: 'annual performance evaluation on e-pms' },
+      { kpiNo: '5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 15, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services', budget: 'OPEX', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', matchKey: 'leave requests captured on the system' },
+      { kpiNo: '6', kpa: 'KPA 2: COMMUNICATION SYSTEM MAINTANANCE', weight: 10, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'disaster', budget: 'OPEX', kpi: '% of the incumbents ability to operate the disaster management center system and duties e.g.take emergency calls,ensuring accurate recording of incident and contact details of the caller', matchKey: 'operate the disaster management center system' },
+      { kpiNo: '7', kpa: 'KPA 2: COMMUNICATION SYSTEM MAINTANANCE', weight: 10, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Disaster radio test report', budget: 'OPEX', kpi: '% of communication radio system test conducted by the incumbent with THLM AND DRJA FIRE STATION BY 30 JUNE 2027', matchKey: 'communication radio system test' },
+      { kpiNo: '8', kpa: 'KPA 3: CALL CENTER OPERATIONS', weight: 10, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Occurrence book', budget: 'OPEX', kpi: '% of incoming calls taken with the required response time by 30 june 2027', matchKey: 'incoming calls taken with the required response time' },
+      { kpiNo: '9', kpa: 'KPA 3: CALL CENTER OPERATIONS', weight: 10, baseline: '100%', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Disaster management system report nature of incidents', budget: 'OPEX', kpi: '% of incumbents ability to evaluate the nature of the emergency by 30 june 2027', matchKey: 'evaluate the nature of the emergency' },
+      { kpiNo: '10', kpa: 'KPA 4: INFORMATION MANAGEMENT', weight: 10, baseline: '4', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Disaster management report(nature of the incident colum)', budget: 'OPEX', kpi: 'Number of quarterly reports of accidents and emergency calls and incidents records and other related duties,submitted by 30 june 2027', matchKey: 'reports of accidents and emergency calls' },
+      { kpiNo: '11', kpa: 'KPA 5: AWERENESS CAMPAIGNS', weight: 15, baseline: '4', annualTarget: '1', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly Report', budget: 'OPEX', kpi: 'Number of disaster risk reduction awareness campaigns conducted by 30 june 2027', matchKey: 'disaster risk reduction awareness campaigns' }
+    ];
+
+    result = controlRoomCanonical11.map((canon, idx) => {
+      // Only match existing items whose indicator text matches this Control Room KPI (never copy PMS KPI 6..17 data)
+      const existing = result.find((it: any) => {
+        const d = String(it.kpiDescription || it['kpi description'] || it.kpi || it.description || '').toLowerCase();
+        return d.includes(canon.matchKey);
+      });
+      const isQ1Na = canon.q1Target.toUpperCase() === 'N/A';
+      const isQ2Na = canon.q2Target.toUpperCase() === 'N/A';
+      const isQ3Na = canon.q3Target.toUpperCase() === 'N/A';
+      const isQ4Na = canon.q4Target.toUpperCase() === 'N/A';
+      return {
+        ...(existing || {}),
+        id: existing?.id || `team-ipp-kpi-1790760159082-${idx + 1}`,
+        kpiNo: canon.kpiNo,
+        'kpi no': canon.kpiNo,
+        kpa: canon.kpa,
+        functionalKpa: canon.kpa,
+        'functional kpa': canon.kpa,
+        kpi: canon.kpi,
+        description: canon.kpi,
+        kpiDescription: canon.kpi,
+        'kpi description': canon.kpi,
+        indicator: canon.kpi,
+        weight: canon.weight,
+        weighting: String(canon.weight),
+        '%wt': String(canon.weight),
+        baseline: canon.baseline,
+        'baseline 2025/26': canon.baseline,
+        annualTarget: canon.annualTarget,
+        'annual target': canon.annualTarget,
+        q1Target: canon.q1Target,
+        '1st qtr target': canon.q1Target,
+        q2Target: canon.q2Target,
+        '2nd qtr target': canon.q2Target,
+        q3Target: canon.q3Target,
+        '3rd qtr target': canon.q3Target,
+        q4Target: canon.q4Target,
+        '4th qtr target': canon.q4Target,
+        poe: `Q1: ${canon.poe}\nQ2: ${canon.poe}\nQ3: ${canon.poe}\nQ4: ${canon.poe}`,
+        annualRequiredPoe: canon.poe,
+        q1Poe: canon.poe,
+        q2Poe: canon.poe,
+        midtermPoe: canon.poe,
+        q3Poe: canon.poe,
+        q4Poe: canon.poe,
+        budget: canon.budget,
+        q1Locked: isQ1Na,
+        q2Locked: isQ2Na,
+        q3Locked: isQ3Na,
+        q4Locked: isQ4Na,
+        q1Applicable: !isQ1Na,
+        q1Actual: isQ1Na ? '' : (existing?.q1Actual || ''),
+        q1PoeDocs: isQ1Na ? [] : (Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : []),
+        reviewStatus: isQ1Na ? 'N/A' : (existing?.reviewStatus || 'Draft'),
+        q1PoeStatus: isQ1Na ? 'N/A' : (existing?.q1PoeStatus || 'Draft')
+      };
     });
   }
 
-  // 15. Clean Audit Opinion KPI (M_21 / KPI 1: "Attain clean audit opinion by 31 December 2026") is N/A in Quarter 1 (due Q2: 31 Dec 2026)
+  // 15. Clean Audit Opinion KPI (M_21 / M_22: "Attain clean audit opinion by 31 December 2026") is N/A in Quarter 1 (due Q2: 31 Dec 2026)
   result = result.map(kpi => {
     const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().toLowerCase();
     const kNo = (kpi.kpiNo || kpi['kpi no'] || kpi.refNum || kpi.id || '').toString().trim().toUpperCase();
@@ -1097,24 +1259,92 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     return kpi;
   });
 
-  // 16. Ms. M.A. Lukhele (lukhelema@nkangaladm.gov.za) - Remove duplicate KPI in KPA 4
+  // 16. Mr. Mduduzi Anthony Lukhele (lukhelema@nkangaladm.gov.za) - Amended 2026/2027 Performance Agreement:
+  // - Remove KPI PMS_D5 (PMS/D/5: "Number of 2026/2027 performance agreements for senior managers developed and drafts submitted to PMS Coordinator")
+  // - Amend KPI PMS_D7 (PMS/D/7) from 2026/2027 to 2027/2028 ("Number of 2027/2028 performance agreements for senior managers developed and drafts submitted to PMS Coordinator within 5 days after the approval of 2027/2028 SDBIP")
+  // - Adjust the two remaining KPA 4 weights to 15% each (total 30% for KPA 4, 16 KPIs = 100%)
   if (normEmail === 'lukhelema@nkangaladm.gov.za' || normEmail.includes('lukhelema')) {
-    const kpa4SeenKeys = new Set<string>();
     result = result.filter(kpi => {
-      const kpa = (kpi.kpa || kpi.functionalKpa || kpi['functional kpa'] || kpi.kpaName || '').toString().trim().toUpperCase();
-      const isKpa4 = kpa.includes('KPA 4') || kpa.includes('KPA4') || kpa.includes('WATER QUALITY MONITORING');
-      if (isKpa4) {
-        const kpiNo = (kpi.kpiNo || kpi['kpi no'] || kpi.id || '').toString().trim().toLowerCase();
-        const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().trim().toLowerCase();
-        const dedupKey = kpiNo ? `kpi_${kpiNo}` : `desc_${desc.substring(0, 40)}`;
-        if (kpa4SeenKeys.has(dedupKey)) {
-          return false; // Remove duplicate entry in KPA 4
-        }
-        if (dedupKey) {
-          kpa4SeenKeys.add(dedupKey);
-        }
+      const kpiNo = (kpi.kpiNo || kpi['kpi no'] || '').toString().trim().toUpperCase().replace(/_/g, '/');
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().trim().toLowerCase();
+      const itemId = String(kpi.id || '').trim();
+      // Remove old PMS/D/5 (unadjusted 2026/2027 senior manager PAs without 'within 5 days')
+      if (
+        itemId === 'extracted-sync-1789982958074-10' ||
+        (kpiNo === 'PMS/D/5' && !desc.includes('adjusted')) ||
+        (desc.includes('2026/2027 performance agreements for senior managers') && !desc.includes('adjusted') && !desc.includes('within 5 days'))
+      ) {
+        return false;
       }
       return true;
+    }).map(kpi => {
+      const kpiNo = (kpi.kpiNo || kpi['kpi no'] || '').toString().trim().toUpperCase().replace(/_/g, '/');
+      const desc = (kpi.kpiDescription || kpi['kpi description'] || kpi.kpi || kpi.description || '').toString().trim().toLowerCase();
+      const itemId = String(kpi.id || '').trim();
+
+      if (itemId === 'extracted-sync-1789982958074-11' || kpiNo === 'PMS/D/6' || desc.includes('adjusted performance agreements for senior managers')) {
+        return {
+          ...kpi,
+          weight: 15,
+          weighting: '15',
+          '%wt': '15',
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q2Target: 'N/A',
+          '2nd qtr target': 'N/A',
+          q3Target: '6',
+          '3rd qtr target': '6',
+          q4Target: 'N/A',
+          '4th qtr target': 'N/A',
+          q1Locked: true,
+          q1Applicable: false
+        };
+      }
+
+      if (
+        itemId === 'extracted-sync-1789982958074-12' ||
+        kpiNo === 'PMS/D/7' ||
+        desc.includes('within 5 days after the approval') ||
+        desc.includes('2027/2028 performance agreements for senior managers')
+      ) {
+        const amendedDesc = 'Number of 2027/2028 performance agreements for senior managers developed and drafts submitted to PMS Coordinator within 5 days after the approval of 2027/2028 SDBIP';
+        return {
+          ...kpi,
+          kpiNo: 'PMS/D/7',
+          'kpi no': 'PMS/D/7',
+          kpi: amendedDesc,
+          description: amendedDesc,
+          kpiDescription: amendedDesc,
+          'kpi description': amendedDesc,
+          indicator: amendedDesc,
+          weight: 15,
+          weighting: '15',
+          '%wt': '15',
+          baseline: 'New',
+          annualTarget: '6',
+          q1Target: 'N/A',
+          '1st qtr target': 'N/A',
+          q2Target: 'N/A',
+          '2nd qtr target': 'N/A',
+          q3Target: 'N/A',
+          '3rd qtr target': 'N/A',
+          q4Target: '6',
+          '4th qtr target': '6',
+          q1Locked: true,
+          q2Locked: true,
+          q3Locked: true,
+          q4Locked: false,
+          q1Applicable: false
+        };
+      }
+
+      const numWt = Number(kpi.weight || kpi.weighting || kpi['%wt'] || 5) || 5;
+      return {
+        ...kpi,
+        weight: numWt,
+        weighting: String(numWt),
+        '%wt': String(numWt)
+      };
     });
   }
 
