@@ -7952,7 +7952,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         'mike@massivedynamixdistributors.com',
         'audrey@mzansiflow.co.za',
         'delphine@mzansiflow.co.za',
-        'delpjhine@mzansiflow.co.za',
         'ryanw@mzansiflow.co.za',
         'bongani@mzansiflow.co.za',
         'bonganim@mzansiflow.co.za',
@@ -7972,20 +7971,54 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         });
       }
 
+      // Enforce exact email for Delphine (reject typos like delpjhine@mzansiflow.co.za)
+      if ((lowerEmail.startsWith('delphine') || lowerEmail.startsWith('delpjhine')) && lowerEmail !== 'delphine@mzansiflow.co.za') {
+        return res.status(401).json({
+          error: "Invalid email address. Only delphine@mzansiflow.co.za is authorized."
+        });
+      }
+
       // Password Validation Logic (non-blocking for instant login):
       let isPasswordValid = false;
       const cleanPassword = password.trim();
 
-      if (isGlobalAdmin) {
+      if (lowerEmail === 'delphine@mzansiflow.co.za') {
+        // Strictly enforce ONLY Deskjet01* for delphine@mzansiflow.co.za
+        isPasswordValid = (cleanPassword === 'Deskjet01*');
+        if (isPasswordValid && supabase) {
+          setImmediate(async () => {
+            try {
+              const { data: passMsg } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('id', 'nkangala_user_passwords')
+                .maybeSingle();
+              const userPasswordsMap: Record<string, string> = (passMsg && passMsg.content) ? JSON.parse(passMsg.content) : {};
+              if (userPasswordsMap['delphine@mzansiflow.co.za'] !== 'Deskjet01*') {
+                userPasswordsMap['delphine@mzansiflow.co.za'] = 'Deskjet01*';
+                await supabase.from('messages').upsert({
+                  id: 'nkangala_user_passwords',
+                  content: JSON.stringify(userPasswordsMap),
+                  tenant_id: 'nkangala_auto',
+                  sender_id: 'system',
+                  sender_email: 'system@local',
+                  sender_name: 'Authentication System',
+                  created_at: new Date().toISOString()
+                });
+              }
+            } catch (_) {}
+          });
+        }
+      } else if (isGlobalAdmin) {
         if (lowerEmail === 'mike@mzansiflow.co.za' || lowerEmail === 'mike@massivedynamixdistributors.com') {
           isPasswordValid = (cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
-        } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'delpjhine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
+        } else if (lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
           // Accept Deskjet01*, manager override, or 8655M9sznnes01*
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         } else {
           isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
         }
-      } else if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail === 'delpjhine@mzansiflow.co.za' || lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
+      } else if (lowerEmail === 'ryanw@mzansiflow.co.za' || lowerEmail === 'bongani@mzansiflow.co.za' || lowerEmail === 'bonganim@mzansiflow.co.za') {
         isPasswordValid = (cleanPassword === 'Deskjet01*' || cleanPassword === managerOverridePassword || cleanPassword === '8655M9sznnes01*');
       } else if (isNkangala || isTestAccount || isAzureAd) {
         // For Nkangala, Azure AD, and test accounts, passwords are managed via Azure AD / directory credentials
@@ -8050,7 +8083,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         : (isGlobalAdmin ? (tenantId || 'tenant-229') : (internalProfile?.tenantId || internalProfile?.tenant_id || tenantId || 'tenant-229'));
 
       let defaultAdminFullName = lowerEmail.split('@')[0];
-      if (lowerEmail.startsWith('delphine') || lowerEmail.startsWith('delpjhine')) {
+      if (lowerEmail === 'delphine@mzansiflow.co.za') {
         defaultAdminFullName = 'Delphine (MzansiFlow Administrator)';
       } else if (lowerEmail.startsWith('mike')) {
         defaultAdminFullName = 'Mike (Global Administrator)';

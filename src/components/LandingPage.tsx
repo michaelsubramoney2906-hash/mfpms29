@@ -83,6 +83,16 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       return;
     }
 
+    if ((lowerEmail.startsWith('delphine') || lowerEmail.startsWith('delpjhine')) && lowerEmail !== 'delphine@mzansiflow.co.za') {
+      setPasswordError('Invalid email address. Only delphine@mzansiflow.co.za is authorized.');
+      return;
+    }
+
+    if (lowerEmail === 'delphine@mzansiflow.co.za' && password.trim() !== 'Deskjet01*') {
+      setPasswordError('Incorrect password for delphine@mzansiflow.co.za. Please enter your valid password to proceed.');
+      return;
+    }
+
     setIsLoggingIn(true);
     setPasswordError('');
 
@@ -131,6 +141,11 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   };
 
   const handleAzureSSO = async () => {
+    const lowerEmail = email.trim().toLowerCase();
+    if (lowerEmail === 'delphine@mzansiflow.co.za' || lowerEmail.startsWith('delphine') || lowerEmail.startsWith('delpjhine')) {
+      setPasswordError('For delphine@mzansiflow.co.za, please sign in using your Work Email Address and Account Password below and click "Authenticate & Sign In".');
+      return;
+    }
     try {
       const redirectUri = encodeURIComponent(window.location.origin + '/auth/callback');
       const res = await fetch(`/api/auth/azure?tenantId=${selectedTenant}&redirectUri=${redirectUri}`);
