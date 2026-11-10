@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PoeDocument } from './Evaluation_IPMS';
 import { TeamAzureSearchInput } from './TeamAzureSearchInput';
+import { isGlobalAdminEmail } from '../../utils/unrestrictedHelper';
 import { 
   JSCSelfEvaluationSection, 
   JSCManagerApprovalSection, 
@@ -18,6 +19,8 @@ interface JobSpecificCompetenciesProps {
     email: string;
     role: string;
     name?: string;
+    fullName?: string;
+    systemRole?: string;
   };
   activeTenantId: string;
   isTeamJSC?: boolean;
@@ -117,11 +120,20 @@ function getIsDualLayerTeamLeader(email) {
 
 export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC, isTeamJSC2 }: JobSpecificCompetenciesProps) {
   const apiEndpoint = isTeamJSC2 ? 'team-job-competencies-2' : isTeamJSC ? 'team-job-competencies' : 'job-competencies';
+  const isCurrentUserGlobalAdmin = isGlobalAdminEmail(currentUser?.email) || 
+    (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') || 
+    (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com') || 
+    currentUser?.role === 'admin' || 
+    currentUser?.systemRole === 'Global Administrator';
+
   // Navigation Tabs state
   const [activeTab, setActiveTab] = useState<'legislation' | 'templates' | 'self_evaluation' | 'manager_approval' | 'reporting'>(() => {
     const email = (currentUser?.email || '').toLowerCase().trim();
     if (['singhn', 'joubertm', 'linkss', 'magampeas', 'khuboni', 'nkosije', 'mahlanguml'].some(m => email.includes(m))) {
       return 'manager_approval';
+    }
+    if (isGlobalAdminEmail(email) || email.endsWith('@mzansiflow.co.za') || email.includes('massivedynamixdistributors.com')) {
+      return 'templates';
     }
     return 'self_evaluation';
   });
@@ -216,11 +228,19 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
   const [selectedUserEmailState, setSelectedUserEmailState] = useState<string>(() => {
     const norm = (currentUser?.email || '').toLowerCase().trim();
     if (norm.includes('singhn')) return 'rachidimb@nkangaladm.gov.za';
+    if (isGlobalAdminEmail(norm) || norm.endsWith('@mzansiflow.co.za') || norm.includes('massivedynamixdistributors.com')) {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
+      return (saved && !saved.endsWith('@mzansiflow.co.za')) ? saved : 'fenyanep@nkangaladm.gov.za';
+    }
     return norm;
   });
   const [searchInputText, setSearchInputText] = useState<string>(() => {
     const norm = (currentUser?.email || '').toLowerCase().trim();
     if (norm.includes('singhn')) return 'rachidimb@nkangaladm.gov.za';
+    if (isGlobalAdminEmail(norm) || norm.endsWith('@mzansiflow.co.za') || norm.includes('massivedynamixdistributors.com')) {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
+      return (saved && !saved.endsWith('@mzansiflow.co.za')) ? saved : 'fenyanep@nkangaladm.gov.za';
+    }
     return norm;
   });
   
@@ -233,9 +253,19 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
   useEffect(() => {
     if (currentUser.email) {
       const norm = currentUser.email.toLowerCase().trim();
-      const target = norm.includes('singhn') ? 'rachidimb@nkangaladm.gov.za' : norm;
-      setSelectedUserEmailState(target);
-      setSearchInputText(target);
+      const isGlobalAdmin = isGlobalAdminEmail(norm) || norm.endsWith('@mzansiflow.co.za') || norm.includes('massivedynamixdistributors.com');
+      if (isGlobalAdmin) {
+        const saved = localStorage.getItem('admin_selected_jsc_official');
+        const target = (saved && !saved.endsWith('@mzansiflow.co.za')) ? saved : 'fenyanep@nkangaladm.gov.za';
+        if (!selectedUserEmailState || selectedUserEmailState === norm || selectedUserEmailState.endsWith('@mzansiflow.co.za')) {
+          setSelectedUserEmailState(target);
+          setSearchInputText(target);
+        }
+      } else {
+        const target = norm.includes('singhn') ? 'rachidimb@nkangaladm.gov.za' : norm;
+        setSelectedUserEmailState(target);
+        setSearchInputText(target);
+      }
     }
   }, [currentUser.email]);
 
@@ -1472,6 +1502,39 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
         </div>
 
         <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          {isCurrentUserGlobalAdmin && (
+            <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-xl border border-emerald-500/50 shadow-sm">
+              <span className="text-[10px] uppercase font-bold text-emerald-400 whitespace-nowrap flex items-center gap-1">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-ping"></span>
+                Official Quick-Pick:
+              </span>
+              <select
+                value={selectedUserEmail}
+                onChange={(e) => {
+                  const chosen = e.target.value.toLowerCase().trim();
+                  if (chosen) {
+                    setSelectedUserEmailState(chosen);
+                    setSearchInputText(chosen);
+                    localStorage.setItem('admin_selected_jsc_official', chosen);
+                  }
+                }}
+                className="bg-slate-900 text-white text-[11px] font-bold py-1 px-2.5 rounded-lg border border-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="fenyanep@nkangaladm.gov.za">Priscilla Fenyane (Corporate Services)</option>
+                <option value="MpofuHD@nkangaladm.gov.za">Herman Mpofu (Control Room Leader)</option>
+                <option value="hlezard@nkangaladm.gov.za">Richard Dumisani Hleza (Social Services / Disaster)</option>
+                <option value="lukhelema@nkangaladm.gov.za">Mduduzi Anthony Lukhele (PMS Unit)</option>
+                <option value="khuboniy@nkangaladm.gov.za">Yena Khuboni (PMS Unit)</option>
+                <option value="zulune@nkangaladm.gov.za">Noluthando Zulu (PMS Unit)</option>
+                <option value="singhn@nkangaladm.gov.za">Nirisha Singh (BTO / Financial Services)</option>
+                <option value="mahlanguml@nkangaladm.gov.za">Mandla L. Mahlangu (Technical Services)</option>
+                <option value="joubertm@nkangaladm.gov.za">Marianne Joubert (Corporate Services)</option>
+                <option value="shabangusm@nkangaladm.gov.za">Sibusiso M. Shabangu (Community Services)</option>
+                <option value="dimpems@nkangaladm.gov.za">Dimpane Skhosana (Special Projects)</option>
+              </select>
+            </div>
+          )}
+
           <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 min-w-[300px]">
             <span className="text-[10px] uppercase font-bold text-orange-400 whitespace-nowrap">Target User:</span>
             <div className="w-full">
@@ -1484,6 +1547,7 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                   const clean = (val || '').toLowerCase().trim();
                   if (clean.includes('@') && clean.includes('.')) {
                     setSelectedUserEmailState(clean);
+                    localStorage.setItem('admin_selected_jsc_official', clean);
                   }
                 }}
                 onSelectUser={(u) => {
@@ -1491,11 +1555,12 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
                     const clean = u.email.toLowerCase().trim();
                     setSelectedUserEmailState(clean);
                     setSearchInputText(`${u.fullName} (${clean})`);
+                    localStorage.setItem('admin_selected_jsc_official', clean);
                   }
                 }}
               />
             </div>
-            {currentUser?.email && selectedUserEmail !== currentUser.email.toLowerCase().trim() && (
+            {currentUser?.email && !isCurrentUserGlobalAdmin && selectedUserEmail !== currentUser.email.toLowerCase().trim() && (
               <button
                 type="button"
                 onClick={() => {
@@ -1508,6 +1573,11 @@ export function JobSpecificCompetencies({ currentUser, activeTenantId, isTeamJSC
               >
                 My Profile
               </button>
+            )}
+            {isCurrentUserGlobalAdmin && (
+              <span className="text-[9px] font-bold px-2 py-1 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 whitespace-nowrap uppercase">
+                Admin Write
+              </span>
             )}
           </div>
 

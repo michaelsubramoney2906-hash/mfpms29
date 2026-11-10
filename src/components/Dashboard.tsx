@@ -648,6 +648,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
     const isMasterAdmin = 
       isMasterAdminMike(profileToUse) || 
       isGlobalAdminEmail(email) || 
+      email === 'delphine@mzansiflow.co.za' ||
       (email.endsWith('@mzansiflow.co.za') && !email.includes('nkangaladm'));
 
     const isExtractorAuthorizedUser = 
@@ -956,7 +957,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                             email.includes('mike@massivedynamixdistributors.com');
 
       const isDirectAccess = sub.id === 'ipms-demo' || sub.id === 'ipms-evaluation' || sub.id === 'nsibande-team-self-eval-readonly' || sub.id === 'pplan' || sub.id === 'team-pplan' || sub.id === 'team-pplan-2' || sub.id === 'pdp' || sub.id === 'team-pdp' || sub.id === 'team-pdp-2' || sub.id === 'pa' || sub.id === 'pa-cds-team' || sub.id === 'pa-technical-services' || sub.id === 'pa-corporate-services' || sub.id === 'pa-pms-team' || sub.id === 'pa-templates' || sub.id === 'jsc' || sub.id === 'team-jsc' || sub.id === 'team-jsc-2' || sub.id === 'ccomp' || sub.id === 'fred-ccomp' || sub.id === 'fred-core-competencies' || sub.id === 'fred' || sub.id === 'fred-ipp' || sub.id === 'fred-gm' || sub.id === 'fred-sdbip' || sub.id === 'ipms-kpi' || sub.id === 'ipms-kpa' || sub.id === 'organogram' || sub.id === 'ipms-inbox' || sub.id === 'review-timetable' || sub.id === 'performance-assessment';
-      const isBypassAll = isNkangalaUser || isUnrestricted || isUserUnrestricted(profileToUse) || isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess;
+      const isBypassAll = isNkangalaUser || isUnrestricted || isUserUnrestricted(profileToUse) || isGlobalOrSystemAdmin || isPMSTeam || isManagerUser || isDirectAccess || email === 'delphine@mzansiflow.co.za';
 
       if (!isBypassAll) {
         const filteredSteps = getFilteredSteps();

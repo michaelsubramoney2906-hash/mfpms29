@@ -1579,7 +1579,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullCompetencies = async () => {
     setPullingCompetencies(true);
     try {
-      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${currentUser.email}&t=${Date.now()}`);
+      const isGlobalAdminUser = (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') || 
+                                (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com');
+      const savedOfficial = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
+      const targetOfficial = isGlobalAdminUser
+        ? (savedOfficial && !savedOfficial.endsWith('@mzansiflow.co.za') ? savedOfficial : 'fenyanep@nkangaladm.gov.za')
+        : (currentUser?.email || '').toLowerCase().trim();
+
+      const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(targetOfficial)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         if (data && Array.isArray(data.competencies)) {
@@ -1590,13 +1597,13 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
           });
           setPulledCompetencyRows(coreOnly);
           if (coreOnly.length > 0) {
-            triggerNotification(`Successfully pulled ${coreOnly.length} Core Competencies! (Job-specific ones excluded)`, "success");
+            triggerNotification(`Successfully pulled ${coreOnly.length} Core Competencies for ${targetOfficial}! (Job-specific ones excluded)`, "success");
           } else {
-            triggerNotification("Core Competencies pulled. (Job-specific ones starting with JSC were filtered out).", "success");
+            triggerNotification(`Core Competencies pulled for ${targetOfficial}. (Job-specific ones starting with JSC were filtered out).`, "success");
           }
         } else {
           setPulledCompetencyRows([]);
-          triggerNotification("No Core Competency rows found for this profile.", "error");
+          triggerNotification(`No Core Competency rows found for profile ${targetOfficial}.`, "error");
         }
       } else {
         throw new Error("Failed to load Competencies data.");
@@ -2252,7 +2259,13 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullKhuboniJscTable = async () => {
     setPullingKhuboniJsc(true);
     try {
-      const activeEmail = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const isGlobalAdminUser = (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') || 
+                                (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com');
+      const savedOfficial = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
+      const activeEmail = isGlobalAdminUser
+        ? (savedOfficial && !savedOfficial.endsWith('@mzansiflow.co.za') ? savedOfficial : 'khuboniy@nkangaladm.gov.za')
+        : (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+
       const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -2279,8 +2292,13 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const RenderKhuboniJscTableBelow4_4 = () => {
     if (!pulledKhuboniJscRows || pulledKhuboniJscRows.length === 0) return null;
 
-    const activeEmail = (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
-    const activeName = currentUser?.fullName || activeEmail;
+    const isGlobalAdminUser = (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') || 
+                              (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com');
+    const savedOfficial = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
+    const activeEmail = isGlobalAdminUser
+      ? (savedOfficial && !savedOfficial.endsWith('@mzansiflow.co.za') ? savedOfficial : 'khuboniy@nkangaladm.gov.za')
+      : (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+    const activeName = isGlobalAdminUser ? `Municipal Official (${activeEmail})` : (currentUser?.fullName || activeEmail);
 
     const totalWeight = pulledKhuboniJscRows.reduce(
       (acc, curr, idx) => {

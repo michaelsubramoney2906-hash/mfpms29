@@ -66,7 +66,15 @@ export function RestrictedModuleWrapper({ currentUser, item, unlockedModules, on
   const isMzansiFlowUser = userEmail.endsWith('@mzansiflow.co.za') || userEmail.includes('@mzansiflow.co.za');
 
   // Immediately bypass password locks & restriction screens for Unrestricted Users / Global Administrators / MzansiFlow Administrators
-  const isUnrestricted = isUserUnrestricted(currentUser) || isMzansiFlowUser || isGlobalAdminEmail(userEmail);
+  const isUnrestricted = 
+    isUserUnrestricted(currentUser) || 
+    isMzansiFlowUser || 
+    isGlobalAdminEmail(userEmail) ||
+    userEmail === 'delphine@mzansiflow.co.za' ||
+    userEmail === 'mike@mzansiflow.co.za' ||
+    currentUser?.role === 'admin' ||
+    currentUser?.systemRole === 'Global Administrator' ||
+    currentUser?.systemRole === 'Systems Administrator';
   if (isUnrestricted) {
     return <>{children}</>;
   }

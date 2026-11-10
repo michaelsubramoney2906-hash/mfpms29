@@ -1859,7 +1859,17 @@ export function EvaluationIPMS({ currentUser, activeTenantId, isTeamEvaluation, 
 
         {evalPhase === 'jsc_self' ? (
           <div className="max-w-5xl mx-auto">
-            <JSCSelfEvaluationSection currentUser={currentUser} activeTenantId={activeTenantId} isTeamJSC={isTeamEvaluation} />
+            <JSCSelfEvaluationSection 
+              currentUser={currentUser} 
+              activeTenantId={activeTenantId} 
+              isTeamJSC={isTeamEvaluation} 
+              defaultEmployeeEmail={
+                (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') ||
+                (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com')
+                  ? (typeof window !== 'undefined' ? (localStorage.getItem('admin_selected_jsc_official') || 'fenyanep@nkangaladm.gov.za') : 'fenyanep@nkangaladm.gov.za')
+                  : undefined
+              }
+            />
           </div>
         ) : evalPhase === 'cc_self' ? (
           <div className="max-w-6xl mx-auto">
