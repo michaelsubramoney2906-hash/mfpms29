@@ -4,12 +4,16 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
+    "types": ["vite/client"],
     "lib": [
       "ES2022",
       "DOM",
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
