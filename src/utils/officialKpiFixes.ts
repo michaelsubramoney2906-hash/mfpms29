@@ -2627,6 +2627,80 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     }));
   }
 
+  // 28. Mr. Sibusiso P.L. Myeni (myenispl@nkangaladm.gov.za):
+  // Canonical 13 personal KPIs across 5 KPAs from his signed 2026/27 Performance Agreement (Disaster Management Officer)
+  // Reporting to Mr. Elmon Nkosi (nkosije@nkangaladm.gov.za)
+  // Retains 100% of reported actuals, self-scores, POE attachments, and review statuses
+  if (normEmail === 'myenispl@nkangaladm.gov.za' || normEmail === 'myenispl@nkangaldm.gov.za' || normEmail.startsWith('myenispl@')) {
+    const myeniCanonical13 = [
+      { origIdx: 1, id: 'myeni-personal-kpi-1', kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '10%', baseline: '1', kpi: 'Attain clean audit opinion by 31 December 2026.', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG Audit report', budget: 'OPEX' },
+      { origIdx: 2, id: 'myeni-personal-kpi-2', kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '5%', baseline: '1', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Performance Agreement', budget: 'OPEX' },
+      { origIdx: 3, id: 'myeni-personal-kpi-3', kpiNo: '3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '5%', baseline: '1', kpi: 'Number of performance agreements signed with subordinates and submitted to OPME & PMDS unit for the 2026/2027 financial year by 30 July 2026', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Subordinate Performance Agreements', budget: 'OPEX' },
+      { origIdx: 4, id: 'myeni-personal-kpi-4', kpiNo: '4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '3%', baseline: '4', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Quarterly Self-Assessment Report', budget: 'OPEX' },
+      { origIdx: 5, id: 'myeni-personal-kpi-5', kpiNo: '5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '3%', baseline: '1', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', annualTarget: '1', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'E-PMS Annual Evaluation Submission Proof', budget: 'OPEX' },
+      { origIdx: 6, id: 'myeni-personal-kpi-6', kpiNo: '6', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '3%', baseline: '4', kpi: 'Number of informal performance evaluation conducted with all subordinates per quarter', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Quarterly Subordinate Review Minutes', budget: 'OPEX' },
+      { origIdx: 7, id: 'myeni-personal-kpi-7', kpiNo: '7', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '3%', baseline: '100%', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Leave System Summary Report', budget: 'OPEX' },
+      { origIdx: 8, id: 'myeni-personal-kpi-8', kpiNo: '8', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '3%', baseline: '100%', kpi: 'Percentage of leave approvals processed within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Leave Approval Summary Report', budget: 'OPEX' },
+      { origIdx: 9, id: 'myeni-personal-kpi-9', kpiNo: '9', kpa: 'KPA 2: CO-ORDINATION OF DISASTER MANAGEMENT PROGRAMMES', weight: '15%', baseline: '4', kpi: 'Number of Community-Based campaigns conducted by 30 June 2027 (Disaster Risk Reduction Awareness, MHS & Environmental Management Awareness and Climate change awareness )', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Campaign Reports & Attendance Registers', budget: 'OPEX' },
+      { origIdx: 10, id: 'myeni-personal-kpi-10', kpiNo: '10', kpa: 'KPA 2: CO-ORDINATION OF DISASTER MANAGEMENT PROGRAMMES', weight: '15%', baseline: '4', kpi: 'Number of NDM Disaster Management Centre reports complied per quarter', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'NDM Centre Quarterly Reports', budget: 'OPEX' },
+      { origIdx: 11, id: 'myeni-personal-kpi-11', kpiNo: '11', kpa: 'KPA 3: OPERATIONS, RESPONSE AND RECOVERY', weight: '10%', baseline: '100%', kpi: '% of assisted victims of disaster with available support by 30 June 2027', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Disaster Incident & Relief Register', budget: 'OPEX' },
+      { origIdx: 12, id: 'myeni-personal-kpi-12', kpiNo: '12', kpa: 'KPA 4: MEETINGS AND INFORMATION SHARING', weight: '20%', baseline: '4', kpi: 'Number of Disaster Management Advisory Forums attended by 30 June 2027', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Forum Agendas & Attendance Registers', budget: 'OPEX' },
+      { origIdx: 13, id: 'myeni-personal-kpi-13', kpiNo: '13', kpa: 'KPA 5: SAFETY SERVICES', weight: '5%', baseline: '4', kpi: 'Number of Community Safety forums attended by 30 June 2027', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Safety Forum Attendance Registers', budget: 'OPEX' }
+    ];
+
+    result = myeniCanonical13.map((canon) => {
+      const existing = result.find((it: any) => String(it?.id || '') === canon.id) ||
+        result.find((it: any) => String(it?.kpiNo || it?.['kpi no'] || '').trim().toUpperCase() === canon.kpiNo.toUpperCase()) ||
+        result.find((it: any) => {
+          const d = String(it?.kpi || it?.description || it?.kpiDescription || '').toLowerCase();
+          return d.slice(0, 30) === canon.kpi.toLowerCase().slice(0, 30);
+        });
+
+      const q1NotApplicable = canon.q1Target.toUpperCase() === 'N/A';
+      return {
+        ...(existing || {}),
+        id: existing?.id || canon.id,
+        kpiNo: canon.kpiNo,
+        'kpi no': canon.kpiNo,
+        kpa: canon.kpa,
+        functionalKpa: canon.kpa,
+        'functional kpa': canon.kpa,
+        weight: canon.weight,
+        weighting: canon.weight,
+        '%wt': canon.weight,
+        baseline: canon.baseline,
+        kpi: canon.kpi,
+        description: canon.kpi,
+        kpiDescription: canon.kpi,
+        annualTarget: canon.annualTarget,
+        target: canon.annualTarget,
+        q1Target: canon.q1Target,
+        q2Target: canon.q2Target,
+        q3Target: canon.q3Target,
+        q4Target: canon.q4Target,
+        poe: canon.poe,
+        meansOfVerification: canon.poe,
+        budget: canon.budget,
+        q1Applicable: existing?.q1Applicable !== undefined ? existing.q1Applicable : !q1NotApplicable,
+        q1Actual: existing?.q1Actual ?? '',
+        q2Actual: existing?.q2Actual ?? '',
+        q3Actual: existing?.q3Actual ?? '',
+        q4Actual: existing?.q4Actual ?? '',
+        q1Score: existing?.q1Score ?? '',
+        myScore: existing?.myScore ?? existing?.q1Score ?? '',
+        managerScore: existing?.managerScore ?? '',
+        q1ManagerScore: existing?.q1ManagerScore ?? existing?.managerScore ?? '',
+        q1PoeDocs: Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : [],
+        reviewStatus: existing?.reviewStatus || 'Draft',
+        reviewApprovalStatus: existing?.reviewApprovalStatus || '',
+        q1PoeStatus: existing?.q1PoeStatus || (existing?.reviewStatus === 'Submitted for Approval' ? 'Submitted for Approval' : 'Draft'),
+        manager: 'Elmon Nkosi',
+        managerEmail: 'nkosije@nkangaladm.gov.za',
+        reportTo: 'Elmon Nkosi'
+      };
+    });
+  }
+
   return result;
 }
 

@@ -658,7 +658,6 @@ export function normalizeNkangalaEmail(email: string): string {
 }
 
 export const DISASTER_CONTROL_TEAM_EMAILS = [
-  'myenispl@nkangaladm.gov.za',
   'mpofuhd@nkangaladm.gov.za',
   'maditsipc@nkangaladm.gov.za',
   'nhlabathise@nkangaladm.gov.za',
@@ -682,7 +681,7 @@ export const JETPATCHER_TEAM_EMAILS = [
 
 export function isDisasterControlTeamMember(email: string): boolean {
   const clean = (email || '').toLowerCase().trim();
-  if (!clean) return false;
+  if (!clean || clean.includes('myenispl')) return false; // Sibusiso P.L. Myeni is the Disaster Management Officer (Supervisor), NOT a Control Room Operator team member
   return DISASTER_CONTROL_TEAM_EMAILS.some(e => clean === e || clean.startsWith(e.split('@')[0] + '@'));
 }
 
@@ -698,6 +697,11 @@ export function getKhumaloNkosiAliases(email: string): string[] {
   if (!clean) return [];
   const baseSet = new Set<string>([clean]);
   if (raw && raw !== clean) baseSet.add(raw);
+
+  if (clean.includes('myenispl')) {
+    // Sibusiso P.L. Myeni must NEVER fan out to Control Room Operator emails
+    return Array.from(new Set([clean, 'myenispl@nkangaladm.gov.za', 'myenispl@nkangaldm.gov.za']));
+  }
 
   if (clean === 'khumalobs@nkangaladm.gov.za' || clean === 'nkosibs@nkangaladm.gov.za' || clean.includes('khumalobs') || clean.includes('nkosibs')) {
     baseSet.add('khumalobs@nkangaladm.gov.za');
@@ -22399,8 +22403,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const isCdsTeam1Doc = Boolean(
         !isCdsTeam2Doc && (
           (deptSuffix === 'cds' && deptTeamNum === 1) ||
-          (reqDocumentId && reqDocumentId.toLowerCase().includes('cds') && !reqDocumentId.toLowerCase().includes('team_')) ||
-          (!reqDocumentId && isDisasterControlTeamMember(userId))
+          (reqDocumentId && reqDocumentId.toLowerCase().includes('cds') && reqDocumentId.toLowerCase().includes('team_1'))
         )
       );
       const aliasUsers = (userId && userId !== 'default') ? getKhumaloNkosiAliases(userId) : [];
@@ -22443,16 +22446,20 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `draft_doc_cds_team_2_global`.toLowerCase()
         ] : []),
         ...(isCdsTeam1Doc ? [
-          'draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za',
-          'draft_doc_cds_team_1_nkangala_auto_myenispl@nkangaladm.gov.za',
           'draft_doc_cds_team_1_tenant-229',
           'draft_doc_cds_team_1_nkangala_auto',
+          'draft_doc_cds_team_1_global',
+          'draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za',
+          'draft_doc_cds_team_1_nkangala_auto_myenispl@nkangaladm.gov.za',
           ...DISASTER_CONTROL_TEAM_EMAILS.flatMap(em => [
             `draft_doc_cds_team_1_tenant-229_${em}`,
-            `draft_doc_cds_team_1_nkangala_auto_${em}`,
-            `draft_doc_tenant-229_${em}`,
-            `draft_doc_nkangala_auto_${em}`
+            `draft_doc_cds_team_1_nkangala_auto_${em}`
           ])
+        ] : []),
+        ...(userId && userId !== 'default' && !isCdsTeam1Doc && !isDeptTeamDoc ? [
+          `pa_templates_tenant-229_${userId}`.toLowerCase(),
+          `pa_templates_nkangala_auto_${userId}`.toLowerCase(),
+          `pa_templates_global_${userId}`.toLowerCase()
         ] : []),
         ...(userId && userId !== 'default' && !reqDocumentId ? aliasUsers.flatMap(aUser => [
           `draft_doc_neda_${aUser}`.toLowerCase(),
@@ -22718,10 +22725,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           documentId = `draft_doc_${postDeptSuffix}_team_${postDeptTeamNum}_${tenantId}`.toLowerCase();
         } else if (u && u !== 'default') {
           if (htmlDocumentId) {
-            const resolvedHtmlDocumentId = htmlDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId);
-            documentId = resolvedHtmlDocumentId.toLowerCase().includes(u.toLowerCase()) ? resolvedHtmlDocumentId : `${resolvedHtmlDocumentId}_${u}`;
+            documentId = htmlDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId).toLowerCase();
           } else {
-            documentId = `draft_doc_${tenantId}_${u}`;
+            documentId = `draft_doc_${tenantId}_${u}`.toLowerCase();
           }
         }
         documentId = documentId.toLowerCase();

@@ -197,8 +197,9 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "nhlaphomj@nkangaladm.gov.za": { email: "nhlaphomj@nkangaladm.gov.za", kpis: 46, kpas: 5, jscs: 6, pdps: 0 },
   "sibanyonimj@nkangaladm.gov.za": { email: "sibanyonimj@nkangaladm.gov.za", kpis: 25, kpas: 6, jscs: 5, pdps: 0 },
   "msizaas@nkangaladm.gov.za": { email: "msizaas@nkangaladm.gov.za", kpis: 42, kpas: 6, jscs: 5, pdps: 0 },
-  // Disaster Management Control Team (Control Room Operators & Disaster Management Officer)
-  "myenispl@nkangaladm.gov.za": { email: "myenispl@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  // Disaster Management Officer
+  "myenispl@nkangaladm.gov.za": { email: "myenispl@nkangaladm.gov.za", kpis: 13, kpas: 5, jscs: 5, pdps: 1 },
+  // Disaster Management Control Room Operators
   "nhlabathise@nkangaladm.gov.za": { email: "nhlabathise@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
   "selobamc@nkangaladm.gov.za": { email: "selobamc@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
   "sibekops@nkangaladm.gov.za": { email: "sibekops@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
