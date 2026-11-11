@@ -26106,7 +26106,7 @@ User Request: ${prompt}`;
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true, hmr: false },
+      server: { middlewareMode: true, hmr: false, allowedHosts: true, cors: true },
       appType: "custom",
     });
     app.use(vite.middlewares);
