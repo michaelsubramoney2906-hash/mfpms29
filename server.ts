@@ -26034,48 +26034,6 @@ User Request: ${prompt}`;
     }
   });
 
-  // Automated Schema Migration, Relational Mapping & Data Integrity Report API
-  app.get('/api/system/integrity-report', (req, res) => {
-    try {
-      const reportPath = path.join(process.cwd(), 'validation_integrity_report.json');
-      if (fs.existsSync(reportPath)) {
-        const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
-        return res.json({ success: true, report });
-      }
-      return res.json({
-        success: true,
-        report: {
-          generatedAt: new Date().toISOString(),
-          overallStatus: 'PASSED',
-          note: 'Run npm run validate:integrity to regenerate full report.'
-        }
-      });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
-  // Live Supabase Snapshot Summary API
-  app.get('/api/system/supabase-snapshot-summary', (req, res) => {
-    try {
-      const snapPath = path.join(process.cwd(), 'supabase_live_snapshot.json');
-      if (fs.existsSync(snapPath)) {
-        const snap = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-        return res.json({
-          success: true,
-          retrievedAt: snap.retrievedAt,
-          durationMs: snap.durationMs,
-          supabaseOrigin: snap.supabaseOrigin,
-          schemaVersion: snap.schemaVersion,
-          tables: snap.tables
-        });
-      }
-      return res.status(404).json({ success: false, error: 'Snapshot file not found' });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
-    }
-  });
-
   // Ensure unmatched /api/* routes always return JSON and never fall through to Vite SPA index.html
   app.all('/api/*', (req, res) => {
     res.status(404).json({
@@ -27323,27 +27281,6 @@ User Request: ${prompt}`;
   // Warm up in-memory caches on startup
   setImmediate(async () => {
     try {
-      // 1. Pre-hydrate hot caches from verified local Supabase snapshot if present
-      const snapPath = path.join(process.cwd(), 'supabase_live_snapshot.json');
-      if (fs.existsSync(snapPath)) {
-        try {
-          const snap = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
-          const payloads = Array.isArray(snap.coreMessagesPayloads) ? snap.coreMessagesPayloads : [];
-          let hydratedCount = 0;
-          for (const row of payloads) {
-            if (!row?.id || !row?.content) continue;
-            if (row.id.startsWith('pplan_') || row.id.startsWith('team_pplan_')) {
-              pplanCache.set(row.id, { raw: row.content, timestamp: Date.now() });
-              hydratedCount++;
-            } else if (row.id.startsWith('kpis_')) {
-              kpisCache.set(row.id, { raw: row.content, timestamp: Date.now() });
-              hydratedCount++;
-            }
-          }
-          console.log(`---- Pre-hydrated ${hydratedCount} hot PPlan/KPI records from verified Supabase snapshot ----`);
-        } catch (_) {}
-      }
-
       const supabase = getSupabase();
       if (supabase && !isCircuitBreakerOpen()) {
         const localList = getTenantsList();
