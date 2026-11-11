@@ -154,7 +154,7 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "skhosanaqj@nkangaladm.gov.za": { email: "skhosanaqj@nkangaladm.gov.za", kpis: 17, kpas: 7, jscs: 5, pdps: 5 },
   "skosanah@nkangaladm.gov.za": { email: "skosanah@nkangaladm.gov.za", kpis: 35, kpas: 5, jscs: 5, pdps: 0 },
   "skosanast@nkangaladm.gov.za": { email: "skosanast@nkangaladm.gov.za", kpis: 13, kpas: 6, jscs: 5, pdps: 0 },
-  "skosanaj@nkangaladm.gov.za": { email: "skosanaj@nkangaladm.gov.za", kpis: 43, kpas: 5, jscs: 5, pdps: 0 },
+  "skosanaj@nkangaladm.gov.za": { email: "skosanaj@nkangaladm.gov.za", kpis: 44, kpas: 5, jscs: 5, pdps: 0 },
   "sukazip@nkangaladm.gov.za": { email: "sukazip@nkangaladm.gov.za", kpis: 14, kpas: 5, jscs: 5, pdps: 0 },
   "thabangmj@nkangaladm.gov.za": { email: "thabangmj@nkangaladm.gov.za", kpis: 13, kpas: 5, jscs: 5, pdps: 1 },
   "thumbathiamd@nkangaladm.gov.za": { email: "thumbathiamd@nkangaladm.gov.za", kpis: 33, kpas: 6, jscs: 5, pdps: 1 },
@@ -207,7 +207,14 @@ export const NKANGALA_USER_MASTER_REGISTRY: Record<string, UserRegistryCount> = 
   "maditsipc@nkangaladm.gov.za": { email: "maditsipc@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
   "mashiloanedt@nkangaladm.gov.za": { email: "mashiloanedt@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
   "mpofuhd@nkangaladm.gov.za": { email: "mpofuhd@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
-  "seleshoatj@nkangaladm.gov.za": { email: "seleshoatj@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 }
+  "seleshoatj@nkangaladm.gov.za": { email: "seleshoatj@nkangaladm.gov.za", kpis: 11, kpas: 5, jscs: 5, pdps: 1 },
+  // Jetpatchers / Technical Services Team 10 (Jetpatcher Driver/Operators)
+  "ntulimp@nkangaladm.gov.za": { email: "ntulimp@nkangaladm.gov.za", kpis: 9, kpas: 4, jscs: 4, pdps: 1 },
+  "mahlangua@nkangaladm.gov.za": { email: "mahlangua@nkangaladm.gov.za", kpis: 9, kpas: 4, jscs: 4, pdps: 1 },
+  "skosanac@nkangaladm.gov.za": { email: "skosanac@nkangaladm.gov.za", kpis: 9, kpas: 4, jscs: 4, pdps: 1 },
+  "mananamn@nkangaladm.gov.za": { email: "mananamn@nkangaladm.gov.za", kpis: 9, kpas: 4, jscs: 4, pdps: 1 },
+  "nsingwaneb@nkangaladm.gov.za": { email: "nsingwaneb@nkangaladm.gov.za", kpis: 9, kpas: 4, jscs: 4, pdps: 1 },
+  "mahlanguss@nkangaladm.gov.za": { email: "mahlanguss@nkangaladm.gov.za", kpis: 9, kpas: 4, jscs: 4, pdps: 1 }
 };
 
 export const ALIAS_MAP: Record<string, string> = {

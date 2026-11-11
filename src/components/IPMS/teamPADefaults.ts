@@ -246,12 +246,15 @@ const RAW_TEAM_CONFIGS: Record<string, DepartmentConfig> = {
       },
       {
         id: 10,
-        name: "Technical Planning, Land Survey & GIS",
-        description: "Infrastructure spatial mapping, asset registers, SPLUMA technical alignment, and AutoCAD designs",
+        name: "TEAM: JETPATCHER DRIVER/ OPERATORS",
+        description: "Road maintenance, pothole patching, and Jetpatcher operations across Nkangala District",
         defaultRows: [
-          ["1", "Chief Surveyor Zanele Mahlangu", "TS-1001"],
-          ["2", "Dumisani Zulu (GIS Infrastructure Modeler)", "TS-1002"],
-          ["3", "Hendrik Venter (Civil CAD Draftsperson)", "TS-1003"]
+          ["1", "Michael P. Ntuli (Jetpatcher Driver/ Operator)", "P120759", "Team Leader"],
+          ["2", "Amos Mahlangu (Jetpatcher Driver/ Operator)", "P120758", "Team Member"],
+          ["3", "Christina Skosana (Jetpatcher Driver/ Operator)", "P120760", "Team Member"],
+          ["4", "Nozipho Maggie Manana (Jetpatcher Driver/ Operator)", "P121658", "Team Member"],
+          ["5", "Bhekithemba Nsingwane (Jetpatcher Driver/ Operator)", "P121679", "Team Member"],
+          ["6", "Sibusiso S. Mahlangu (Jetpatcher Driver/ Operator)", "P120660", "Team Member"]
         ]
       }
     ]

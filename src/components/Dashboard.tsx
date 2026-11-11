@@ -384,7 +384,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
               jobFunction: 'Manager: Planning & Economic Development',
               department: 'Planning & Economic Development (PED)',
               directorate: 'Planning & Economic Development (PED)',
-              role: 'Manager' as any,
+              role: 'tenant_user' as any,
               manager: 'Alvin Bvuma',
               reportTo: 'Alvin Bvuma',
               managerEmail: 'bvumaa@nkangaladm.gov.za',
@@ -1609,7 +1609,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                      fullName: 'Nompumelelo Nsibande',
                      jobFunction: 'Manager: Performance Management System (PMS)',
                      department: 'PMS',
-                     role: 'Manager'
+                     role: 'tenant_user'
                    }} 
                    activeTenantId={activeTenantId} 
                    isTeamEvaluation={true}

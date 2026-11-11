@@ -349,11 +349,37 @@ export default function App() {
           headers.set('X-Original-Admin-Email', String(origAdminObj.email).toLowerCase().trim());
         }
 
-        return originalFetch(input, {
+        const fetchOptions: RequestInit = {
           ...init,
           headers,
           cache: 'no-store'
-        });
+        };
+
+        let res = await originalFetch(input, fetchOptions);
+        const contentType = res.headers.get('content-type') || '';
+        const isBinaryRoute = urlStr.startsWith('/api/proxy-image') || urlStr.startsWith('/api/sharepoint/file/') || urlStr.startsWith('/api/download/');
+
+        if (!isBinaryRoute && (res.status === 502 || res.status === 503 || res.status === 504 || contentType.includes('text/html'))) {
+          if (method === 'GET') {
+            await new Promise((r) => setTimeout(r, 600));
+            res = await originalFetch(input, fetchOptions);
+          }
+          const retryContentType = res.headers.get('content-type') || '';
+          if (retryContentType.includes('text/html')) {
+            const isArrayEndpoint =
+              urlStr.includes('/municipalities') ||
+              urlStr.endsWith('/users') ||
+              urlStr.includes('/users?') ||
+              urlStr.includes('/azure-search') ||
+              urlStr.includes('/tickets');
+            return new Response(
+              JSON.stringify(isArrayEndpoint ? [] : { error: 'Service warming up' }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        }
+
+        return res;
       }
       return originalFetch(input, init);
     };

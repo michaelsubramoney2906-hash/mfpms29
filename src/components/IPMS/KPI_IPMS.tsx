@@ -519,7 +519,7 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
         setPplanData(loadedPlanData);
       }
 
-      // Merge latest reviewStatus / reviewApprovalStatus / managerScore / reviewComment from pplan into kpis
+      // Merge latest reviewStatus, actuals, scores, and POE docs from pplan into kpis
       if (loadedPlanData.items.length > 0) {
         if (loadedKpis.length === 0) {
           loadedKpis = loadedPlanData.items;
@@ -540,7 +540,32 @@ export function KPIIPMS({ currentUser, activeTenantId }: KPIIPMSProps) {
                 ...(revStatus ? { reviewStatus: revStatus } : {}),
                 ...(revApproval ? { reviewApprovalStatus: revApproval } : {}),
                 ...(matchedPlanItem.managerScore ? { managerScore: matchedPlanItem.managerScore } : {}),
-                ...(matchedPlanItem.reviewComment || matchedPlanItem.review ? { reviewComment: matchedPlanItem.reviewComment || matchedPlanItem.review } : {})
+                ...(matchedPlanItem.reviewComment || matchedPlanItem.review ? { reviewComment: matchedPlanItem.reviewComment || matchedPlanItem.review } : {}),
+                q1Actual: k.q1Actual || matchedPlanItem.q1Actual || '',
+                q2Actual: k.q2Actual || matchedPlanItem.q2Actual || '',
+                q3Actual: k.q3Actual || matchedPlanItem.q3Actual || '',
+                q4Actual: k.q4Actual || matchedPlanItem.q4Actual || '',
+                midtermActual: k.midtermActual || matchedPlanItem.midtermActual || '',
+                annualActual: k.annualActual || matchedPlanItem.annualActual || '',
+                q1Score: k.q1Score || matchedPlanItem.q1Score || '',
+                q2Score: k.q2Score || matchedPlanItem.q2Score || '',
+                q3Score: k.q3Score || matchedPlanItem.q3Score || '',
+                q4Score: k.q4Score || matchedPlanItem.q4Score || '',
+                myScore: k.myScore || matchedPlanItem.myScore || '',
+                q1Comment: k.q1Comment || matchedPlanItem.q1Comment || '',
+                q2Comment: k.q2Comment || matchedPlanItem.q2Comment || '',
+                q3Comment: k.q3Comment || matchedPlanItem.q3Comment || '',
+                q4Comment: k.q4Comment || matchedPlanItem.q4Comment || '',
+                q1Poe: k.q1Poe || matchedPlanItem.q1Poe || '',
+                q2Poe: k.q2Poe || matchedPlanItem.q2Poe || '',
+                q3Poe: k.q3Poe || matchedPlanItem.q3Poe || '',
+                q4Poe: k.q4Poe || matchedPlanItem.q4Poe || '',
+                q1PoeDocs: (Array.isArray(k.q1PoeDocs) && k.q1PoeDocs.length > 0) ? k.q1PoeDocs : (matchedPlanItem.q1PoeDocs || []),
+                q2PoeDocs: (Array.isArray(k.q2PoeDocs) && k.q2PoeDocs.length > 0) ? k.q2PoeDocs : (matchedPlanItem.q2PoeDocs || []),
+                q3PoeDocs: (Array.isArray(k.q3PoeDocs) && k.q3PoeDocs.length > 0) ? k.q3PoeDocs : (matchedPlanItem.q3PoeDocs || []),
+                q4PoeDocs: (Array.isArray(k.q4PoeDocs) && k.q4PoeDocs.length > 0) ? k.q4PoeDocs : (matchedPlanItem.q4PoeDocs || []),
+                midtermPoeDocs: (Array.isArray(k.midtermPoeDocs) && k.midtermPoeDocs.length > 0) ? k.midtermPoeDocs : (matchedPlanItem.midtermPoeDocs || []),
+                annualPoeDocs: (Array.isArray(k.annualPoeDocs) && k.annualPoeDocs.length > 0) ? k.annualPoeDocs : (matchedPlanItem.annualPoeDocs || [])
               };
             }
             return k;

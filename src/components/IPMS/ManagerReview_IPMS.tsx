@@ -585,6 +585,20 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         nkosiSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Mxolisi AVM Bembe (bembem@nkangaladm.gov.za) - Jetpatcher Driver/Operators & Technical Services subordinates
+      const bembeSubordinates = [
+        'ntulimp@nkangaladm.gov.za',
+        'mahlangua@nkangaladm.gov.za',
+        'skosanac@nkangaladm.gov.za',
+        'mananamn@nkangaladm.gov.za',
+        'nsingwaneb@nkangaladm.gov.za',
+        'mahlanguss@nkangaladm.gov.za'
+      ];
+
+      if (managerEmail.includes('bembem') || normCurrent.includes('mxolisi') || normCurrent.includes('bembe')) {
+        bembeSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // Explicit list for Demo Line Manager (manager@mzansiflow.co.za)
       if (managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) {
         mySubordinateEmails.add('user@mzansiflow.co.za');

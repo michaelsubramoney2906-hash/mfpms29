@@ -670,41 +670,73 @@ export const DISASTER_CONTROL_TEAM_EMAILS = [
   'seleshoatj@nkangaladm.gov.za'
 ];
 
+export const JETPATCHER_TEAM_EMAILS = [
+  'ntulimp@nkangaladm.gov.za',
+  'mahlangua@nkangaladm.gov.za',
+  'skosanac@nkangaladm.gov.za',
+  'mananamn@nkangaladm.gov.za',
+  'nsingwaneb@nkangaladm.gov.za',
+  'mahlanguss@nkangaladm.gov.za',
+  'dept_team_technical_services_team_10'
+];
+
 export function isDisasterControlTeamMember(email: string): boolean {
   const clean = (email || '').toLowerCase().trim();
   if (!clean) return false;
   return DISASTER_CONTROL_TEAM_EMAILS.some(e => clean === e || clean.startsWith(e.split('@')[0] + '@'));
 }
 
-export function getKhumaloNkosiAliases(email: string): string[] {
+export function isJetpatcherTeamMember(email: string): boolean {
   const clean = (email || '').toLowerCase().trim();
+  if (!clean) return false;
+  return JETPATCHER_TEAM_EMAILS.some(e => clean === e || (e.includes('@') && clean.startsWith(e.split('@')[0] + '@')));
+}
+
+export function getKhumaloNkosiAliases(email: string): string[] {
+  const raw = (email || '').trim();
+  const clean = raw.toLowerCase();
   if (!clean) return [];
+  const baseSet = new Set<string>([clean]);
+  if (raw && raw !== clean) baseSet.add(raw);
+
   if (clean === 'khumalobs@nkangaladm.gov.za' || clean === 'nkosibs@nkangaladm.gov.za' || clean.includes('khumalobs') || clean.includes('nkosibs')) {
-    return Array.from(new Set([clean, 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za']));
+    baseSet.add('khumalobs@nkangaladm.gov.za');
+    baseSet.add('nkosibs@nkangaladm.gov.za');
   }
   if (clean === 'nsibandenp@nkangaladm.gov.za' || clean === 'zulune@nkangaladm.gov.za' || clean.includes('nsibandenp') || clean.includes('zulune')) {
-    return Array.from(new Set([clean, 'nsibandenp@nkangaladm.gov.za', 'zulune@nkangaladm.gov.za']));
+    baseSet.add('nsibandenp@nkangaladm.gov.za');
+    baseSet.add('zulune@nkangaladm.gov.za');
   }
   if (clean === 'msizaa@nkangaladm.gov.za' || clean === 'msizaas@nkangaladm.gov.za' || clean === 'msizaas@nkangala.gov.za' || clean.includes('msizaas') || clean.includes('msizaa')) {
-    return Array.from(new Set([clean, 'msizaas@nkangaladm.gov.za', 'msizaa@nkangaladm.gov.za', 'msizaas@nkangala.gov.za']));
+    baseSet.add('msizaas@nkangaladm.gov.za');
+    baseSet.add('msizaa@nkangaladm.gov.za');
+    baseSet.add('msizaas@nkangala.gov.za');
+  }
+  if (clean.includes('mtshweniwm') || clean.includes('mtsweniwm')) {
+    baseSet.add('mtshweniwm@nkangaladm.gov.za');
+    baseSet.add('mtsweniwm@nkangaladm.gov.za');
+    baseSet.add('MtshweniWM@nkangaladm.gov.za');
   }
   if (isDisasterControlTeamMember(clean)) {
-    return Array.from(new Set([clean, ...DISASTER_CONTROL_TEAM_EMAILS]));
+    DISASTER_CONTROL_TEAM_EMAILS.forEach(e => baseSet.add(e));
+  }
+  if (isJetpatcherTeamMember(clean)) {
+    JETPATCHER_TEAM_EMAILS.forEach(e => baseSet.add(e));
   }
   const nedaPkg = findNedaPackageByEmailOrName(clean);
   if (nedaPkg) {
-    return Array.from(new Set([
-      clean,
-      nedaPkg.primaryEmail.toLowerCase(),
-      ...nedaPkg.aliases.map(a => a.toLowerCase())
-    ]));
+    baseSet.add(nedaPkg.primaryEmail.toLowerCase());
+    nedaPkg.aliases.forEach(a => {
+      baseSet.add(a.toLowerCase());
+      baseSet.add(a);
+    });
   }
-  return [clean];
+  return Array.from(baseSet);
 }
 
 export function isTeamPmsCoOwner(email: string): boolean {
   const clean = (email || '').toLowerCase().trim();
-  return clean === 'nsibandenp@nkangaladm.gov.za' || clean === 'zulune@nkangaladm.gov.za' || clean.includes('nsibandenp') || clean.includes('zulune');
+  return clean === 'nsibandenp@nkangaladm.gov.za' || clean === 'zulune@nkangaladm.gov.za' || clean.includes('nsibandenp') || clean.includes('zulune') || isJetpatcherTeamMember(clean);
 }
 
 async function syncKhumaloNkosiDualProfile() {
@@ -14461,6 +14493,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     if (clean.includes('lengwatertm')) {
       clean = clean.replace('lengwatertm', 'lengwatetm');
     }
+    if (clean.includes('mtsweniwm')) {
+      clean = clean.replace('mtsweniwm', 'mtshweniwm');
+    }
     // Normalise domain typos
     if (
       clean.includes('@nkangladm.gov.za') || 
@@ -18162,18 +18197,41 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             .eq('id', canonicalDocId)
             .maybeSingle();
 
+          let canonicalHasActualOrPoe = false;
+          let canonicalIsExplicitlyCleared = false;
+          if (canonicalRes.data && canonicalRes.data.content) {
+            try {
+              const cp = typeof canonicalRes.data.content === 'string' ? JSON.parse(canonicalRes.data.content) : canonicalRes.data.content;
+              canonicalIsExplicitlyCleared = Boolean(cp?.metadata?._isCleared === true);
+              const cItems = Array.isArray(cp) ? cp : (cp?.items || cp?.rows || cp?.kpis || []);
+              if (Array.isArray(cItems)) {
+                canonicalHasActualOrPoe = cItems.some((it: any) =>
+                  it && (
+                    it.q1Actual || it.q2Actual || it.q3Actual || it.q4Actual || it.midtermActual ||
+                    (Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0) ||
+                    (Array.isArray(it.q2PoeDocs) && it.q2PoeDocs.length > 0) ||
+                    (Array.isArray(it.q3PoeDocs) && it.q3PoeDocs.length > 0) ||
+                    (Array.isArray(it.q4PoeDocs) && it.q4PoeDocs.length > 0)
+                  )
+                );
+              }
+            } catch (e) {}
+          }
+
           if (canonicalRes.error) {
             error = canonicalRes.error;
             hadQueryError = true;
-          } else if (canonicalRes.data && canonicalRes.data.content) {
+          } else if (canonicalRes.data && canonicalRes.data.content && (canonicalHasActualOrPoe || canonicalIsExplicitlyCleared)) {
             batchRowsData = [canonicalRes.data];
           } else {
-            // Canonical row missing: fall back to querying secondary pplan and kpis keys (including nkosibs/khumalobs aliases)
+            // Canonical row missing OR has 0 actuals/POEs: also query secondary pplan, team_pplan, team_evaluation, and kpis keys
             const kpiCandidateKeys = isNedaContext
               ? Array.from(new Set(
                   aliasUsers.flatMap(aUser => [
                     `kpis_neda_${aUser}`,
-                    `kpis_tenant-neda_${aUser}`
+                    `kpis_tenant-neda_${aUser}`,
+                    `pplan_neda_${aUser}`,
+                    `pplan_tenant-neda_${aUser}`
                   ])
                 ))
               : Array.from(new Set(
@@ -18181,20 +18239,36 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                     `kpis_${tenantId}_${aUser}`,
                     `kpis_tenant-229_${aUser}`,
                     `kpis_nkangala_auto_${aUser}`,
-                    `kpis_global_${aUser}`
+                    `kpis_global_${aUser}`,
+                    ...(isDisasterControlTeamMember(userId) ? [] : [
+                      `team_pplan_tenant-229_${aUser}`,
+                      `team_evaluation_tenant-229_${aUser}`,
+                      `team_pplan_nkangala_auto_${aUser}`,
+                      `team_evaluation_nkangala_auto_${aUser}`
+                    ])
                   ])
                 ));
-            const secondaryKeys = [...primaryCacheKeys.filter(k => k !== canonicalDocId), ...kpiCandidateKeys];
+            const secondaryKeys = Array.from(new Set([
+              ...primaryCacheKeys.filter(k => k !== canonicalDocId),
+              ...kpiCandidateKeys
+            ]));
             const batchRes = await supabase
               .from('messages')
               .select('id, content, created_at')
               .in('id', secondaryKeys);
 
             if (batchRes.error) {
-              error = batchRes.error;
-              hadQueryError = true;
-            } else if (Array.isArray(batchRes.data)) {
-              batchRowsData = batchRes.data;
+              if (canonicalRes.data && canonicalRes.data.content) {
+                batchRowsData = [canonicalRes.data];
+              } else {
+                error = batchRes.error;
+                hadQueryError = true;
+              }
+            } else {
+              const secRows = Array.isArray(batchRes.data) ? batchRes.data : [];
+              batchRowsData = (canonicalRes.data && canonicalRes.data.content)
+                ? [canonicalRes.data, ...secRows]
+                : secRows;
             }
           }
         }
@@ -18228,7 +18302,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const list = Array.isArray(p) ? p : (p.items || p.rows || p.kpis || []);
               const isCleared = Boolean(p.metadata && p.metadata._isCleared === true);
               const isReplacePlan = Boolean(p.metadata && (p.metadata._replacePlan === true || p.metadata._allowItemDeletion === true || p.metadata._isFredExtracted === true));
-              const isCanonical = String(row.id || '') === `pplan_tenant-229_${userId}` || String(row.id || '') === documentId;
+              const rowIdLower = String(row.id || '').toLowerCase();
+              const isCanonical = rowIdLower === `pplan_tenant-229_${userId}`.toLowerCase() || rowIdLower === documentId.toLowerCase();
               const tsStr = (p.metadata && (p.metadata._pushedAt || p.metadata.updatedAt)) || row.created_at || '';
               const ts = tsStr ? (new Date(tsStr).getTime() || 0) : 0;
               let reviewCount = 0;
@@ -18244,8 +18319,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   } else if (st === 'Submitted for Approval' || st === 'Submitted for Review' || st === 'Submitted') {
                     reviewCount += 1;
                   }
+                  if (it.q1Actual || it.q2Actual || it.q3Actual || it.q4Actual || it.midtermActual) {
+                    reviewCount += 2;
+                  }
                   const docsLen = (it.q1PoeDocs?.length || 0) + (it.q2PoeDocs?.length || 0) + (it.q3PoeDocs?.length || 0) + (it.q4PoeDocs?.length || 0) + (it.annualPoeDocs?.length || 0) + (it.midtermPoeDocs?.length || 0);
-                  if (docsLen > 0) reviewCount += 1;
+                  if (docsLen > 0) reviewCount += 2;
                 });
               }
               return {
@@ -19063,9 +19141,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             for (const tId of tenantIds) {
               idSet.add(`pplan_${tId}_${cEmail}`);
               idSet.add(`kpis_${tId}_${cEmail}`);
+              idSet.add(`team_pplan_${tId}_${cEmail}`);
+              idSet.add(`team_evaluation_${tId}_${cEmail}`);
             }
             idSet.add(`pplan_global_${cEmail}`);
             idSet.add(`kpis_global_${cEmail}`);
+            idSet.add(`team_pplan_global_${cEmail}`);
+            idSet.add(`team_evaluation_global_${cEmail}`);
           }
         }
         filterIds = Array.from(idSet);
@@ -19103,7 +19185,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const rowId = String(row.id || '');
           const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
           let userId = '';
-          const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
+          const prefixType = isKpiRow
+            ? 'kpis_'
+            : (rowId.startsWith('team_pplan_')
+              ? 'team_pplan_'
+              : (rowId.startsWith('team_evaluation_') ? 'team_evaluation_' : 'pplan_'));
           const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
           if (foundTenantId) {
             userId = rowId.substring(`${prefixType}${foundTenantId}_`.length);
@@ -20395,7 +20481,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
   app.post("/api/tenant/:tenantId/pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
-    const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
+    const rawUserIdParam = req.query.userId || req.body?.userId || req.body?.metadata?.email;
+    const rawUserId = rawUserIdParam ? String(rawUserIdParam).toLowerCase().trim() : 'default';
     const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     const { metadata, items } = req.body || {};
     try {
@@ -21013,11 +21100,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const nowIso = new Date().toISOString();
+      const isJetpatcher = isJetpatcherTeamMember(userId);
+      const defaultTeamMgrName = isJetpatcher ? 'Mxolisi AVM Bembe' : 'Stanley M. Shabangu';
+      const defaultTeamMgrEmail = isJetpatcher ? 'bembem@nkangaladm.gov.za' : 'shabangusm@nkangaladm.gov.za';
       const updatedMeta = {
         ...(metadata || { name: 'Team Performance Plan' }),
-        manager: (metadata && metadata.manager) || 'Stanley M. Shabangu',
-        managerEmail: (metadata && metadata.managerEmail) || 'shabangusm@nkangaladm.gov.za',
-        reportTo: (metadata && metadata.reportTo) || 'Stanley M. Shabangu',
+        manager: isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.manager) || defaultTeamMgrName),
+        managerEmail: isJetpatcher ? 'bembem@nkangaladm.gov.za' : ((metadata && metadata.managerEmail) || defaultTeamMgrEmail),
+        reportTo: isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.reportTo) || defaultTeamMgrName),
         _isFredExtracted: true,
         updatedAt: nowIso
       };
@@ -21788,11 +21878,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const nowIso = new Date().toISOString();
+      const isJetpatcher = isJetpatcherTeamMember(userId);
+      const defaultTeamMgrName = isJetpatcher ? 'Mxolisi AVM Bembe' : 'Stanley M. Shabangu';
+      const defaultTeamMgrEmail = isJetpatcher ? 'bembem@nkangaladm.gov.za' : 'shabangusm@nkangaladm.gov.za';
       const updatedMeta = {
         ...(metadata || { name: 'Team Evaluation' }),
-        manager: (metadata && metadata.manager) || 'Stanley M. Shabangu',
-        managerEmail: (metadata && metadata.managerEmail) || 'shabangusm@nkangaladm.gov.za',
-        reportTo: (metadata && metadata.reportTo) || 'Stanley M. Shabangu',
+        manager: isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.manager) || defaultTeamMgrName),
+        managerEmail: isJetpatcher ? 'bembem@nkangaladm.gov.za' : ((metadata && metadata.managerEmail) || defaultTeamMgrEmail),
+        reportTo: isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.reportTo) || defaultTeamMgrName),
         _isFredExtracted: true,
         updatedAt: nowIso
       };
@@ -23984,9 +24077,95 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           } catch (e) {}
         }
       }
+      if (pplanStatusOverlay.size === 0 && supabase) {
+        try {
+          const { data: pOverlayRows } = await supabase
+            .from('messages')
+            .select('id, content')
+            .in('id', pplanLookupKeys);
+          if (Array.isArray(pOverlayRows)) {
+            for (const pRow of pOverlayRows) {
+              if (!pRow?.content) continue;
+              try {
+                const pp = JSON.parse(pRow.content);
+                if (pp?.metadata?._isCleared === true) {
+                  isPlanExplicitlyCleared = true;
+                }
+                const pItems = pp.items || pp.rows || [];
+                if (Array.isArray(pItems)) {
+                  pItems.forEach((it: any) => {
+                    const kId = String(it.id || '').toLowerCase().trim();
+                    const kNo = String(it.kpiNo || '').toLowerCase().trim();
+                    if (kId && !pplanStatusOverlay.has(`id:${kId}`)) pplanStatusOverlay.set(`id:${kId}`, it);
+                    if (kNo && !pplanStatusOverlay.has(`no:${kNo}`)) pplanStatusOverlay.set(`no:${kNo}`, it);
+                  });
+                }
+              } catch (e) {}
+            }
+          }
+        } catch (e) {}
+      }
       if (isPlanExplicitlyCleared) {
         return res.json({ kpis: [] });
       }
+
+      const applyPplanOverlayToKpi = (it: any) => {
+        const kId = String(it.id || '').toLowerCase().trim();
+        const kNo = String(it.kpiNo || '').toLowerCase().trim();
+        const overlay = (kId && pplanStatusOverlay.get(`id:${kId}`)) || (kNo && pplanStatusOverlay.get(`no:${kNo}`));
+        if (!overlay) return it;
+        const revStatus = overlay?.reviewStatus || it.reviewStatus;
+        const isNonActionedRevStatus =
+          revStatus === 'Submitted for Approval' ||
+          revStatus === 'Submitted for Review' ||
+          revStatus === 'Submitted' ||
+          revStatus === 'Draft' ||
+          revStatus === 'In Progress' ||
+          revStatus === 'Draft / Resubmitting';
+        const revApproval = isNonActionedRevStatus
+          ? ''
+          : (overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined)));
+        return {
+          ...it,
+          ...(revStatus ? { reviewStatus: revStatus } : {}),
+          reviewApprovalStatus: revApproval || '',
+          ...(overlay?.managerScore ? { managerScore: overlay.managerScore } : {}),
+          ...(overlay?.reviewComment || overlay?.review ? { reviewComment: overlay.reviewComment || overlay.review } : {}),
+          q1Actual: it.q1Actual || overlay.q1Actual || '',
+          q2Actual: it.q2Actual || overlay.q2Actual || '',
+          q3Actual: it.q3Actual || overlay.q3Actual || '',
+          q4Actual: it.q4Actual || overlay.q4Actual || '',
+          midtermActual: it.midtermActual || overlay.midtermActual || '',
+          annualActual: it.annualActual || overlay.annualActual || '',
+          q1Score: it.q1Score || overlay.q1Score || '',
+          q2Score: it.q2Score || overlay.q2Score || '',
+          q3Score: it.q3Score || overlay.q3Score || '',
+          q4Score: it.q4Score || overlay.q4Score || '',
+          myScore: it.myScore || overlay.myScore || '',
+          q1Comment: it.q1Comment || overlay.q1Comment || '',
+          q2Comment: it.q2Comment || overlay.q2Comment || '',
+          q3Comment: it.q3Comment || overlay.q3Comment || '',
+          q4Comment: it.q4Comment || overlay.q4Comment || '',
+          q1Corrective: it.q1Corrective || overlay.q1Corrective || '',
+          q2Corrective: it.q2Corrective || overlay.q2Corrective || '',
+          q3Corrective: it.q3Corrective || overlay.q3Corrective || '',
+          q4Corrective: it.q4Corrective || overlay.q4Corrective || '',
+          q1Poe: it.q1Poe || overlay.q1Poe || '',
+          q2Poe: it.q2Poe || overlay.q2Poe || '',
+          q3Poe: it.q3Poe || overlay.q3Poe || '',
+          q4Poe: it.q4Poe || overlay.q4Poe || '',
+          q1PoeDocs: (Array.isArray(it.q1PoeDocs) && it.q1PoeDocs.length > 0) ? it.q1PoeDocs : (overlay.q1PoeDocs || []),
+          q2PoeDocs: (Array.isArray(it.q2PoeDocs) && it.q2PoeDocs.length > 0) ? it.q2PoeDocs : (overlay.q2PoeDocs || []),
+          q3PoeDocs: (Array.isArray(it.q3PoeDocs) && it.q3PoeDocs.length > 0) ? it.q3PoeDocs : (overlay.q3PoeDocs || []),
+          q4PoeDocs: (Array.isArray(it.q4PoeDocs) && it.q4PoeDocs.length > 0) ? it.q4PoeDocs : (overlay.q4PoeDocs || []),
+          midtermPoeDocs: (Array.isArray(it.midtermPoeDocs) && it.midtermPoeDocs.length > 0) ? it.midtermPoeDocs : (overlay.midtermPoeDocs || []),
+          annualPoeDocs: (Array.isArray(it.annualPoeDocs) && it.annualPoeDocs.length > 0) ? it.annualPoeDocs : (overlay.annualPoeDocs || []),
+          q1PoeStatus: it.q1PoeStatus || overlay.q1PoeStatus || '',
+          q2PoeStatus: it.q2PoeStatus || overlay.q2PoeStatus || '',
+          q3PoeStatus: it.q3PoeStatus || overlay.q3PoeStatus || '',
+          q4PoeStatus: it.q4PoeStatus || overlay.q4PoeStatus || ''
+        };
+      };
 
       // Check in-memory kpisCache only for ultra-recent (< 2s) same-instance writes so cross-environment saves on AI Studio / Website always read fresh from Supabase
       let newestCachedKpi: { raw: string; timestamp: number } | null = null;
@@ -24003,29 +24182,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const parsedCached = JSON.parse(newestCachedKpi.raw);
           let cachedList = Array.isArray(parsedCached) ? parsedCached : (parsedCached.kpis || parsedCached.items || []);
           if (Array.isArray(cachedList)) {
-            cachedList = cachedList.map((it: any) => {
-              const kId = String(it.id || '').toLowerCase().trim();
-              const kNo = String(it.kpiNo || '').toLowerCase().trim();
-              const overlay = (kId && pplanStatusOverlay.get(`id:${kId}`)) || (kNo && pplanStatusOverlay.get(`no:${kNo}`));
-              const revStatus = overlay?.reviewStatus || it.reviewStatus;
-              const isNonActionedRevStatus =
-                revStatus === 'Submitted for Approval' ||
-                revStatus === 'Submitted for Review' ||
-                revStatus === 'Submitted' ||
-                revStatus === 'Draft' ||
-                revStatus === 'In Progress' ||
-                revStatus === 'Draft / Resubmitting';
-              const revApproval = isNonActionedRevStatus
-                ? ''
-                : (overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined)));
-              return {
-                ...it,
-                ...(revStatus ? { reviewStatus: revStatus } : {}),
-                reviewApprovalStatus: revApproval || '',
-                ...(overlay?.managerScore ? { managerScore: overlay.managerScore } : {}),
-                ...(overlay?.reviewComment || overlay?.review ? { reviewComment: overlay.reviewComment || overlay.review } : {})
-              };
-            });
+            cachedList = cachedList.map(applyPplanOverlayToKpi);
             return res.json({ kpis: cachedList });
           }
         } catch (e) {}
@@ -24068,29 +24225,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               }
               if (kpiList.length > 0) {
                 kpiList = applyOfficialUserKpiFixes(kpiList, userId).map((it: any) => sanitizePplanItem(it, userId));
-                kpiList = kpiList.map((it: any) => {
-                  const kId = String(it.id || '').toLowerCase().trim();
-                  const kNo = String(it.kpiNo || '').toLowerCase().trim();
-                  const overlay = (kId && pplanStatusOverlay.get(`id:${kId}`)) || (kNo && pplanStatusOverlay.get(`no:${kNo}`));
-                  const revStatus = overlay?.reviewStatus || it.reviewStatus;
-                  const isNonActionedRevStatus =
-                    revStatus === 'Submitted for Approval' ||
-                    revStatus === 'Submitted for Review' ||
-                    revStatus === 'Submitted' ||
-                    revStatus === 'Draft' ||
-                    revStatus === 'In Progress' ||
-                    revStatus === 'Draft / Resubmitting';
-                  const revApproval = isNonActionedRevStatus
-                    ? ''
-                    : (overlay?.reviewApprovalStatus || it.reviewApprovalStatus || (revStatus === 'Approved' ? 'Approved' : (revStatus === 'Revision Required' || revStatus === 'Rejected' ? 'Rejected' : undefined)));
-                  return {
-                    ...it,
-                    ...(revStatus ? { reviewStatus: revStatus } : {}),
-                    reviewApprovalStatus: revApproval || '',
-                    ...(overlay?.managerScore ? { managerScore: overlay.managerScore } : {}),
-                    ...(overlay?.reviewComment || overlay?.review ? { reviewComment: overlay.reviewComment || overlay.review } : {})
-                  };
-                });
+                kpiList = kpiList.map(applyPplanOverlayToKpi);
                 return res.json({ kpis: kpiList });
               }
             } catch (parseErr) {
@@ -26148,8 +26283,14 @@ User Request: ${prompt}`;
     app.use(express.static(publicDir));
   }
 
+  // Ensure any unmatched /api/* request returns valid JSON instead of HTML
+  app.all("/api/*", (req: express.Request, res: express.Response) => {
+    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    process.env.DISABLE_HMR = "true";
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false, allowedHosts: true, cors: true },
       appType: "custom",

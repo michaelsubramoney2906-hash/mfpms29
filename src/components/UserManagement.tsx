@@ -64,7 +64,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
           }
         }
       } catch (err) {
-        console.error("Error fetching municipalities from Supabase:", err);
+        console.warn("Notice fetching municipalities from Supabase:", err);
       }
     };
     fetchMunicipalities();
@@ -79,14 +79,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
       const res = await fetch(`/api/tenant/${azureTargetTenantId}/active-sessions`);
       if (res.ok) {
         const data = await res.json();
-        const sorted = (data.sessions || []).sort((a: any, b: any) => 
+        const sorted = (data?.sessions || []).sort((a: any, b: any) => 
           new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
         );
         setActiveSessions(sorted);
         setSessionFetchTime(new Date().toLocaleTimeString());
       }
     } catch (e) {
-      console.error("Error loading active sessions:", e);
+      console.warn("Notice loading active sessions:", e);
     }
   };
 
@@ -802,9 +802,14 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
   const fetchUsers = async () => {
     try {
       const res = await fetch(`/api/tenant/${activeTenantId}/users`);
-      if (res.ok) setUsers(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setUsers(data);
+        }
+      }
     } catch (e) {
-      console.error(e);
+      console.warn("Notice loading users:", e);
     }
   };
 
@@ -813,12 +818,19 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
     try {
       const res = await fetch(`/api/tenant/${targetTenantId}/azure-config`);
       if (res.ok) {
-        setAzureConfig(await res.json());
+        const data = await res.json();
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          setAzureConfig({
+            clientId: data.clientId || '',
+            directoryTenantId: data.directoryTenantId || '',
+            secretValue: data.secretValue || ''
+          });
+        }
       } else {
         setAzureConfig({ clientId: '', directoryTenantId: '', secretValue: '' });
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Notice loading Azure config:", e);
     }
   };
 

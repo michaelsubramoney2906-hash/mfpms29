@@ -2,65 +2,56 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mzansi Flow PMS System</title>
+    <meta name="description" content="A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
+    <meta property="og:title" content="Mzansi Flow PMS System" />
+    <meta property="og:description" content="A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
     <script>
-      (function() {
-        function isViteWsError(err) {
-          if (!err) return false;
-          var msg = (typeof err === 'string' ? err : (err.message || err.toString() || ''));
-          var stack = (err && err.stack) || '';
-          return msg.indexOf('WebSocket') !== -1 || stack.indexOf('@vite/client') !== -1 || msg.indexOf('vite:ws') !== -1 || stack.indexOf('createWebSocketModuleRunnerTransport') !== -1;
+      (function () {
+        if (typeof window === 'undefined' || !window.WebSocket) return;
+        var NativeWebSocket = window.WebSocket;
+        function PatchedWebSocket(url, protocols) {
+          var isViteHmr =
+            protocols === 'vite-hmr' ||
+            protocols === 'vite-ping' ||
+            (Array.isArray(protocols) && (protocols.indexOf('vite-hmr') !== -1 || protocols.indexOf('vite-ping') !== -1));
+          if (isViteHmr) {
+            var target = new EventTarget();
+            target.url = String(url || '');
+            target.readyState = 1;
+            target.OPEN = 1;
+            target.CONNECTING = 0;
+            target.CLOSING = 2;
+            target.CLOSED = 3;
+            target.protocol = typeof protocols === 'string' ? protocols : 'vite-hmr';
+            target.extensions = '';
+            target.bufferedAmount = 0;
+            target.binaryType = 'blob';
+            target.send = function () {};
+            target.close = function () {
+              target.readyState = 3;
+            };
+            return target;
+          }
+          return protocols !== undefined
+            ? new NativeWebSocket(url, protocols)
+            : new NativeWebSocket(url);
         }
-        window.addEventListener('unhandledrejection', function(e) {
-          if (isViteWsError(e.reason)) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-          }
-        }, true);
-        window.addEventListener('error', function(e) {
-          if (isViteWsError(e.error) || (e.message && isViteWsError(e.message))) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-          }
-        }, true);
+        PatchedWebSocket.prototype = NativeWebSocket.prototype;
+        PatchedWebSocket.CONNECTING = NativeWebSocket.CONNECTING;
+        PatchedWebSocket.OPEN = NativeWebSocket.OPEN;
+        PatchedWebSocket.CLOSING = NativeWebSocket.CLOSING;
+        PatchedWebSocket.CLOSED = NativeWebSocket.CLOSED;
+        window.WebSocket = PatchedWebSocket;
       })();
     </script>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-    <meta name="theme-color" content="#15803d" />
-    <meta name="color-scheme" content="light dark" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <meta http-equiv="Surrogate-Control" content="no-store" />
-    <title>Mzansi Flow PMS System</title>
-    <meta name="description" content="Mzansi Flow PMS System - A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
-    <meta property="og:title" content="Mzansi Flow PMS System" />
-    <meta property="og:description" content="Mzansi Flow PMS System - A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:title" content="Mzansi Flow PMS System" />
-    <meta name="twitter:description" content="Mzansi Flow PMS System - A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
-    <meta name="twitter:card" content="summary_large_image" />
-    
-    <!-- Cross-Browser High-Performance Resource Preconnects -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" />
   </head>
   <body>
-    <div id="root">
-      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #090d16; color: #38bdf8; font-family: ui-sans-serif, system-ui, sans-serif;">
-        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-          <div style="width: 28px; height: 28px; border: 3px solid rgba(56, 189, 248, 0.2); border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
-          <span style="font-size: 18px; font-weight: 700; letter-spacing: -0.02em; color: #f8fafc;">Mzansi Flow PMS System</span>
-        </div>
-        <p style="font-size: 13px; color: #94a3b8; margin: 0;">Loading performance portal environment...</p>
-        <style>
-          @keyframes spin { to { transform: rotate(360deg); } }
-        </style>
-      </div>
-    </div>
-    <script src="/lib/q.js" charset="UTF-8" defer onerror="console.warn('Optional Q.js library could not be loaded from static lib path')"></script>
-    <script src="/lib/wgssStuSdk.js" charset="UTF-8" defer onerror="console.warn('Optional Wacom STU SDK could not be loaded from static lib path')"></script>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+
