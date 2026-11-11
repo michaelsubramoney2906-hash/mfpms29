@@ -182,7 +182,14 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     return email === 'khuboniy@nkangaladm.gov.za' || email.includes('khuboni');
   }, [currentUser]);
 
-  // Document Headings state (editable)
+  // Target Official State (Defaults to active/impersonated user or explicitly selected official e.g. myenispl@nkangaladm.gov.za)
+  const [targetOfficialEmail, setTargetOfficialEmail] = useState<string>(() => (currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim());
+
+  useEffect(() => {
+    if (currentUser?.email) {
+      setTargetOfficialEmail(currentUser.email.toLowerCase().trim());
+    }
+  }, [currentUser?.email]);
   const [headingCover, setHeadingCover] = useState('COVER PAGE');
   const [headingRegulatoryInfo, setHeadingRegulatoryInfo] = useState('Regulatory Information & Definitions');
   
@@ -1353,7 +1360,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullFilteredPerformancePlan = async () => {
     setPullingFilteredPplan(true);
     try {
-      const emailToUse = (currentUser?.email || '').toLowerCase().trim();
+      const emailToUse = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pplan?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -1403,7 +1410,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullPDP = async () => {
     setPullingPdp(true);
     try {
-      const emailToUse = currentUser?.email || 'khuboniy@nkangaladm.gov.za';
+      const emailToUse = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -1430,7 +1437,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullAllCompetencies = async () => {
     setPullingCompetencies(true);
     try {
-      const emailLower = (currentUser?.email || '').toLowerCase().trim();
+      const emailLower = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/core-competencies?userId=${encodeURIComponent(emailLower)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -2930,7 +2937,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}&force=true&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -3076,7 +3083,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const fetchDocumentVersions = async () => {
     setLoadingVersions(true);
     try {
-      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-versions?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
@@ -3098,7 +3105,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     }
     setSaving(true);
     try {
-      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const activeTpl = buildActiveDocumentPayload();
       
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-versions`, {
@@ -3134,7 +3141,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     }
     setRestoringVersionId(version.id);
     try {
-      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-versions/restore`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3166,7 +3173,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     try {
       const activeTpl = buildActiveDocumentPayload();
 
-      const activeEmail = (currentUser?.email || '').toLowerCase().trim();
+      const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3387,7 +3394,7 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       fetchDocumentVersions();
     }, 1200);
     return () => clearTimeout(versionTimer);
-  }, [activeTenantId, currentUser?.email]);
+  }, [activeTenantId, currentUser?.email, targetOfficialEmail]);
 
   return (
     <div id="pa-templates-workspace" className="p-0 text-slate-800 bg-slate-100 flex flex-col h-[calc(100vh-115px)] max-h-[calc(100vh-115px)] overflow-hidden">
@@ -3474,6 +3481,33 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
         {/* Action controls */}
         <div className="flex items-center gap-2 flex-wrap">
           
+          {/* Target Official Selector */}
+          <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-lg">
+            <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span className="text-[10px] font-black uppercase text-indigo-900 shrink-0">Official:</span>
+            <select
+              value={targetOfficialEmail}
+              onChange={(e) => setTargetOfficialEmail(e.target.value)}
+              className="text-xs font-bold text-indigo-950 bg-transparent outline-none cursor-pointer max-w-[220px] truncate"
+            >
+              <option value="myenispl@nkangaladm.gov.za">P.L. Myeni (myenispl@nkangaladm.gov.za)</option>
+              {currentUser?.email && currentUser.email !== 'myenispl@nkangaladm.gov.za' && (
+                <option value={currentUser.email.toLowerCase().trim()}>
+                  {currentUser.fullName || currentUser.email} ({currentUser.email})
+                </option>
+              )}
+              {userManagementUsers && userManagementUsers.map((u, idx) => {
+                const em = (u.email || '').toLowerCase().trim();
+                if (!em || em === 'myenispl@nkangaladm.gov.za' || em === currentUser?.email?.toLowerCase().trim()) return null;
+                return (
+                  <option key={idx} value={em}>
+                    {u.fullName || u.full_name || em} ({em})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
           {/* MM Restricted Tag */}
           {isMandlaMahlangu ? (
             <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-1.5 rounded-lg border border-amber-200 text-[10px] font-black uppercase">

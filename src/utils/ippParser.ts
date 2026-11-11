@@ -585,20 +585,65 @@ export function parseRawTextLines(text: string): ExtractedMappedKPI[] {
           firstCellLower.includes('competency');
 
         if (isValidKpiNo && !isExcludedWord) {
-          const desc = rawCells[1] || '';
-          if (desc.length > 2 && !desc.toLowerCase().includes('signature') && !desc.toLowerCase().includes('certify') && !desc.toLowerCase().includes('rating scale')) {
-            let kpiNo = firstCell;
-            let weight = '';
-            let baseline = '';
-            let annualTarget = '';
-            let q1 = '';
-            let q2 = '';
-            let q3 = '';
-            let q4 = '';
-            let poe = '';
-            let budget = '';
+          let kpiNo = firstCell;
+          let kpiDesc = '';
+          let weight = '';
+          let baseline = '';
+          let annualTarget = '';
+          let q1 = '', q2 = '', q3 = '', q4 = '';
+          let poe = '';
+          let budget = '';
 
-            if (rawCells.length >= 11) {
+          // Check if rawCells[1] is a KPA name/banner
+          if (rawCells[1] && (/^KPA\b/i.test(rawCells[1]) || rawCells[1].toLowerCase().includes('performance area'))) {
+            currentKpa = rawCells[1].trim();
+            kpiDesc = rawCells[2] || '';
+            weight = rawCells[3] || '';
+            baseline = rawCells[4] || '';
+            annualTarget = rawCells[5] || '';
+            q1 = rawCells[6] || '';
+            q2 = rawCells[7] || '';
+            q3 = rawCells[8] || '';
+            q4 = rawCells[9] || '';
+            poe = rawCells[10] || '';
+            budget = rawCells[11] || '';
+          } else if (rawCells[1] && /^\d{1,2}(?:\.\d{1,2})?%?$/.test(rawCells[1].replace('%', '').trim()) && rawCells[2] && rawCells[2].length > 5) {
+            // rawCells[1] is weight, rawCells[2] is KPI description
+            weight = rawCells[1];
+            kpiDesc = rawCells[2];
+            baseline = rawCells[3] || '';
+            annualTarget = rawCells[4] || '';
+            q1 = rawCells[5] || '';
+            q2 = rawCells[6] || '';
+            q3 = rawCells[7] || '';
+            q4 = rawCells[8] || '';
+            poe = rawCells[9] || '';
+            budget = rawCells[10] || '';
+          } else {
+            kpiDesc = rawCells[1] || '';
+            
+            // Look for the short numeric weight cell among columns 2..4
+            let weightIdx = -1;
+            for (let c = 2; c < Math.min(rawCells.length, 5); c++) {
+              const cTrim = (rawCells[c] || '').replace('%', '').trim();
+              if (/^\d{1,2}(?:\.\d{1,2})?$/.test(cTrim)) {
+                weightIdx = c;
+                break;
+              }
+            }
+
+            if (weightIdx !== -1) {
+              weight = rawCells[weightIdx];
+              let rIdx = weightIdx + 1;
+              baseline = rawCells[rIdx++] || '';
+              annualTarget = rawCells[rIdx++] || '';
+              q1 = rawCells[rIdx++] || '';
+              q2 = rawCells[rIdx++] || '';
+              q3 = rawCells[rIdx++] || '';
+              q4 = rawCells[rIdx++] || '';
+              poe = rawCells[rIdx++] || '';
+              budget = rawCells[rIdx++] || '';
+            } else {
               weight = rawCells[2] || '';
               baseline = rawCells[3] || '';
               annualTarget = rawCells[4] || '';
@@ -608,55 +653,25 @@ export function parseRawTextLines(text: string): ExtractedMappedKPI[] {
               q4 = rawCells[8] || '';
               poe = rawCells[9] || '';
               budget = rawCells[10] || '';
-            } else if (rawCells.length === 10) {
-              weight = rawCells[2] || '';
-              baseline = rawCells[3] || '';
-              annualTarget = rawCells[4] || '';
-              q1 = rawCells[5] || '';
-              q2 = rawCells[6] || '';
-              q3 = rawCells[7] || '';
-              q4 = rawCells[8] || '';
-              poe = rawCells[9] || '';
-            } else if (rawCells.length === 9) {
-              weight = rawCells[2] || '';
-              baseline = rawCells[3] || '';
-              annualTarget = rawCells[4] || '';
-              q1 = rawCells[5] || '';
-              q2 = rawCells[6] || '';
-              q3 = rawCells[7] || '';
-              q4 = rawCells[8] || '';
-            } else if (rawCells.length === 8) {
-              weight = rawCells[2] || '';
-              baseline = rawCells[3] || '';
-              annualTarget = rawCells[4] || '';
-              q1 = rawCells[5] || '';
-              q2 = rawCells[6] || '';
-              q3 = rawCells[7] || '';
-            } else if (rawCells.length === 7) {
-              weight = rawCells[2] || '';
-              baseline = rawCells[3] || '';
-              annualTarget = rawCells[4] || '';
-              q1 = rawCells[5] || '';
-              q2 = rawCells[6] || '';
-            } else if (rawCells.length === 6) {
-              weight = rawCells[2] || '';
-              baseline = rawCells[3] || '';
-              annualTarget = rawCells[4] || '';
-              poe = rawCells[5] || '';
-            } else if (rawCells.length === 5) {
-              weight = rawCells[2] || '';
-              baseline = rawCells[3] || '';
-              annualTarget = rawCells[4] || '';
-            } else if (rawCells.length >= 3) {
-              weight = rawCells[2] || '';
             }
+          }
 
+          // ABSOLUTE PROTECTION: Weight MUST be a short number/percentage. If weight is long text, clear it and assign to kpiDesc if kpiDesc is short
+          let cleanWeight = weight.replace('%', '').trim();
+          if (cleanWeight.length > 8 || /[a-zA-Z]{3,}/.test(cleanWeight)) {
+            if (!kpiDesc || kpiDesc.length < 5) {
+              kpiDesc = weight;
+            }
+            cleanWeight = '';
+          }
+
+          if (kpiDesc && kpiDesc.length > 2 && !kpiDesc.toLowerCase().includes('signature') && !kpiDesc.toLowerCase().includes('certify') && !kpiDesc.toLowerCase().includes('rating scale')) {
             items.push({
               _id: `ipp-raw-${Date.now()}-${items.length + 1}`,
               _selected: true,
               "kpi no": kpiNo,
-              "kpi description": desc,
-              "%wt": normalizeWeight(weight),
+              "kpi description": kpiDesc,
+              "%wt": cleanWeight,
               "baseline": baseline,
               "annual target": annualTarget,
               "1st qtr target": q1,

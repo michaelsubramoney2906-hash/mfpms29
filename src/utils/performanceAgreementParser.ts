@@ -1083,7 +1083,10 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
   let colKpiNo = compositeHeader.findIndex(h => h.includes('kpi number') || h.includes('kpi no') || h.includes('kpi ids') || h.includes('kpi id') || h.includes('project id') || h.includes('kpi ref') || h.includes('ref no') || h.includes('ref number') || h.includes('indicator no') || h === 'no' || h === 'no.' || h === '#' || h === 'ref');
   let colKpiDesc = compositeHeader.findIndex(h => h.includes('key performance indicator') || h.includes('key performance indicators') || h.includes('kpi description') || h.includes('project name') || h.includes('indicator') || h.includes('output') || h.includes('description') || h.includes('measure') || h.includes('activity') || h === 'kpi' || h === 'project');
   let colLocation = compositeHeader.findIndex(h => h.includes('location') || h.includes('locatio') || h.includes('municipality') || h.includes('area'));
-  let colWeight = compositeHeader.findIndex(h => h.includes('weight') || h.includes('%wt') || h.includes('weighting') || h.includes('%') || h.includes('wt'));
+  let colWeight = compositeHeader.findIndex(h => 
+    /\b(weight|weighting|%wt|wt%|wt)\b/i.test(h) && 
+    !h.includes('indicator') && !h.includes('description') && !h.includes('target') && !h.includes('baseline') && !h.includes('water')
+  );
   let colBaseline = compositeHeader.findIndex(h => h.includes('baseline') || h.includes('baseline2025/2026') || h.includes('baseline 2025/2026') || h.includes('baseline2024/2025') || h.includes('baseline 2024/2025') || h.includes('previous year') || h.includes('prior year') || h.includes('2023/24') || h.includes('2024/25') || h.includes('2025/26') || h.includes('actual baseline'));
   
   // Target columns: exact pattern matching
@@ -1234,6 +1237,14 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
 
     const effectiveFunctionalKpa = String(validatedRowKpa || currentFunctionalKpa || 'Functional Performance Area').trim();
 
+    let cleanWeightVal = String(weightVal || '').replace('%', '').trim();
+    if (cleanWeightVal.length > 8 || /[a-zA-Z]{3,}/.test(cleanWeightVal)) {
+      if (!kpiDescVal || kpiDescVal.length < 5) {
+        kpiDescVal = weightVal;
+      }
+      cleanWeightVal = '';
+    }
+
     items.push({
       _id: `kpi-mapped-${Date.now()}-${items.length + 1}`,
       _selected: true,
@@ -1243,10 +1254,10 @@ function parseMatrixToMappedKPIs(matrix: string[][], contextHint?: string): Extr
       "kpi description": String(kpiDescVal || '').trim(),
       "kpiDescription": String(kpiDescVal || '').trim(),
       "Key Performance Indicator": String(kpiDescVal || '').trim(),
-      "wt%": String(weightVal || '').trim(),
-      "%wt": String(weightVal || '').trim(),
-      "wt": String(weightVal || '').trim(),
-      "weight": String(weightVal || '').trim(),
+      "wt%": cleanWeightVal,
+      "%wt": cleanWeightVal,
+      "wt": cleanWeightVal,
+      "weight": cleanWeightVal,
       "baseline": String(baselineVal || '').trim(),
       "annual target": String(annualTargetVal || '').trim(),
       "annualTarget": String(annualTargetVal || '').trim(),

@@ -276,7 +276,7 @@ export function InternalAuditReviewIPMS({ currentUser, activeTenantId }: Props) 
       if (activeItem.length > 0) return activeItem;
     }
 
-    return plan.items.slice(0, 1);
+    return plan.items;
   }, [selectedPlan, activeKPIId, filterPushedKpiIds, showAllKpis]);
 
   const toggleSelectKpiForAudit = (id: string) => {

@@ -44,7 +44,8 @@ html {
 
 body {
   @apply font-sans antialiased;
-  background-color: #000000;
+  background-color: #090d16;
+  background-image: radial-gradient(circle at 50% 0%, rgba(15, 23, 42, 0.8) 0%, rgba(9, 13, 22, 1) 100%);
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

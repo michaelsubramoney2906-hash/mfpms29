@@ -2652,14 +2652,14 @@ async function startServer() {
     
     // Resilient fallback list of valid models in case of high demand (503/429) or endpoint availability
     const fallbackModels = [
-      "gemini-2.5-flash",
       "gemini-3.8-flash",
-      "gemini-3.1-flash-lite"
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest"
     ];
     
     // Ensure initial model is valid, prioritizing high speed, schema compliance and quality
     if (!params.model || !fallbackModels.includes(params.model)) {
-      params.model = "gemini-2.5-flash";
+      params.model = "gemini-3.8-flash";
     }
 
     while (attempt < maxRetries) {
@@ -2818,7 +2818,11 @@ async function startServer() {
 
         // Locate the end of Annexure A: Annexure B, PDP, Annexure C, or Certification signoff
         const annexureAEnd = rawFromAnnexureA.search(/(?:ANNEXURE\s*B\b|PERSONAL\s*DEVELOPMENT\s*PLAN|ANNEXURE\s*C\b|DISCLOSURE\s*OF\s*INTEREST|JOB\s*SPECIFIC\s*COMPETENC|CORE\s*COMPETENC|CCR\b|CMC\b|I\/We,\s*the\s*undersigned\s*hereby\s*certify)/i);
-        const annexureAText = annexureAEnd !== -1 ? rawFromAnnexureA.substring(0, annexureAEnd) : rawFromAnnexureA;
+        let annexureAText = annexureAEnd !== -1 ? rawFromAnnexureA.substring(0, annexureAEnd) : rawFromAnnexureA;
+
+        if (!annexureAText || annexureAText.trim().length < 500) {
+          annexureAText = raw;
+        }
 
         return { annexureAText };
       };
@@ -2956,19 +2960,31 @@ async function startServer() {
 
               if (isValidKpiNo && !isExcludedWord) {
                 let kpiNo = firstCell;
-                let kpiDesc = rawCells[1] || '';
+                let kpiDesc = '';
                 let weight = '';
                 let baseline = '';
                 let annualTarget = '';
-                let q1 = '';
-                let q2 = '';
-                let q3 = '';
-                let q4 = '';
+                let q1 = '', q2 = '', q3 = '', q4 = '';
                 let poe = '';
                 let budget = '';
 
-                if (rawCells.length >= 11) {
-                  weight = rawCells[2] || '';
+                // Check if rawCells[1] is a KPA name/banner
+                if (rawCells[1] && (/^KPA\b/i.test(rawCells[1]) || rawCells[1].toLowerCase().includes('performance area'))) {
+                  currentFunctionalKpa = rawCells[1].trim();
+                  kpiDesc = rawCells[2] || '';
+                  weight = rawCells[3] || '';
+                  baseline = rawCells[4] || '';
+                  annualTarget = rawCells[5] || '';
+                  q1 = rawCells[6] || '';
+                  q2 = rawCells[7] || '';
+                  q3 = rawCells[8] || '';
+                  q4 = rawCells[9] || '';
+                  poe = rawCells[10] || '';
+                  budget = rawCells[11] || '';
+                } else if (rawCells[1] && /^\d{1,2}(?:\.\d{1,2})?%?$/.test(rawCells[1].replace('%', '').trim()) && rawCells[2] && rawCells[2].length > 5) {
+                  // rawCells[1] is numeric weight, rawCells[2] is KPI description
+                  weight = rawCells[1];
+                  kpiDesc = rawCells[2];
                   baseline = rawCells[3] || '';
                   annualTarget = rawCells[4] || '';
                   q1 = rawCells[5] || '';
@@ -2977,37 +2993,50 @@ async function startServer() {
                   q4 = rawCells[8] || '';
                   poe = rawCells[9] || '';
                   budget = rawCells[10] || '';
-                } else if (rawCells.length === 10) {
-                  weight = rawCells[2] || '';
-                  baseline = rawCells[3] || '';
-                  annualTarget = rawCells[4] || '';
-                  q1 = rawCells[5] || '';
-                  q2 = rawCells[6] || '';
-                  q3 = rawCells[7] || '';
-                  q4 = rawCells[8] || '';
-                  poe = rawCells[9] || '';
-                } else if (rawCells.length === 9) {
-                  weight = rawCells[2] || '';
-                  baseline = rawCells[3] || '';
-                  annualTarget = rawCells[4] || '';
-                  q1 = rawCells[5] || '';
-                  q2 = rawCells[6] || '';
-                  q3 = rawCells[7] || '';
-                  q4 = rawCells[8] || '';
-                } else if (rawCells.length === 8) {
-                  weight = rawCells[2] || '';
-                  baseline = rawCells[3] || '';
-                  annualTarget = rawCells[4] || '';
-                  q1 = rawCells[5] || '';
-                  q2 = rawCells[6] || '';
-                  q3 = rawCells[7] || '';
-                } else if (rawCells.length === 6) {
-                  weight = rawCells[2] || '';
-                  baseline = rawCells[3] || '';
-                  annualTarget = rawCells[4] || '';
-                  poe = rawCells[5] || '';
-                } else if (rawCells.length === 3) {
-                  weight = rawCells[2] || '';
+                } else {
+                  kpiDesc = rawCells[1] || '';
+                  
+                  // Look for the short numeric weight cell among columns 2..4
+                  let weightIdx = -1;
+                  for (let c = 2; c < Math.min(rawCells.length, 5); c++) {
+                    const cTrim = (rawCells[c] || '').replace('%', '').trim();
+                    if (/^\d{1,2}(?:\.\d{1,2})?$/.test(cTrim)) {
+                      weightIdx = c;
+                      break;
+                    }
+                  }
+
+                  if (weightIdx !== -1) {
+                    weight = rawCells[weightIdx];
+                    let rIdx = weightIdx + 1;
+                    baseline = rawCells[rIdx++] || '';
+                    annualTarget = rawCells[rIdx++] || '';
+                    q1 = rawCells[rIdx++] || '';
+                    q2 = rawCells[rIdx++] || '';
+                    q3 = rawCells[rIdx++] || '';
+                    q4 = rawCells[rIdx++] || '';
+                    poe = rawCells[rIdx++] || '';
+                    budget = rawCells[rIdx++] || '';
+                  } else {
+                    weight = rawCells[2] || '';
+                    baseline = rawCells[3] || '';
+                    annualTarget = rawCells[4] || '';
+                    q1 = rawCells[5] || '';
+                    q2 = rawCells[6] || '';
+                    q3 = rawCells[7] || '';
+                    q4 = rawCells[8] || '';
+                    poe = rawCells[9] || '';
+                    budget = rawCells[10] || '';
+                  }
+                }
+
+                // ABSOLUTE PROTECTION: Weight MUST be a short number/percentage. If weight is long text, clear it and assign to kpiDesc if kpiDesc is short
+                let cleanWeight = weight.replace('%', '').trim();
+                if (cleanWeight.length > 8 || /[a-zA-Z]{3,}/.test(cleanWeight)) {
+                  if (!kpiDesc || kpiDesc.length < 5) {
+                    kpiDesc = weight;
+                  }
+                  cleanWeight = '';
                 }
 
                 // Only accept if description is genuine text and not a rating description
@@ -3016,7 +3045,7 @@ async function startServer() {
                   results.push({
                     "kpi no": kpiNo,
                     "kpi description": kpiDesc,
-                    "%wt": weight.replace('%', '').trim(),
+                    "%wt": cleanWeight,
                     "baseline": baseline,
                     "annual target": annualTarget,
                     "1st qtr target": q1,
@@ -3197,7 +3226,7 @@ CRITICAL VERBATIM 1:1 EXTRACTION RULES (WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-
 
           if (contents.length > 0) {
             const response = await generateContentWithRetry(ai, {
-              model: "gemini-3-flash-preview",
+              model: "gemini-3.8-flash",
               contents,
               config: {
                 systemInstruction,
@@ -3250,7 +3279,7 @@ CRITICAL VERBATIM 1:1 EXTRACTION RULES (WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-
                           budget: { type: Type.STRING, description: "Verbatim Budget allocation e.g. OPEX, R2 000 000" },
                           functionalKpa: { type: Type.STRING, description: "The verbatim parent Functional KPA title from the source, starting with 'KPA' (e.g. KPA 1: Technical Infrastructure Operations)" }
                         },
-                        required: ["kpiNo", "kpiDescription", "functionalKpa"]
+                        required: ["kpiDescription", "functionalKpa"]
                       }
                     }
                   },
@@ -3334,7 +3363,7 @@ CRITICAL VERBATIM 1:1 EXTRACTION RULES (WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-
 
       // Format and sanitize items strictly matching the exact schema keys with exhaustive alias resolution
       const items = (extractedArray || []).map((it: any, index: number) => {
-        const kpiDesc = it['kpi description'] ?? 
+        let kpiDesc = String(it['kpi description'] ?? 
           it.kpiDescription ?? 
           it['kpi_description'] ?? 
           it['Key Performance Indicators'] ?? 
@@ -3351,7 +3380,7 @@ CRITICAL VERBATIM 1:1 EXTRACTION RULES (WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-
           it.measure ?? 
           it.output ?? 
           it.performanceIndicator ?? 
-          '';
+          '').trim();
 
         const kpiNoVal = it['kpi no'] ?? 
           it.kpiNo ?? 
@@ -3371,7 +3400,15 @@ CRITICAL VERBATIM 1:1 EXTRACTION RULES (WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-
           it.no ?? 
           it.id ?? 
           '';
-        const rawWeight = String(it['wt%'] || it['%wt'] || it.wt || it.weighting || it.weight || '').trim();
+
+        let rawWeight = String(it['wt%'] || it['%wt'] || it.wt || it.weighting || it.weight || '').trim();
+        const weightClean = rawWeight.replace('%', '').trim();
+        if (weightClean.length > 8 || /[a-zA-Z]{3,}/.test(weightClean)) {
+          if (!kpiDesc || kpiDesc.length < 5) {
+            kpiDesc = rawWeight;
+          }
+          rawWeight = '';
+        }
 
         const rawFunctionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || it['functional area'] || it.departmentalKpa || 'Functional Performance Area').trim();
         const formattedFunctionalKpa = ensureKpaPrefix(rawFunctionalKpa);
@@ -3654,7 +3691,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
 
           if (contents.length > 0) {
             const response = await generateContentWithRetry(ai, {
-              model: "gemini-3-flash-preview",
+              model: "gemini-3.8-flash",
               contents,
               config: {
                 systemInstruction,
@@ -3682,7 +3719,7 @@ CRITICAL MAPPING & EXTRACTION RULES:
                           budget: { type: Type.STRING, description: "Total Budget allocated e.g. OPEX, CAPEX, R500" },
                           functionalKpa: { type: Type.STRING, description: "Parent Functional KPA e.g. KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION" }
                         },
-                        required: ["kpiNo", "kpiDescription", "functionalKpa"]
+                        required: ["kpiDescription", "functionalKpa"]
                       }
                     }
                   },
@@ -3719,8 +3756,16 @@ CRITICAL MAPPING & EXTRACTION RULES:
       // poe -> 1st qtr poe, 2nd qtr poe, 3rd qtr poe, 4th qtr poe
       const items = (extractedArray || []).map((it: any, index: number) => {
         const kpiNoVal = it.kpiNo ?? it['kpi ids'] ?? it['KPI IDs'] ?? it['KPI ID'] ?? it['kpi id'] ?? it['kpi no'] ?? it['KPI No'] ?? '';
-        const kpiDescVal = it.kpiDescription ?? it['key performance indicator'] ?? it['Key Performance Indicator'] ?? it['kpi description'] ?? '';
-        const wtVal = String(it['wt%'] || it.wt || it['%wt'] || it.weight || it.weighting || '').trim();
+        let kpiDescVal = String(it.kpiDescription ?? it['key performance indicator'] ?? it['Key Performance Indicator'] ?? it['kpi description'] ?? '').trim();
+        let wtVal = String(it['wt%'] || it.wt || it['%wt'] || it.weight || it.weighting || '').trim();
+
+        const wtClean = wtVal.replace('%', '').trim();
+        if (wtClean.length > 8 || /[a-zA-Z]{3,}/.test(wtClean)) {
+          if (!kpiDescVal || kpiDescVal.length < 5) {
+            kpiDescVal = wtVal;
+          }
+          wtVal = '';
+        }
         const poeVal = String(it.poe || it.POE || it['1st qtr poe'] || '').trim();
         const budgetVal = String(it.budget || it['total budget allocated'] || it['total budget'] || '').trim();
         const functionalKpa = String(it.functionalKpa || it['functional kpa'] || 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION').trim();
@@ -4213,7 +4258,7 @@ EXCLUSION RULES:
           }
 
           const response = await generateContentWithRetry(ai, {
-            model: "gemini-2.5-flash",
+            model: "gemini-3.8-flash",
             contents,
             config: {
               systemInstruction,
