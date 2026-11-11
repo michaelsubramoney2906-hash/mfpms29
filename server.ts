@@ -60,7 +60,8 @@ interface CacheEntry<T = any> {
 const memoryCache = new Map<string, CacheEntry>();
 const inFlightRequests = new Map<string, Promise<any>>();
 
-const MAX_MEMORY_CACHE_ENTRIES = 200;
+// Dedicated 8GB Memory Allocation - High-Concurrency In-Memory Micro-Cache
+const MAX_MEMORY_CACHE_ENTRIES = 5000;
 
 export function getCached<T>(key: string, ttlMs: number): T | null {
   const entry = memoryCache.get(key);

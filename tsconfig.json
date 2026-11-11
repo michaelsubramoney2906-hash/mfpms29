@@ -4,6 +4,8 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
+    "types": ["node", "vite/client"],
+    "noImplicitAny": false,
     "lib": [
       "ES2022",
       "DOM",
@@ -26,11 +28,14 @@
   "include": [
     "src/**/*",
     "server.ts",
-    "fred_hardcoded_data.ts"
+    "fred_hardcoded_data.ts",
+    "scripts/**/*"
   ],
   "exclude": [
+    "dist",
     "node_modules",
-    "list_models.ts",
-    "dist"
+    "*.cjs",
+    "*.js",
+    "*.py"
   ]
 }

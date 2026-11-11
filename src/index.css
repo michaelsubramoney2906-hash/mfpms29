@@ -80,31 +80,17 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-perspective: 1000;
 }
 
-/* Hide scrollbar for navigation and tight panels */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-.hide-scrollbar {
+/* Globally hide all scrollbars across all browsers and elements while keeping scrolling functional */
+* {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
 
-/* Smooth custom scrollbars for Chromium, Edge, and Firefox */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(113, 113, 122, 0.25);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 214, 91, 0.5);
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
 @media print {

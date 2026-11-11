@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-10T17:34:13.401Z",
+  "generatedAt": "2026-11-11T08:36:39.200Z",
   "supabaseOrigin": "https://skuuhpjbhiablxycsyco.supabase.co",
-  "durationMs": 2641,
-  "overallStatus": "PASSED",
+  "durationMs": 9187,
+  "overallStatus": "PASSED_WITH_WARNINGS",
   "summary": {
     "totalChecks": 6,
-    "passed": 6,
-    "warnings": 0,
+    "passed": 5,
+    "warnings": 1,
     "failed": 0
   },
   "checks": [
@@ -70,7 +70,7 @@
             "created_at"
           ]
         },
-        "introspectionLatencyMs": 136
+        "introspectionLatencyMs": 95
       },
       "details": "All 5 core production tables (azure_configs, audit_change_logs, messages, users, audit_logs) and column definitions match supabase_schema.json."
     },
@@ -93,26 +93,28 @@
       "status": "PASSED",
       "metrics": {
         "liveSupabaseUsers": 853,
-        "liveSupabaseMessages": 15482,
-        "liveSupabaseAuditChangeLogs": 1496951,
+        "liveSupabaseMessages": 15583,
+        "liveSupabaseAuditChangeLogs": 1527539,
         "nkangalaMasterRegistryOfficials": 197,
         "officialSdbipIndicators": 116,
         "localSnapshotPresent": true
       },
-      "details": "Verified 853 live users, 15482 state messages, 1496951 audit logs, 197 Nkangala Master Registry officials, and all 116 verbatim SDBIP indicators with zero data loss."
+      "details": "Verified 853 live users, 15583 state messages, 1527539 audit logs, 197 Nkangala Master Registry officials, and all 116 verbatim SDBIP indicators with zero data loss."
     },
     {
       "checkId": "ZCC-001",
       "category": "ZERO_CROSS_CONTAMINATION",
       "title": "Tenant & Official Record Isolation Audit (Zero Cross-Contamination)",
-      "status": "PASSED",
+      "status": "WARNING",
       "metrics": {
         "corruptedNestedKeyCount": 0,
-        "inspectedTenant229PPlans": 213,
-        "crossContaminatedRecords": 0,
-        "crossContaminationSamples": []
+        "inspectedTenant229PPlans": 215,
+        "crossContaminatedRecords": 1,
+        "crossContaminationSamples": [
+          "pplan_tenant-229_mtsweniwm@nkangaladm.gov.za (metadata.email=mtshweniwm@nkangaladm.gov.za)"
+        ]
       },
-      "details": "Audited 213 active PPlan records and verified zero corrupted nested keys and 0 cross-contaminated records."
+      "details": "Audited 215 active PPlan records and verified zero corrupted nested keys and 1 cross-contaminated records."
     },
     {
       "checkId": "REL-001",
@@ -136,11 +138,11 @@
       "title": "High-Speed Indexed Point-Lookup & Coalesced Cache Readiness",
       "status": "PASSED",
       "metrics": {
-        "pointLookupLatencyMs": 58,
+        "pointLookupLatencyMs": 54,
         "municipalitiesRecordFound": true,
-        "totalValidationDurationMs": 2641
+        "totalValidationDurationMs": 9186
       },
-      "details": "Point-lookup on primary key 'municipalities_list' completed in 58ms with single-flight request coalescing and in-memory micro-cache enabled."
+      "details": "Point-lookup on primary key 'municipalities_list' completed in 54ms with single-flight request coalescing and in-memory micro-cache enabled."
     }
   ]
 }
