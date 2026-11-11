@@ -2,17 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-    <meta name="description" content="An application built with Google AI Studio." />
-    <meta property="og:title" content="My Google AI Studio App" />
-    <meta property="og:description" content="An application built with Google AI Studio." />
+    <script>
+      (function() {
+        function isViteWsError(err) {
+          if (!err) return false;
+          var msg = (typeof err === 'string' ? err : (err.message || err.toString() || ''));
+          var stack = (err && err.stack) || '';
+          return msg.indexOf('WebSocket') !== -1 || stack.indexOf('@vite/client') !== -1 || msg.indexOf('vite:ws') !== -1 || stack.indexOf('createWebSocketModuleRunnerTransport') !== -1;
+        }
+        window.addEventListener('unhandledrejection', function(e) {
+          if (isViteWsError(e.reason)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+        window.addEventListener('error', function(e) {
+          if (isViteWsError(e.error) || (e.message && isViteWsError(e.message))) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="theme-color" content="#15803d" />
+    <meta name="color-scheme" content="light dark" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta http-equiv="Surrogate-Control" content="no-store" />
+    <title>Mzansi Flow PMS System</title>
+    <meta name="description" content="Mzansi Flow PMS System - A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
+    <meta property="og:title" content="Mzansi Flow PMS System" />
+    <meta property="og:description" content="Mzansi Flow PMS System - A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
     <meta property="og:type" content="website" />
+    <meta name="twitter:title" content="Mzansi Flow PMS System" />
+    <meta name="twitter:description" content="Mzansi Flow PMS System - A multi-tenant performance management system for South African municipalities with IPMS, Organogram, and SDBIP." />
     <meta name="twitter:card" content="summary_large_image" />
+    
+    <!-- Cross-Browser High-Performance Resource Preconnects -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" />
   </head>
   <body>
     <div id="root"></div>
+    <script src="/lib/q.js" charset="UTF-8" defer onerror="console.warn('Optional Q.js library could not be loaded from static lib path')"></script>
+    <script src="/lib/wgssStuSdk.js" charset="UTF-8" defer onerror="console.warn('Optional Wacom STU SDK could not be loaded from static lib path')"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

@@ -3095,29 +3095,28 @@ async function startServer() {
         return { items: results, kpas: Array.from(extractedKpasMap.values()) };
       };
 
-      const systemInstruction = `You are a dedicated, 100% deterministic, zero-hallucination extraction engine for South African municipal INDIVIDUAL PERFORMANCE PLANS in Performance Agreements.
+      const systemInstruction = `You are a dedicated 100% deterministic VERBATIM EXTRACTION ENGINE for South African Municipal Performance Agreements and Individual Performance Plans.
+Your task is to extract ALL Key Performance Indicators (KPIs) from ANNEXURE A (PERFORMANCE PLAN) tables with 100% 1:1 verbatim accuracy.
 
-CRITICAL ZERO-HALLUCINATION & 1:1 FIDELITY RULES:
-1. ANNEXURE A (PERFORMANCE PLAN) IS THE ONLY PART OF THE DOCUMENT TO BE EXTRACTED.
-2. The source agreement contains legal clauses (1 to 13), 5-point rating scales (1=Unacceptable to 5=Outstanding), Section 7 review dates, Annexure B Personal Development Plan (PDP), Annexure C Disclosures, and Job Specific Competencies (JSC / CMC).
-3. DO NOT extract ANY legal clauses, rating criteria, PDP items, or competencies.
-4. ONLY extract the exact KPI rows from the scorecard table in "ANNEXURE A - PERFORMANCE PLAN".
-5. If the Annexure A table has exactly N rows, you MUST return EXACTLY N items. ZERO dreaming, ZERO inventing, ZERO additions, ZERO omissions.
-6. Extract verbatim text for every cell. If a cell contains "N/A" (or "n/a"), output "N/A" verbatim.
-
-DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
-1. functional KPA -> Parent Functional KPA (from Annexure A table banner or column, e.g. "KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION")
-2. KPI number -> Exact KPI Number (e.g. "M_21", "1", "2", "3", "1.1", "BSD-01")
-3. key performance indicator -> Verbatim description/output of the Key Performance Indicator
-4. weight -> % Weighting number (e.g. "9", "5", "10", "20")
-5. baseline -> Verbatim Baseline (e.g. "1 (Unqualified with matters)", "100%", "4", "N/A")
-6. annual target -> Verbatim Planned Annual Target (e.g. "1 (Clean audit)", "100%", "N/A")
-7. 1st quarter planned target -> Verbatim 1st Quarter Planned Target (e.g. "N/A", "1", "100%")
-8. 2nd quarter planned target -> Verbatim 2nd Quarter Planned Target (e.g. "1 (Clean audit)", "N/A", "100%")
-9. 3rd quarter planned target -> Verbatim 3rd Quarter Planned Target (e.g. "N/A", "1", "100%")
-10. 4th quarter planned target -> Verbatim 4th Quarter Planned Target (e.g. "N/A", "1", "100%")
-11. poe -> Verbatim Portfolio of Evidence (POE) description / Means of verification
-12. total budget allocated R'000 -> Verbatim Total Budget Allocated (e.g. "OPEX", "R 5 380", "450 000")`;
+CRITICAL VERBATIM 1:1 EXTRACTION RULES (WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-FOR-DIGIT, SYMBOL-FOR-SYMBOL):
+1. Extract EVERY SINGLE ROW in ANNEXURE A (PERFORMANCE PLAN).
+2. KPI IDs e.g. "M_01", "M_02", "M_14", "M_88", "P_01", "P_02", "P_10", "1", "2" MUST be extracted verbatim as kpiNo.
+3. IF A ROW HAS NO KPI ID IN THE SOURCE DOCUMENT (i.e. the KPI ID column is blank), DO NOT MAKE UP OR HALLUCINATE A FAKE ID. Set kpiNo to "" (empty string).
+4. Extract all text, numbers, symbols, brackets, commas, punctuation, currency symbols (e.g. R'000, R0,00, R2 000, 4000m², ≤10%, (circular 88), (GKPI)) WORD-FOR-WORD, LETTER-FOR-LETTER, DIGIT-FOR-DIGIT, AND SYMBOL-FOR-SYMBOL exactly as written in the source agreement document.
+5. Do NOT alter, summarize, paraphrase, clean, reformat, or abbreviate any text or values.
+6. MAPPING GUIDELINES:
+   - KPI IDs -> kpiNo (e.g. "M_01", "M_15", "P_03" or "")
+   - Key Performance Indicator / KPI -> kpiDescription (verbatim text word-for-word including brackets e.g. "(circular 88)", "(GKPI)")
+   - Weight -> weight (verbatim number e.g. "1", "0,5", "0.5", "100%")
+   - Baseline -> baseline (verbatim text e.g. "7%", "93%", "96%", "R0", "R0,00 (not above R0,00)", "New")
+   - Annual Target -> annualTarget (verbatim text e.g. "≤10%", "93%", "90%", "100%", "1 (Clean audit)")
+   - 1st Quarter Planned Target -> q1Target (verbatim text e.g. "≤10%", "93%", "N/A", "100%", "1000m²")
+   - 2nd Quarter Planned Target -> q2Target (verbatim text e.g. "≤10%", "93%", "N/A", "100%", "1 (Clean audit)")
+   - 3rd Quarter Planned Target -> q3Target (verbatim text e.g. "≤10%", "93%", "N/A", "100%", "1")
+   - 4th Quarter Planned Target -> q4Target (verbatim text e.g. "≤10%", "93%", "90%", "100%", "132")
+   - Portfolio of Evidence / POE -> poe (verbatim description word-for-word, letter-for-letter, digit-for-digit)
+   - Total Budget Allocated R'000 -> budget (verbatim text e.g. "OPEX", "CAPEX", "R 2 000", "R261 619 047", "R1 413 328")
+   - Functional KPA -> functionalKpa (verbatim title banner e.g. "KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION")`;
 
       let extractedArray: any[] = [];
       let extractedKpas: any[] = [];
@@ -3356,6 +3355,11 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 
         const kpiNoVal = it['kpi no'] ?? 
           it.kpiNo ?? 
+          it['KPI IDs'] ?? 
+          it['kpi ids'] ?? 
+          it['KPI ID'] ?? 
+          it['kpi id'] ?? 
+          it['KPI No'] ?? 
           it['kpi_no'] ?? 
           it['KPI number'] ?? 
           it['kpi number'] ?? 
@@ -3366,9 +3370,8 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
           it.ref ?? 
           it.no ?? 
           it.id ?? 
-          `KPI-${index + 1}`;
-        const rawWeight = String(it['%wt'] || it.weighting || it.weight || '').replace('%', '').trim();
-        const cleanWeightVal = isNaN(parseFloat(rawWeight)) ? '' : String(parseFloat(rawWeight));
+          '';
+        const rawWeight = String(it['wt%'] || it['%wt'] || it.wt || it.weighting || it.weight || '').trim();
 
         const rawFunctionalKpa = String(it['functional kpa'] || it.functionalKpa || it.kpa || it['functional area'] || it.departmentalKpa || 'Functional Performance Area').trim();
         const formattedFunctionalKpa = ensureKpaPrefix(rawFunctionalKpa);
@@ -3429,16 +3432,33 @@ DATA TO EXTRACT FOR EVERY KPI ROW IN ANNEXURE A:
 
         return {
           "kpi no": String(kpiNoVal).trim(),
+          "kpiNo": String(kpiNoVal).trim(),
+          "KPI No": String(kpiNoVal).trim(),
           "kpi description": String(kpiDesc).trim(),
-          "%wt": cleanWeightVal,
+          "kpiDescription": String(kpiDesc).trim(),
+          "Key Performance Indicator": String(kpiDesc).trim(),
+          "wt%": rawWeight,
+          "%wt": rawWeight,
+          "wt": rawWeight,
+          "weight": rawWeight,
           "baseline": String(baselineVal).trim(),
           "annual target": String(annualTargetVal).trim(),
+          "annualTarget": String(annualTargetVal).trim(),
           "1st qtr target": String(q1Val).trim(),
           "2nd qtr target": String(q2Val).trim(),
           "3rd qtr target": String(q3Val).trim(),
           "4th qtr target": String(q4Val).trim(),
+          "q1Target": String(q1Val).trim(),
+          "q2Target": String(q2Val).trim(),
+          "q3Target": String(q3Val).trim(),
+          "q4Target": String(q4Val).trim(),
+          "1st qtr poe": String(poeVal).trim(),
+          "2nd qtr poe": String(poeVal).trim(),
+          "3rd qtr poe": String(poeVal).trim(),
+          "4th qtr poe": String(poeVal).trim(),
           "poe": String(poeVal).trim(),
           "budget": String(budgetVal).trim(),
+          "total budget allocated": String(budgetVal).trim(),
           "functional kpa": formattedFunctionalKpa,
           "national kpa": resolvedNatKpa,
           "kpa": formattedFunctionalKpa,
@@ -3698,29 +3718,42 @@ CRITICAL MAPPING & EXTRACTION RULES:
       // q4 -> 4th qtr target
       // poe -> 1st qtr poe, 2nd qtr poe, 3rd qtr poe, 4th qtr poe
       const items = (extractedArray || []).map((it: any, index: number) => {
-        const kpiNoVal = it.kpiNo || it['kpi ids'] || it['KPI IDs'] || it['kpi no'] || `M_${index + 1}`;
-        const kpiDescVal = it.kpiDescription || it['key performance indicator'] || it['kpi description'] || '';
-        const wtVal = String(it.wt || it['%wt'] || it.weight || '').replace('%', '').trim();
-        const poeVal = String(it.poe || it.POE || '').trim();
+        const kpiNoVal = it.kpiNo ?? it['kpi ids'] ?? it['KPI IDs'] ?? it['KPI ID'] ?? it['kpi id'] ?? it['kpi no'] ?? it['KPI No'] ?? '';
+        const kpiDescVal = it.kpiDescription ?? it['key performance indicator'] ?? it['Key Performance Indicator'] ?? it['kpi description'] ?? '';
+        const wtVal = String(it['wt%'] || it.wt || it['%wt'] || it.weight || it.weighting || '').trim();
+        const poeVal = String(it.poe || it.POE || it['1st qtr poe'] || '').trim();
+        const budgetVal = String(it.budget || it['total budget allocated'] || it['total budget'] || '').trim();
         const functionalKpa = String(it.functionalKpa || it['functional kpa'] || 'KPA 1: INSTITUTIONAL DEVELOPMENT AND TRANSFORMATION').trim();
 
         return {
           "kpi no": String(kpiNoVal).trim(),
+          "kpiNo": String(kpiNoVal).trim(),
+          "KPI No": String(kpiNoVal).trim(),
           "kpi description": String(kpiDescVal).trim(),
-          "wt": wtVal,
+          "kpiDescription": String(kpiDescVal).trim(),
+          "Key Performance Indicator": String(kpiDescVal).trim(),
+          "wt%": wtVal,
           "%wt": wtVal,
+          "wt": wtVal,
+          "weight": wtVal,
           "baseline": String(it.baseline ?? '').trim(),
           "annual target": String(it.annualTarget ?? it['annual target'] ?? it.annual ?? '').trim(),
+          "annualTarget": String(it.annualTarget ?? it['annual target'] ?? it.annual ?? '').trim(),
           "1st qtr target": String(it.q1Target ?? it['1st qtr target'] ?? it.q1 ?? '').trim(),
           "2nd qtr target": String(it.q2Target ?? it['2nd qtr target'] ?? it.q2 ?? '').trim(),
           "3rd qtr target": String(it.q3Target ?? it['3rd qtr target'] ?? it.q3 ?? '').trim(),
           "4th qtr target": String(it.q4Target ?? it['4th qtr target'] ?? it.q4 ?? '').trim(),
+          "q1Target": String(it.q1Target ?? it['1st qtr target'] ?? it.q1 ?? '').trim(),
+          "q2Target": String(it.q2Target ?? it['2nd qtr target'] ?? it.q2 ?? '').trim(),
+          "q3Target": String(it.q3Target ?? it['3rd qtr target'] ?? it.q3 ?? '').trim(),
+          "q4Target": String(it.q4Target ?? it['4th qtr target'] ?? it.q4 ?? '').trim(),
           "1st qtr poe": poeVal,
           "2nd qtr poe": poeVal,
           "3rd qtr poe": poeVal,
           "4th qtr poe": poeVal,
           "poe": poeVal,
-          "budget": String(it.budget ?? it['total budget'] ?? '').trim(),
+          "budget": budgetVal,
+          "total budget allocated": budgetVal,
           "functional kpa": functionalKpa,
           "kpa": functionalKpa
         };
@@ -26074,9 +26107,32 @@ User Request: ${prompt}`;
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false },
-      appType: "spa",
+      appType: "custom",
     });
     app.use(vite.middlewares);
+
+    // Explicit SPA fallback serving transformed index.html in development
+    app.use('*', async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      if (req.originalUrl.startsWith('/api/') || req.originalUrl.startsWith('/socket.io/')) {
+        return next();
+      }
+      try {
+        const url = req.originalUrl;
+        const indexPath = path.join(process.cwd(), 'index.html');
+        if (!fs.existsSync(indexPath)) {
+          return res.status(404).send('index.html not found');
+        }
+        let template = fs.readFileSync(indexPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.status(200).set({ 'Content-Type': 'text/html; charset=utf-8' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     

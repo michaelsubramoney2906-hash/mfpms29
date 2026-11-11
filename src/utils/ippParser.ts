@@ -57,6 +57,25 @@ export interface ExtractedMappedKPI {
   "kpa": string;
   kpaType?: 'functional' | 'national';
 
+  // Verbatim alias properties
+  kpiNo?: string;
+  "KPI No"?: string;
+  kpiDescription?: string;
+  "Key Performance Indicator"?: string;
+  "wt%"?: string;
+  wt?: string;
+  weight?: string;
+  annualTarget?: string;
+  q1Target?: string;
+  q2Target?: string;
+  q3Target?: string;
+  q4Target?: string;
+  "1st qtr poe"?: string;
+  "2nd qtr poe"?: string;
+  "3rd qtr poe"?: string;
+  "4th qtr poe"?: string;
+  "total budget allocated"?: string;
+
   // Internal UI tracking
   _id?: string;
   _selected?: boolean;
@@ -262,26 +281,44 @@ export async function callServerAiIPPExtraction(params: {
         it['kpi_no'] ?? 
         it['KPI number'] ?? 
         it['kpi number'] ?? 
+        it['KPI Number'] ?? 
         it.refNo ?? 
         it.refNum ?? 
         it.ref ?? 
         it.no ?? 
         it.id ?? 
-        `KPI-${idx + 1}`;
+        '';
+      const wtVal = String(it['wt%'] || it['%wt'] || it.wt || it.weight || it.weighting || '').trim();
+      const poeVal = String(it['1st qtr poe'] || it.poe || it.POE || '').trim();
+      const budgetVal = String(it.budget || it['total budget allocated'] || it['total budget'] || '').trim();
+
       return {
         _id: `ipp-ext-${Date.now()}-${idx + 1}`,
         _selected: true,
         "kpi no": String(kpiNo).trim(),
+        "kpiNo": String(kpiNo).trim(),
+        "KPI No": String(kpiNo).trim(),
         "kpi description": String(kpiDescription).trim(),
-        "%wt": normalizeWeight(it['%wt']),
+        "kpiDescription": String(kpiDescription).trim(),
+        "Key Performance Indicator": String(kpiDescription).trim(),
+        "wt%": wtVal,
+        "%wt": wtVal,
+        "wt": wtVal,
+        "weight": wtVal,
         "baseline": String(it.baseline ?? '').trim(),
-        "annual target": String(it['annual target'] ?? '').trim(),
-        "1st qtr target": String(it['1st qtr target'] ?? '').trim(),
-        "2nd qtr target": String(it['2nd qtr target'] ?? '').trim(),
-        "3rd qtr target": String(it['3rd qtr target'] ?? '').trim(),
-        "4th qtr target": String(it['4th qtr target'] ?? '').trim(),
-        "poe": String(it.poe ?? '').trim(),
-        "budget": String(it.budget ?? '').trim(),
+        "annual target": String(it['annual target'] ?? it.annualTarget ?? '').trim(),
+        "annualTarget": String(it['annual target'] ?? it.annualTarget ?? '').trim(),
+        "1st qtr target": String(it['1st qtr target'] ?? it.q1Target ?? '').trim(),
+        "2nd qtr target": String(it['2nd qtr target'] ?? it.q2Target ?? '').trim(),
+        "3rd qtr target": String(it['3rd qtr target'] ?? it.q3Target ?? '').trim(),
+        "4th qtr target": String(it['4th qtr target'] ?? it.q4Target ?? '').trim(),
+        "1st qtr poe": String(it['1st qtr poe'] ?? poeVal).trim(),
+        "2nd qtr poe": String(it['2nd qtr poe'] ?? poeVal).trim(),
+        "3rd qtr poe": String(it['3rd qtr poe'] ?? poeVal).trim(),
+        "4th qtr poe": String(it['4th qtr poe'] ?? poeVal).trim(),
+        "poe": poeVal,
+        "budget": budgetVal,
+        "total budget allocated": budgetVal,
         "functional kpa": functionalKpa,
         "kpa": functionalKpa
       };
