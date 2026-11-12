@@ -6,10 +6,12 @@
   "department": "Technical Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Sanele Nkosi",
   "directorate": "Technical",
   "reportTo": "Sanele Nkosi",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_4b1e03de-c953-415d-a3f8-e6d88c9c34a9_1789117892664.png",
+  "managerEmail": "nkosis@nkangaladm.gov.za"
 }

@@ -10,6 +10,8 @@
   "manager": "Mandla L. Mahlangu",
   "directorate": "",
   "reportTo": "Mandla L. Mahlangu",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

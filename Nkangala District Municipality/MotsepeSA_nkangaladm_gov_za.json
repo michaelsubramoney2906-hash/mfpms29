@@ -10,6 +10,8 @@
   "manager": "Thapelo F. Mnguni",
   "directorate": "Community Services",
   "reportTo": "Thapelo F. Mnguni",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

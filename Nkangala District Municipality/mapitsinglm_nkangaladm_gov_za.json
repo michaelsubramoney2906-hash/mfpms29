@@ -10,6 +10,8 @@
   "manager": "Monantsi Mapitsing",
   "directorate": "Community Services",
   "reportTo": "Monantsi Mapitsing",
-  "managerEmail": "",
-  "level": "8"
+  "level": "8",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

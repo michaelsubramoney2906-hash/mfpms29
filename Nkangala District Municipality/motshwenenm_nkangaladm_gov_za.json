@@ -6,10 +6,12 @@
   "department": "Corporate Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Mmaphiri R. Rampedi",
   "directorate": "Corporate",
   "reportTo": "Mmaphiri R. Rampedi",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_ff8907b4-995c-4b0f-9532-1eeff30c360a_1790168982482.png",
+  "managerEmail": ""
 }

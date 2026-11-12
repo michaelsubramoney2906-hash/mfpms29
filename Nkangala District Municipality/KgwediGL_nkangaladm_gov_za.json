@@ -6,10 +6,12 @@
   "department": "Corporate Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Tlakale E. Mangwege",
   "directorate": "Corporate",
   "reportTo": "Tlakale E. Mangwege",
-  "managerEmail": "",
-  "level": "8"
+  "level": "8",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_e9d459da-896a-46c2-a153-1e4389e40818_1788872173028.png",
+  "managerEmail": ""
 }

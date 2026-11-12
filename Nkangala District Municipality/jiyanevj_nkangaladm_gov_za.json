@@ -5,11 +5,13 @@
   "jobFunction": "Committee Clerk",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Beauty Mtshali",
   "directorate": "Corporate",
   "reportTo": "Beauty Mtshali",
-  "managerEmail": "",
-  "level": "8"
+  "level": "8",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a1dc53b3-0e4b-4b18-8066-714937ff081f_1788875831184.png",
+  "managerEmail": ""
 }

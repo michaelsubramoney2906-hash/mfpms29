@@ -6,10 +6,12 @@
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
-  "manager": "Edwin Mametja",
+  "tenantId": "tenant-229",
+  "manager": "Thandiwe M. Lengwate (Acting GM: CDS)",
   "directorate": "Community Services",
-  "reportTo": "Edwin Mametja",
-  "managerEmail": "",
-  "level": "4"
+  "reportTo": "Thandiwe M. Lengwate (Acting GM: CDS)",
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a2a0c546-52f9-4d9f-b3df-29baa47e7295_1790169065894.png",
+  "managerEmail": ""
 }

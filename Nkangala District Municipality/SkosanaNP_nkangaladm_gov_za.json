@@ -7,9 +7,11 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Mapula P. Mputle",
+  "manager": "Lucas Masanabo",
   "directorate": "Community Services",
-  "reportTo": "Mapula P. Mputle",
-  "managerEmail": "",
-  "level": "9"
+  "reportTo": "Lucas Masanabo",
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

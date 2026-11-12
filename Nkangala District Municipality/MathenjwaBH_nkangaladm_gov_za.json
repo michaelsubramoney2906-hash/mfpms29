@@ -5,11 +5,13 @@
   "jobFunction": "Environmental Health Practitioner",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Marianne Joubert",
   "directorate": "Community Services",
   "reportTo": "Marianne Joubert",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a3524308-fc00-4e5b-8dea-e1b2c851557f_1790597073758.png",
+  "managerEmail": ""
 }

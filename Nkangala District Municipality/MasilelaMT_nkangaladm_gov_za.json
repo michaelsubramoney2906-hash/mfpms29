@@ -10,6 +10,8 @@
   "manager": "Phaswana K. Madihlaba",
   "directorate": "",
   "reportTo": "Phaswana K. Madihlaba",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a1c959e8-01e8-488f-a55f-e89a6d831f7c_1789544109701.png",
+  "managerEmail": ""
 }

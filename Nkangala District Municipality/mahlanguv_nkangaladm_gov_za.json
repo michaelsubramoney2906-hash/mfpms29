@@ -10,6 +10,8 @@
   "manager": "Susan Silinda",
   "directorate": "Corporate",
   "reportTo": "Susan Silinda",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_45f776e9-df36-4cc5-8176-50231ffb7f09_1789118139254.png",
+  "managerEmail": ""
 }

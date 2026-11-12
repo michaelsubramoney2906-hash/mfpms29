@@ -10,6 +10,8 @@
   "manager": "Virginia Mahlangu",
   "directorate": "Corporate Services",
   "reportTo": "Virginia Mahlangu",
-  "managerEmail": "",
-  "level": "11"
+  "level": "11",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_ae55a23b-f0f2-4311-8576-b8b81938b655_1790879982465.png",
+  "managerEmail": ""
 }

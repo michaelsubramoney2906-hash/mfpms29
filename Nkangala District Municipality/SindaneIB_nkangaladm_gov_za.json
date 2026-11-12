@@ -5,11 +5,13 @@
   "jobFunction": "Environmental Compliance, Monitoring & Enforcement Officer",
   "department": "Planning and Economic Development",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "tenant_user",
   "tenantId": "nkangala_auto",
   "manager": "Nompumelelo Simelane",
   "directorate": "Community Services",
   "reportTo": "Nompumelelo Simelane",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_dce6670f-2c3b-42b9-bf3b-2e4c217d9f58_1789117825454.png",
+  "managerEmail": ""
 }

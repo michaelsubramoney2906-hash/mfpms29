@@ -5,11 +5,13 @@
   "jobFunction": "Admin Officer Secretariat",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Thandiwe Mazwi",
   "directorate": "Corporate",
   "reportTo": "Thandiwe Mazwi",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_c170eafa-32a1-4bb7-93ef-e0959618eca6_1788875770222.png",
+  "managerEmail": ""
 }

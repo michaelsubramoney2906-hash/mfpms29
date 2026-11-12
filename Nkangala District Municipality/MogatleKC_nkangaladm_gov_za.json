@@ -10,6 +10,8 @@
   "manager": "Thuly Kutama",
   "directorate": "Community Services",
   "reportTo": "Thuly Kutama",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

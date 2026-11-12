@@ -10,6 +10,8 @@
   "manager": "Solly Links",
   "directorate": "Community Services",
   "reportTo": "Solly Links",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_5d01ac88-4f7f-4e88-8583-6e76b0b4c12a_1790599970320.png",
+  "managerEmail": ""
 }

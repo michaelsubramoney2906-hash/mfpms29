@@ -10,6 +10,8 @@
   "manager": "TC Mazwi",
   "directorate": "",
   "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

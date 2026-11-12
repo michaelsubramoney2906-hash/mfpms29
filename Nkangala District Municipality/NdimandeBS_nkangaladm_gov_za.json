@@ -7,9 +7,11 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Tlakale E. Mangwege",
   "directorate": "",
-  "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "reportTo": "Tlakale E. Mangwege",
+  "level": "8",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_72c4bd26-b058-48c9-9dac-09242bbf8ab2_1789118161256.png",
+  "managerEmail": ""
 }

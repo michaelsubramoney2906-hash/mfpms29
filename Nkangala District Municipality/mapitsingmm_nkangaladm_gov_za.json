@@ -5,11 +5,13 @@
   "jobFunction": "Chief Fire Officer",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
+  "role": "Manager",
   "tenantId": "nkangala_auto",
-  "manager": "Vusi Mahlangu",
+  "manager": "Thandiwe M. Lengwate (Acting GM: CDS)",
   "directorate": "Community Services",
-  "reportTo": "Vusi Mahlangu",
-  "managerEmail": "",
-  "level": "3"
+  "reportTo": "Thandiwe M. Lengwate (Acting GM: CDS)",
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

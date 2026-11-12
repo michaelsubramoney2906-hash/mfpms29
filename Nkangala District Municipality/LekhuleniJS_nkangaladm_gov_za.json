@@ -10,6 +10,8 @@
   "manager": "Yolanda Segami",
   "directorate": "",
   "reportTo": "Yolanda Segami",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

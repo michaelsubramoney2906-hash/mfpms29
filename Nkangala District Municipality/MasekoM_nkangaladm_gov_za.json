@@ -5,11 +5,13 @@
   "jobFunction": "Secretary to Council Whip",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Meshack S. Dimpe",
   "directorate": "Corporate",
   "reportTo": "Meshack S. Dimpe",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_ac54fa94-00d8-4e44-9dc7-3d0bcae4d75a_1789995125075.png",
+  "managerEmail": ""
 }

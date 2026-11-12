@@ -6,10 +6,12 @@
   "department": "Corporate Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Nkululeko Motshwene",
   "directorate": "Corporate",
   "reportTo": "Nkululeko Motshwene",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_e08dfaaf-0037-48c5-8bf3-d023751ce1e6_1789036711129.png",
+  "managerEmail": ""
 }

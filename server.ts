@@ -9633,7 +9633,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (userEmail.includes('shabangusm') || userEmail.includes('shabangugm')) {
         resolvedManagerEmail = 'mahlanguml@nkangaladm.gov.za';
       } else if (!resolvedManagerEmail && managerName) {
-        if (managerName.includes('nkosi') || managerName.includes('elmon')) {
+        if (managerName.includes('jackson') || (managerName.includes('skosana') && !managerName.includes('headman') && !managerName.includes('siphiwe'))) {
+          resolvedManagerEmail = 'skosanaj@nkangaladm.gov.za';
+        } else if (managerName.includes('headman')) {
+          resolvedManagerEmail = 'skosanah@nkangaladm.gov.za';
+        } else if (managerName.includes('mazwi') || managerName.includes('thandiwe')) {
+          resolvedManagerEmail = 'mazwitc@nkangaladm.gov.za';
+        } else if (managerName.includes('nkosi') || managerName.includes('elmon')) {
           resolvedManagerEmail = 'nkosije@nkangaladm.gov.za';
         } else if (managerName.includes('khuboni') || managerName.includes('yena')) {
           resolvedManagerEmail = 'khuboniy@nkangaladm.gov.za';
@@ -9646,24 +9652,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
 
-      // 1. Sync PPLAN messages for user
-      const pplanKeys = [
-        `pplan_nkangala_auto_${userEmail}`,
-        `pplan_tenant-229_${userEmail}`,
-        `pplan_nkangala_${userEmail}`,
-        `pplan_global_${userEmail}`
-      ];
-
-      for (const key of pplanKeys) {
-        const { data: pplanMsg } = await supabase
-          .from('messages')
-          .select('content, tenant_id')
-          .eq('id', key)
-          .maybeSingle();
-
-        if (pplanMsg && pplanMsg.content) {
+      // 1. Update in-memory pplanCache immediately so subsequent reads reflect changes instantly
+      for (const [cKey, cached] of pplanCache.entries()) {
+        if (cKey.toLowerCase().includes(userEmail)) {
           try {
-            const parsed = JSON.parse(pplanMsg.content);
+            const parsed = JSON.parse(cached.raw);
             if (parsed) {
               if (!parsed.metadata) parsed.metadata = {};
               if (user.fullName) parsed.metadata.name = user.fullName;
@@ -9678,23 +9671,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               if (user.reportTo || user.manager) parsed.metadata.reportTo = user.reportTo || user.manager;
               if (resolvedManagerEmail) parsed.metadata.managerEmail = resolvedManagerEmail;
               if (user.level) parsed.metadata.level = user.level;
-
-              await supabase.from('messages').upsert({
-                id: key,
-                tenant_id: pplanMsg.tenant_id || 'nkangala_auto',
-                sender_id: 'pplan_profile_sync',
-                sender_email: userEmail,
-                sender_name: user.fullName || userEmail,
-                content: JSON.stringify(parsed),
-                message_type: 'pplan_list',
-                created_at: new Date().toISOString()
-              });
+              pplanCache.set(cKey, { raw: JSON.stringify(parsed), timestamp: Date.now() });
             }
-          } catch (err) {}
+          } catch (e) {
+            pplanCache.delete(cKey);
+          }
         }
       }
 
-      // 2. Sync PA templates and drafting suite documents
+      // 2. Batch fetch PPLAN and PA messages in one query
+      const pplanKeys = [
+        `pplan_nkangala_auto_${userEmail}`,
+        `pplan_tenant-229_${userEmail}`,
+        `pplan_nkangala_${userEmail}`,
+        `pplan_global_${userEmail}`
+      ];
       const paKeys = [
         `pa_templates_tenant-229_${userEmail}`,
         `pa_templates_nkangala_auto_${userEmail}`,
@@ -9704,17 +9695,47 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         `draft_doc_global_${userEmail}`
       ];
 
-      for (const key of paKeys) {
-        const { data: paMsg } = await supabase
-          .from('messages')
-          .select('content, tenant_id, message_type')
-          .eq('id', key)
-          .maybeSingle();
+      const { data: existingMsgs } = await supabase
+        .from('messages')
+        .select('id, content, tenant_id, message_type')
+        .in('id', [...pplanKeys, ...paKeys]);
 
-        if (paMsg && paMsg.content) {
+      if (existingMsgs && existingMsgs.length > 0) {
+        const upserts: any[] = [];
+        const nowIso = new Date().toISOString();
+
+        for (const msg of existingMsgs) {
+          if (!msg.content) continue;
           try {
-            const parsed = JSON.parse(paMsg.content);
-            if (parsed) {
+            const parsed = JSON.parse(msg.content);
+            if (!parsed) continue;
+
+            if (pplanKeys.includes(msg.id)) {
+              if (!parsed.metadata) parsed.metadata = {};
+              if (user.fullName) parsed.metadata.name = user.fullName;
+              if (user.email) parsed.metadata.email = user.email;
+              if (user.jobFunction) {
+                parsed.metadata.position = user.jobFunction;
+                parsed.metadata.jobTitle = user.jobFunction;
+              }
+              if (user.department) parsed.metadata.department = user.department;
+              if (user.directorate) parsed.metadata.directorate = user.directorate;
+              if (user.manager) parsed.metadata.manager = user.manager;
+              if (user.reportTo || user.manager) parsed.metadata.reportTo = user.reportTo || user.manager;
+              if (resolvedManagerEmail) parsed.metadata.managerEmail = resolvedManagerEmail;
+              if (user.level) parsed.metadata.level = user.level;
+
+              upserts.push({
+                id: msg.id,
+                tenant_id: msg.tenant_id || 'nkangala_auto',
+                sender_id: 'pplan_profile_sync',
+                sender_email: userEmail,
+                sender_name: user.fullName || userEmail,
+                content: JSON.stringify(parsed),
+                message_type: 'pplan_list',
+                created_at: nowIso
+              });
+            } else if (paKeys.includes(msg.id)) {
               if (user.fullName) {
                 parsed.employeeName = user.fullName;
                 parsed.employeeFullName = user.fullName;
@@ -9737,18 +9758,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 parsed.managerEmail = resolvedManagerEmail;
               }
 
-              await supabase.from('messages').upsert({
-                id: key,
-                tenant_id: paMsg.tenant_id || 'tenant-229',
+              upserts.push({
+                id: msg.id,
+                tenant_id: msg.tenant_id || 'tenant-229',
                 sender_id: 'pa_profile_sync',
                 sender_email: userEmail,
                 sender_name: user.fullName || userEmail,
                 content: JSON.stringify(parsed),
-                message_type: paMsg.message_type || 'pa_templates',
-                created_at: new Date().toISOString()
+                message_type: msg.message_type || 'pa_templates',
+                created_at: nowIso
               });
             }
           } catch (err) {}
+        }
+
+        if (upserts.length > 0) {
+          await supabase.from('messages').upsert(upserts);
         }
       }
     } catch (syncErr) {
@@ -9759,10 +9784,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
   // 4b. Update user (edit API)
   app.put("/api/tenant/:tenantId/users/:userId", async (req, res) => {
     const { tenantId, userId } = req.params;
-    const { fullName, email, jobFunction, department, manager, systemRole, signatureType, signatureData, directorate, reportTo, level, managerEmail } = req.body;
+    let { fullName, email, jobFunction, department, manager, systemRole, signatureType, signatureData, directorate, reportTo, level, managerEmail } = req.body;
 
     try {
       const supabase = getSupabase();
+
+      // Auto-resolve managerEmail if manager or reportTo is specified
+      if (!managerEmail && (manager || reportTo)) {
+        const mLow = (manager || reportTo || '').toLowerCase();
+        if (mLow.includes('jackson') || (mLow.includes('skosana') && !mLow.includes('headman') && !mLow.includes('siphiwe'))) {
+          managerEmail = 'skosanaj@nkangaladm.gov.za';
+        } else if (mLow.includes('headman')) {
+          managerEmail = 'skosanah@nkangaladm.gov.za';
+        } else if (mLow.includes('mazwi') || mLow.includes('thandiwe')) {
+          managerEmail = 'mazwitc@nkangaladm.gov.za';
+        }
+      }
 
       // 1. Update native columns in Supabase
       const updatePayload: any = {};
@@ -9772,13 +9809,23 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       if (department !== undefined) updatePayload.department = department;
       if (systemRole !== undefined) updatePayload.role = systemRole;
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update(updatePayload)
-        .eq('id', userId);
+      if (Object.keys(updatePayload).length > 0) {
+        const { error: updateError } = await supabase
+          .from('users')
+          .update(updatePayload)
+          .eq('id', userId);
 
-      if (updateError && updateError.code !== '42P01') {
-        throw updateError;
+        if (updateError && updateError.code !== '42P01') {
+          console.warn("[PUT user] Notice updating users by id:", updateError.message);
+        }
+
+        const targetEmail = (email || '').toLowerCase().trim();
+        if (targetEmail) {
+          await supabase
+            .from('users')
+            .update(updatePayload)
+            .ilike('email', targetEmail);
+        }
       }
 
       // 2. Save direct manager / level / directorate / digital signature to extra definitions in the messages table
@@ -9835,27 +9882,46 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (upsertError) throw upsertError;
       }
 
-      // 3. Automatically synchronize updated profile details into IPMS performance plans and templates
       const targetUserEmail = email || '';
-      await syncUserProfileToIpms({
-        id: userId,
-        email: targetUserEmail,
-        fullName,
-        jobFunction,
-        department,
-        directorate,
+      cachedDiskUsersList = null;
+      invalidateUsersCache();
+      if (targetUserEmail) {
+        const eLow = targetUserEmail.toLowerCase();
+        for (const [cKey] of pplanCache.entries()) {
+          if (cKey.toLowerCase().includes(eLow)) {
+            pplanCache.delete(cKey);
+          }
+        }
+      }
+
+      // Respond immediately after core Supabase tables (`users` and `users_extra_metadata`) are saved
+      res.json({
+        success: true,
+        message: 'User profile updated and saved to Supabase successfully.',
         manager,
-        reportTo: reportTo || manager,
-        level,
-        signatureData,
+        reportTo,
         managerEmail
       });
 
-      invalidateUsersCache();
-      res.json({ success: true });
-
-      // 4. Asynchronously sync updated status to local backup files without blocking HTTP response
+      // 3 & 4. Asynchronously synchronize IPMS PPLAN/PA documents and local disk backups
       setImmediate(async () => {
+        try {
+          await syncUserProfileToIpms({
+            id: userId,
+            email: targetUserEmail,
+            fullName,
+            jobFunction,
+            department,
+            directorate,
+            manager,
+            reportTo: reportTo || manager,
+            level,
+            signatureData,
+            managerEmail
+          });
+        } catch (ipmsErr) {
+          console.error("Async IPMS profile sync failed:", ipmsErr);
+        }
         try {
           const { data: fetchedUsers } = await supabase.from('users').select('*');
           if (fetchedUsers) {
@@ -9972,8 +10038,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       let userRole = u.role;
       const emailLower = (u.email || '').toLowerCase().trim();
-      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za', 'mthimunyedmn@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za', 'mtshalib@nkangaladm.gov.za'].includes(emailLower) ||
-                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs') || emailLower.includes('mthimunyedmn') || emailLower.includes('maphanga') || emailLower.includes('mtshalinb') || emailLower.includes('mtshalib');
+      const isTargetManager = ['joubertm@nkangaladm.gov.za', 'magampeas@nkangaladm.gov.za', 'segamiy@nkangaladm.gov.za', 'singhn@nkangaladm.gov.za', 'tloujmt@nkangaladm.gov.za', 'fenyanep@nkangaladm.gov.za', 'khumalobs@nkangaladm.gov.za', 'nkosibs@nkangaladm.gov.za', 'mthimunyedmn@nkangaladm.gov.za', 'maphangant@nkangaladm.gov.za', 'maphangan@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za', 'mtshalib@nkangaladm.gov.za', 'skosanaj@nkangaladm.gov.za'].includes(emailLower) ||
+                              emailLower.includes('singhn') || emailLower.includes('joubertm') || emailLower.includes('magampeas') || emailLower.includes('segamiy') || emailLower.includes('tloujmt') || emailLower.includes('fenyanep') || emailLower.includes('khumalobs') || emailLower.includes('nkosibs') || emailLower.includes('mthimunyedmn') || emailLower.includes('maphanga') || emailLower.includes('mtshalinb') || emailLower.includes('mtshalib') || emailLower.includes('skosanaj');
       if (isTargetManager) {
         userRole = 'Manager';
       }
@@ -9985,11 +10051,42 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
       const isShabangu = emailLower.includes('shabangusm') || emailLower.includes('shabangugm');
 
-      let dynamicManager = extraMap[u.id]?.manager || '';
-      let dynamicReportTo = extraMap[u.id]?.reportTo || '';
-      let dynamicManagerEmail = extraMap[u.id]?.managerEmail || '';
+      let dynamicManager = extraMap[u.id]?.manager || extraMap[emailLower]?.manager || '';
+      let dynamicReportTo = extraMap[u.id]?.reportTo || extraMap[emailLower]?.reportTo || '';
+      let dynamicManagerEmail = extraMap[u.id]?.managerEmail || extraMap[emailLower]?.managerEmail || '';
 
-      if (isShabangu) {
+      const explicitManager = extraMap[u.id]?.manager || extraMap[emailLower]?.manager;
+      const explicitReportTo = extraMap[u.id]?.reportTo || extraMap[emailLower]?.reportTo;
+      const explicitManagerEmail = extraMap[u.id]?.managerEmail || extraMap[emailLower]?.managerEmail;
+
+      if (explicitManager) {
+        dynamicManager = explicitManager;
+        dynamicReportTo = explicitReportTo || explicitManager;
+        let resMgrEmail = explicitManagerEmail;
+        if (!resMgrEmail) {
+          const lMgr = explicitManager.toLowerCase();
+          if (lMgr.includes('jackson') || (lMgr.includes('skosana') && !lMgr.includes('headman') && !lMgr.includes('siphiwe'))) resMgrEmail = 'skosanaj@nkangaladm.gov.za';
+          else if (lMgr.includes('headman')) resMgrEmail = 'skosanah@nkangaladm.gov.za';
+          else if (lMgr.includes('mazwi') || lMgr.includes('thandiwe')) resMgrEmail = 'mazwitc@nkangaladm.gov.za';
+          else if (lMgr.includes('joubert') || lMgr.includes('marianne')) resMgrEmail = 'joubertm@nkangaladm.gov.za';
+          else if (lMgr.includes('magampe') || lMgr.includes('alfred')) resMgrEmail = 'magampeas@nkangaladm.gov.za';
+          else if (lMgr.includes('segami') || lMgr.includes('yolanda')) resMgrEmail = 'segamiy@nkangaladm.gov.za';
+          else if (lMgr.includes('tlou') || lMgr.includes('johannes')) resMgrEmail = 'tloujmt@nkangaladm.gov.za';
+          else if (lMgr.includes('fenyane') || lMgr.includes('priscilla')) resMgrEmail = 'fenyanep@nkangaladm.gov.za';
+          else if (lMgr.includes('khumalo') || lMgr.includes('bongani')) resMgrEmail = 'khumalobs@nkangaladm.gov.za';
+          else if (lMgr.includes('motshwene') || lMgr.includes('nkululeko')) resMgrEmail = 'motshwenenm@nkangaladm.gov.za';
+          else if (lMgr.includes('maphanga') || lMgr.includes('nomhle')) resMgrEmail = 'maphangant@nkangaladm.gov.za';
+          else if (lMgr.includes('shabangu') || lMgr.includes('sibusiso')) resMgrEmail = 'shabangusm@nkangaladm.gov.za';
+          else if (lMgr.includes('parbhoo') || lMgr.includes('nirupa')) resMgrEmail = 'nparbhoo@nkangaladm.gov.za';
+          else if (lMgr.includes('singh') || lMgr.includes('nirisha')) resMgrEmail = 'singhn@nkangaladm.gov.za';
+          else if (lMgr.includes('mahlangu') || lMgr.includes('mandla')) resMgrEmail = 'mahlanguml@nkangaladm.gov.za';
+        }
+        dynamicManagerEmail = resMgrEmail || '';
+      } else if (emailLower === 'nkosis@nkangaladm.gov.za') {
+        dynamicManager = 'Jackson Skosana';
+        dynamicReportTo = 'Jackson Skosana';
+        dynamicManagerEmail = 'skosanaj@nkangaladm.gov.za';
+      } else if (isShabangu) {
         dynamicManager = 'Mandla L. Mahlangu';
         dynamicReportTo = 'Mandla L. Mahlangu';
         dynamicManagerEmail = 'mahlanguml@nkangaladm.gov.za';
@@ -10030,14 +10127,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         dynamicReportTo = 'Siphesihle O. Nkosi';
         dynamicManagerEmail = 'nkosiso@nkangaladm.gov.za';
       } else if (emailLower.includes('wakenis') || emailLower.includes('mokgolomothome')) {
-        dynamicManager = 'Siphesihle Nkosi';
-        dynamicReportTo = 'Siphesihle Nkosi';
+        dynamicManager = 'Sanele Nkosi';
+        dynamicReportTo = 'Sanele Nkosi';
         dynamicManagerEmail = 'nkosis@nkangaladm.gov.za';
       } else if (emailLower.includes('myenispl')) {
         dynamicManager = 'Elmon Nkosi';
         dynamicReportTo = 'Elmon Nkosi';
         dynamicManagerEmail = 'nkosije@nkangaladm.gov.za';
-      } else if (['mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za', 'nkosis@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za', 'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za', 'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za', 'mtshalib@nkangaladm.gov.za'].includes(emailLower)) {
+      } else if (['mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za', 'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za', 'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za', 'mtshalib@nkangaladm.gov.za'].includes(emailLower)) {
         dynamicManager = 'Thandiwe Mazwi';
         dynamicReportTo = 'Thandiwe Mazwi';
         dynamicManagerEmail = 'mazwitc@nkangaladm.gov.za';
@@ -10077,7 +10174,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
 
       let userFullName = u.full_name || u.fullName;
       if (emailLower === 'nkosis@nkangaladm.gov.za' || emailLower.startsWith('nkosis@')) {
-        userFullName = 'Siphesihle Nkosi';
+        userFullName = 'Sanele Nkosi';
       }
 
       return {
@@ -10492,7 +10589,12 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       'tc mazwi': 'mazwits@nkangaladm.gov.za',
       'thandiwe mazwi': 'mazwits@nkangaladm.gov.za',
       'maphanga nomhle thembisile': 'maphangan@nkangaladm.gov.za',
-      'nomhle maphanga': 'maphangan@nkangaladm.gov.za'
+      'nomhle maphanga': 'maphangan@nkangaladm.gov.za',
+      'jackson skosana': 'skosanaj@nkangaladm.gov.za',
+      'april jackson skosana': 'skosanaj@nkangaladm.gov.za',
+      'aj skosana': 'skosanaj@nkangaladm.gov.za',
+      'headman skosana': 'skosanah@nkangaladm.gov.za',
+      'h skosana': 'skosanah@nkangaladm.gov.za'
     };
 
     const resolveManagerUser = (rawManager: string, existingMgrEmail?: string): { email: string; fullName?: string } | null => {
@@ -18887,6 +18989,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           );
         }
 
+        if (userId.toLowerCase() === 'nkosis@nkangaladm.gov.za') {
+          if (!parsed.metadata) parsed.metadata = {};
+          parsed.metadata.name = 'Sanele Nkosi';
+          parsed.metadata.manager = 'Jackson Skosana';
+          parsed.metadata.reportTo = 'Jackson Skosana';
+          parsed.metadata.managerEmail = 'skosanaj@nkangaladm.gov.za';
+          parsed.metadata.directorate = 'Technical Services';
+          parsed.metadata.department = 'Technical Services';
+        }
+
         parsed.items = sanitizedItems;
         delete parsed.rows;
         return res.json(parsed);
@@ -19055,16 +19167,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'nkosis': ['wakenis@nkangaladm.gov.za', 'mokgolomothome@nkangaladm.gov.za'],
             'nkosije': ['myenispl@nkangaladm.gov.za'],
             'motshwenenm': ['mazwitc@nkangaladm.gov.za'],
+            'skosanaj': [
+              'nkosis@nkangaladm.gov.za'
+            ],
             'mazwitc': [
               'mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za',
-              'nkosis@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za',
+              'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za',
               'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za',
               'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za',
               'mtshalib@nkangaladm.gov.za'
             ],
             'mazwit': [
               'mashamaitenm@nkangaladm.gov.za', 'phetlavm@nkangaladm.gov.za', 'phetlav@nkangaladm.gov.za',
-              'nkosis@nkangaladm.gov.za', 'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za',
+              'nkosiso@nkangaladm.gov.za', 'lebisij@nkangaladm.gov.za',
               'fakuded@nkangaladm.gov.za', 'mangwegete@nkangaladm.gov.za', 'mangweget@nkangaladm.gov.za',
               'masimulats@nkangaladm.gov.za', 'masimulat@nkangaladm.gov.za', 'mtshalinb@nkangaladm.gov.za',
               'mtshalib@nkangaladm.gov.za'
@@ -19349,6 +19464,16 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                   }
                 }
               } catch (e) {}
+            }
+
+            if (userId.toLowerCase() === 'nkosis@nkangaladm.gov.za' && planObj) {
+              if (!planObj.metadata) planObj.metadata = {};
+              planObj.metadata.name = 'Sanele Nkosi';
+              planObj.metadata.manager = 'Jackson Skosana';
+              planObj.metadata.reportTo = 'Jackson Skosana';
+              planObj.metadata.managerEmail = 'skosanaj@nkangaladm.gov.za';
+              planObj.metadata.directorate = 'Technical Services';
+              planObj.metadata.department = 'Technical Services';
             }
 
             return {
@@ -20729,6 +20854,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         updatedMeta.manager = 'Solly Links';
         updatedMeta.managerEmail = 'linkss@nkangaladm.gov.za';
         updatedMeta.reportTo = 'Solly Links';
+      }
+      if (userId.toLowerCase() === 'nkosis@nkangaladm.gov.za') {
+        updatedMeta.name = 'Sanele Nkosi';
+        updatedMeta.manager = uProfile?.manager || 'Jackson Skosana';
+        updatedMeta.reportTo = uProfile?.reportTo || 'Jackson Skosana';
+        updatedMeta.managerEmail = uProfile?.managerEmail || 'skosanaj@nkangaladm.gov.za';
+        updatedMeta.directorate = uProfile?.directorate || 'Technical Services';
+        updatedMeta.department = uProfile?.department || 'Technical Services';
       }
 
       // Offload any inline Base64 PoE files to dedicated `poe_blob_*` rows in Supabase before serializing the plan

@@ -3,7 +3,7 @@ import { User, Tenant } from '../types';
 import { tenants } from '../data';
 import { 
   Users, UserPlus, FileSpreadsheet, Key, ShieldCheck, 
-  RefreshCw, CheckCircle2, AlertTriangle, Upload, 
+  RefreshCw, CheckCircle2, AlertTriangle, AlertCircle, Upload, 
   Search, KeyRound, Edit, PenTool, Monitor, Globe, Activity,
   Database, Play
 } from 'lucide-react';
@@ -213,6 +213,17 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
     fetchReportToSearch();
   }, [reportToSearchQuery]);
 
+  const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  useEffect(() => {
+    if (saveFeedback) {
+      const timer = setTimeout(() => {
+        setSaveFeedback(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveFeedback]);
+
   const [editFormData, setEditFormData] = useState({
     fullName: '',
     email: '',
@@ -221,6 +232,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
     department: '',
     directorate: '',
     manager: '',
+    managerEmail: '',
     systemRole: 'Standard User',
     signatureType: 'draw',
     signatureData: '',
@@ -756,6 +768,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
   const saveUserEdits = async () => {
     if (!editingUser) return;
     setIsLoading(true);
+    setSaveFeedback(null);
     try {
       let finalSignatureData = editFormData.signatureData;
 
@@ -781,19 +794,47 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
         }
       }
 
+      // Auto-resolve managerEmail if empty
+      let resolvedManagerEmail = editFormData.managerEmail;
+      const mCheck = (editFormData.manager || editFormData.reportTo || '').toLowerCase();
+      if (!resolvedManagerEmail) {
+        if (mCheck.includes('skosana') || mCheck.includes('jackson')) {
+          resolvedManagerEmail = 'skosanaj@nkangaladm.gov.za';
+        } else if (mCheck.includes('mazwi') || mCheck.includes('thandiwe')) {
+          resolvedManagerEmail = 'mazwitc@nkangaladm.gov.za';
+        }
+      }
+
       const res = await fetch(`/api/tenant/${activeTenantId}/users/${editingUser.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editFormData, signatureData: finalSignatureData })
+        body: JSON.stringify({
+          ...editFormData,
+          managerEmail: resolvedManagerEmail,
+          signatureData: finalSignatureData
+        })
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success !== false) {
+        setSaveFeedback({
+          type: 'success',
+          message: 'User profile updated and saved to Supabase successfully.'
+        });
         setEditingUser(null);
-        fetchUsers();
+        await fetchUsers();
       } else {
-        console.error("Failed to update user profile");
+        const errMsg = data.error || data.message || 'Failed to update user profile in Supabase.';
+        setSaveFeedback({
+          type: 'error',
+          message: errMsg
+        });
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setSaveFeedback({
+        type: 'error',
+        message: e?.message || 'Error saving user profile to Supabase.'
+      });
     } finally {
       setIsLoading(false);
     }
@@ -1102,6 +1143,31 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto hide-scrollbar">
+        {saveFeedback && (
+          <div className={cn(
+            "mb-6 p-4 rounded-2xl flex items-center justify-between border shadow-sm transition-all",
+            saveFeedback.type === 'success' 
+              ? (isDark ? "bg-emerald-950/70 border-emerald-500/50 text-emerald-300" : "bg-emerald-50 border-emerald-300 text-emerald-800")
+              : (isDark ? "bg-rose-950/70 border-rose-500/50 text-rose-300" : "bg-rose-50 border-rose-300 text-rose-800")
+          )}>
+            <div className="flex items-center gap-3">
+              {saveFeedback.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+              )}
+              <span className="text-sm font-semibold">{saveFeedback.message}</span>
+            </div>
+            <button 
+              type="button" 
+              onClick={() => setSaveFeedback(null)} 
+              className={cn("p-1 rounded-lg hover:opacity-75 text-xs font-bold cursor-pointer")}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Tab 1: User List */}
         {activeTab === 'list' && (
           <div className="space-y-6">
@@ -1282,6 +1348,13 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                             <button 
                               onClick={() => {
                                 setEditingUser(u);
+                                setSaveFeedback(null);
+                                let resolvedManagerEmail = u.managerEmail || '';
+                                if (!resolvedManagerEmail && u.manager) {
+                                  const mCheck = u.manager.toLowerCase();
+                                  if (mCheck.includes('skosana') || mCheck.includes('jackson')) resolvedManagerEmail = 'skosanaj@nkangaladm.gov.za';
+                                  else if (mCheck.includes('mazwi') || mCheck.includes('thandiwe')) resolvedManagerEmail = 'mazwitc@nkangaladm.gov.za';
+                                }
                                 setEditFormData({
                                   fullName: u.fullName || '',
                                   email: u.email || '',
@@ -1290,6 +1363,7 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                                   directorate: u.directorate || '',
                                   department: u.department || '',
                                   manager: u.manager || '',
+                                  managerEmail: resolvedManagerEmail,
                                   systemRole: u.role || u.systemRole || 'Standard User',
                                   signatureType: u.signatureType || 'draw',
                                   signatureData: u.signatureData || '',
@@ -2158,6 +2232,25 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
               <p className={cn("text-sm", isDark ? "text-slate-400" : "text-gray-500")}>Modify organizational placement, functions, reporting structure, and digital signature.</p>
             </div>
 
+            {saveFeedback && (
+              <div className={cn(
+                "p-3 rounded-xl flex items-center justify-between border text-xs font-semibold transition-all shadow-sm",
+                saveFeedback.type === 'success' 
+                  ? (isDark ? "bg-emerald-950/80 border-emerald-500 text-emerald-200" : "bg-emerald-50 border-emerald-300 text-emerald-900")
+                  : (isDark ? "bg-rose-950/80 border-rose-500 text-rose-200" : "bg-rose-50 border-rose-300 text-rose-900")
+              )}>
+                <div className="flex items-center gap-2">
+                  {saveFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  )}
+                  <span>{saveFeedback.message}</span>
+                </div>
+                <button type="button" onClick={() => setSaveFeedback(null)} className="font-bold cursor-pointer">✕</button>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div className={cn(
                 "grid grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors",
@@ -2590,8 +2683,13 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                       placeholder="Search Azure AD for report to..." 
                       value={editFormData.reportTo}
                       onChange={e => {
-                        setReportToSearchQuery(e.target.value);
-                        setEditFormData({...editFormData, reportTo: e.target.value});
+                        const val = e.target.value;
+                        setReportToSearchQuery(val);
+                        let autoEmail = editFormData.managerEmail;
+                        const lVal = val.toLowerCase();
+                        if (lVal.includes('skosana') || lVal.includes('jackson')) autoEmail = 'skosanaj@nkangaladm.gov.za';
+                        else if (lVal.includes('mazwi') || lVal.includes('thandiwe')) autoEmail = 'mazwitc@nkangaladm.gov.za';
+                        setEditFormData({ ...editFormData, reportTo: val, managerEmail: autoEmail });
                       }}
                       className={cn(
                         "flex-1 bg-transparent border-none outline-none text-sm",
@@ -2607,7 +2705,11 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                             key={aUser.id}
                             type="button"
                             onClick={() => {
-                              setEditFormData({...editFormData, reportTo: aUser.fullName});
+                              setEditFormData({
+                                ...editFormData,
+                                reportTo: aUser.fullName,
+                                managerEmail: editFormData.managerEmail || aUser.email
+                              });
                               setReportToSearchQuery('');
                               setReportToSearchResults([]);
                             }}
@@ -2643,8 +2745,13 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                       placeholder="Search Azure AD for manager..." 
                       value={editFormData.manager}
                       onChange={e => {
-                        setManagerSearchQuery(e.target.value);
-                        setEditFormData({...editFormData, manager: e.target.value});
+                        const val = e.target.value;
+                        setManagerSearchQuery(val);
+                        let autoEmail = editFormData.managerEmail;
+                        const lVal = val.toLowerCase();
+                        if (lVal.includes('skosana') || lVal.includes('jackson')) autoEmail = 'skosanaj@nkangaladm.gov.za';
+                        else if (lVal.includes('mazwi') || lVal.includes('thandiwe')) autoEmail = 'mazwitc@nkangaladm.gov.za';
+                        setEditFormData({ ...editFormData, manager: val, managerEmail: autoEmail });
                       }}
                       className={cn(
                         "flex-1 bg-transparent border-none outline-none text-sm",
@@ -2660,7 +2767,12 @@ export function UserManagement({ currentUser, activeTenantId, onImpersonate, onN
                             key={aUser.id}
                             type="button"
                             onClick={() => {
-                              setEditFormData({...editFormData, manager: aUser.fullName});
+                              setEditFormData({
+                                ...editFormData,
+                                manager: aUser.fullName,
+                                reportTo: editFormData.reportTo || aUser.fullName,
+                                managerEmail: aUser.email
+                              });
                               setManagerSearchQuery('');
                               setManagerSearchResults([]);
                             }}

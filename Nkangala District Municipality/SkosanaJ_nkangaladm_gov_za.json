@@ -6,10 +6,12 @@
   "department": "Technical Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Walter M. Mtshweni",
   "directorate": "Technical",
   "reportTo": "Walter M. Mtshweni",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_64a5f153-619e-41ba-8957-a907150c5ef3_1790682502529.png",
+  "managerEmail": ""
 }

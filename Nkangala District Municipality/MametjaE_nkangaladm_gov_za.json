@@ -5,11 +5,13 @@
   "jobFunction": "Divisional Manager: Climate Change",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
-  "manager": "Vusi Mahlangu",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
+  "manager": "Thandiwe M. Lengwate (Acting GM: CDS)",
   "directorate": "Community Services",
-  "reportTo": "Vusi Mahlangu",
-  "managerEmail": "",
-  "level": "3"
+  "reportTo": "Thandiwe M. Lengwate (Acting GM: CDS)",
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_d996230a-7188-4af3-820e-2df66033520f_1790929768433.png",
+  "managerEmail": ""
 }

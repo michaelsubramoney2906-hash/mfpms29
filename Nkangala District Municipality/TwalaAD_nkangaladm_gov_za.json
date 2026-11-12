@@ -6,10 +6,12 @@
   "department": "Internal Audit",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "ML Mahlangu",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Mandla L. Mahlangu",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_bef0f58c-565f-4dca-afdb-0b936f95f383_1789994947058.png",
+  "managerEmail": ""
 }

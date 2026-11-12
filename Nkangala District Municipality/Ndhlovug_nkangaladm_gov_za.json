@@ -7,9 +7,11 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Thandiwe M. Lengwate",
+  "manager": "Thandiwe M. Lengwate (Acting GM: CDS)",
   "directorate": "Community Services",
-  "reportTo": "Thandiwe M. Lengwate",
-  "managerEmail": "ZuluTE@nkangaladm.gov.za",
-  "level": "8"
+  "reportTo": "Thandiwe M. Lengwate (Acting GM: CDS)",
+  "level": "8",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": "ZuluTE@nkangaladm.gov.za"
 }

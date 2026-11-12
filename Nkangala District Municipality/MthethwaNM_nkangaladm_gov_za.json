@@ -10,6 +10,8 @@
   "manager": "Priscilla Fenyane",
   "directorate": "Community Services",
   "reportTo": "Priscilla Fenyane",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_c3ba0e90-bdc8-401a-b504-e1a6b3c28975_1790842408861.png",
+  "managerEmail": ""
 }

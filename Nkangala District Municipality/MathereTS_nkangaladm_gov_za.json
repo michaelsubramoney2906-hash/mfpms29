@@ -10,6 +10,8 @@
   "manager": "Eloise Prinsloo",
   "directorate": "Finance",
   "reportTo": "Eloise Prinsloo",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

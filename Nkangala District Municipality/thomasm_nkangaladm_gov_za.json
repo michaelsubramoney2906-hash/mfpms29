@@ -7,9 +7,11 @@
   "source": "manual",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Nomhle Maphanga",
   "directorate": "",
-  "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "reportTo": "Nomhle Maphanga",
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

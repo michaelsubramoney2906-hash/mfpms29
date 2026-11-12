@@ -6,10 +6,12 @@
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Nirisha Singh",
   "directorate": "Community Services",
   "reportTo": "Nirisha Singh",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_60d455c3-6149-41a0-b3cf-850aa8fdb8c2_1788871891206.png",
+  "managerEmail": ""
 }

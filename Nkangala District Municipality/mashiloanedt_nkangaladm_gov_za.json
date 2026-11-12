@@ -10,6 +10,8 @@
   "manager": "Sibusiso PL. Myeni",
   "directorate": "Community Services",
   "reportTo": "Sibusiso PL. Myeni",
-  "managerEmail": "",
-  "level": "10"
+  "level": "10",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

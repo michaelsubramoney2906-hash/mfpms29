@@ -10,6 +10,8 @@
   "manager": "Mxolisi Bembe",
   "directorate": "",
   "reportTo": "Mxolisi Bembe",
-  "managerEmail": "",
-  "level": "8"
+  "level": "8",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a49aae9b-a9e8-426f-b4b7-a112860f91d1_1789036535438.png",
+  "managerEmail": ""
 }

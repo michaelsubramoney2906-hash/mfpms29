@@ -6,10 +6,12 @@
   "department": "Finance Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Trudie Van Niekerk",
   "directorate": "Finance",
   "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_24e0dba7-9779-44ae-8086-5141bc2cdcb4_1788876082296.png",
+  "managerEmail": ""
 }

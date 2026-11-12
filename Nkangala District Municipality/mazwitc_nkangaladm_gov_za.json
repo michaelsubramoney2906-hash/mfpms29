@@ -10,6 +10,8 @@
   "manager": "Nkululeko Motshwene",
   "directorate": "Corporate",
   "reportTo": "Nkululeko Motshwene",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_79e73c9e-d665-4daf-8731-02c0e54263ef_1789037362938.png",
+  "managerEmail": ""
 }

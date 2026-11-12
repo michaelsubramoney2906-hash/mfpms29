@@ -10,6 +10,8 @@
   "manager": "Sipho Masilela",
   "directorate": "Finance",
   "reportTo": "Sipho Masilela",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_5a29bc40-f0d7-4cf5-a527-f36b8e0a0866_1788875926323.png",
+  "managerEmail": ""
 }

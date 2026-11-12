@@ -1,15 +1,17 @@
 {
   "id": "f46564e5-1149-41f1-897e-8d4f2c12e12c",
-  "fullName": "Siphesihle Nkosi",
+  "fullName": "Sanele Nkosi",
   "email": "NkosiS@nkangaladm.gov.za",
   "jobFunction": "Divisional Manager: Projects",
   "department": "Technical Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Jackson Skosana",
-  "directorate": "Technical",
+  "directorate": "Technical Services",
   "reportTo": "Jackson Skosana",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_f46564e5-1149-41f1-897e-8d4f2c12e12c_1789036450676.png",
+  "managerEmail": "skosanaj@nkangaladm.gov.za"
 }

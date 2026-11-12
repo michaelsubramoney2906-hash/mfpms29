@@ -10,6 +10,8 @@
   "manager": "Walter B. Jiyane",
   "directorate": "Community Services",
   "reportTo": "Walter B. Jiyane",
-  "managerEmail": "",
-  "level": "10"
+  "level": "10",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

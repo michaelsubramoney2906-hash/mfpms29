@@ -7,9 +7,11 @@
   "source": "manual",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "",
+  "manager": "Mandla L. Mahlangu",
   "directorate": "",
-  "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "reportTo": "Mandla L. Mahlangu",
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

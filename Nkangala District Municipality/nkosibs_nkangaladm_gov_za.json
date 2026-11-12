@@ -10,6 +10,8 @@
   "manager": "Mandla L. Mahlangu",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Mandla L. Mahlangu",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_841669a3-6414-4413-a39b-759fe4ea0aa8_1790169041883.png",
+  "managerEmail": ""
 }

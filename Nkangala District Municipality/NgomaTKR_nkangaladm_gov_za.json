@@ -10,6 +10,8 @@
   "manager": "Nirupa Parbhoo",
   "directorate": "Finance",
   "reportTo": "Nirupa Parbhoo",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_72ed8290-b755-47e2-a168-5b99376a7284_1789035826923.png",
+  "managerEmail": "nparbhoo@nkangaladm.gov.za"
 }

@@ -6,10 +6,12 @@
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Solly Links",
   "directorate": "Community Services",
   "reportTo": "Solly Links",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_3f04bca3-7c4b-4b43-a885-8ac6df1a78d6_1789983278082.png",
+  "managerEmail": ""
 }

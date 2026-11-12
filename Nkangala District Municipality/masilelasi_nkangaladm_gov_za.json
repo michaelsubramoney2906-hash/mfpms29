@@ -6,10 +6,12 @@
   "department": "Finance Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Ali S. Msiza",
   "directorate": "Finance",
   "reportTo": "Ali S. Msiza",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_c71095d0-fe47-4149-b256-a8a9162084cd_1788876117107.png",
+  "managerEmail": ""
 }

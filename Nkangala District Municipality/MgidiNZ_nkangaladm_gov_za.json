@@ -7,9 +7,11 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Sipho Masilela",
+  "manager": "Cedrick Makitla",
   "directorate": "",
   "reportTo": "Cedrick Makitla",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_2bea9a9e-9e58-441e-a90b-b60d8ca6d015_1790169014416.png",
+  "managerEmail": ""
 }

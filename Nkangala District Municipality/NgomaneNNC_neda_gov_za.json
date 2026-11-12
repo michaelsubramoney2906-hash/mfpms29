@@ -6,10 +6,12 @@
   "department": "NEDA",
   "source": "azure_ad",
   "role": "Standard User",
-  "tenantId": "tenant-229",
-  "manager": "",
-  "directorate": "",
-  "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "tenantId": "tenant-neda",
+  "manager": "Johan Prince Mangani",
+  "directorate": "Office of the Chief Executive Officer",
+  "reportTo": "Acting Chief Executive Officer",
+  "level": "3/9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": "manganijp@nkangaladm.gov.za"
 }

@@ -6,10 +6,12 @@
   "department": "Corporate Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Thandiwe Mazwi",
   "directorate": "",
   "reportTo": "Thandiwe Mazwi",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_7a0f2ef2-9d43-4f4f-814d-9a5f62810198_1788872091261.png",
+  "managerEmail": ""
 }

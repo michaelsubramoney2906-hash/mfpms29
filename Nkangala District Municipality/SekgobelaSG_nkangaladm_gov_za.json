@@ -10,6 +10,8 @@
   "manager": "Nomsa Maphalala",
   "directorate": "Finance",
   "reportTo": "Nomsa Maphalala",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

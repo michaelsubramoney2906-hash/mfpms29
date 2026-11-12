@@ -10,6 +10,8 @@
   "manager": "Richard D. Hleza",
   "directorate": "Corporate",
   "reportTo": "Richard D. Hleza",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_c631627d-2f30-437b-a1e2-a19a5d1664ae_1789544195916.png",
+  "managerEmail": ""
 }

@@ -10,6 +10,8 @@
   "manager": "Sibusiso M. Shabangu",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Sibusiso M. Shabangu",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_32640881-296d-4a3d-82c0-5be1e8d51305_1785675356192.png",
+  "managerEmail": ""
 }

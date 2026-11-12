@@ -6,10 +6,12 @@
   "department": "Office of the Municipal Manager",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Walter M. Mtshweni",
   "directorate": "Technical",
   "reportTo": "Walter M. Mtshweni",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_c352e905-7619-4cf3-bb29-af2d6921d66c_1789036398576.png",
+  "managerEmail": ""
 }

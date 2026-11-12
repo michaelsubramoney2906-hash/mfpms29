@@ -10,6 +10,8 @@
   "manager": "Vusi Mahlangu",
   "directorate": "Community Services",
   "reportTo": "Vusi Mahlangu",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

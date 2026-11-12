@@ -5,11 +5,13 @@
   "jobFunction": "Development Control Planner",
   "department": "Planning and Economic Development",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Vusumuzi S. Kubheka",
   "directorate": "PED",
   "reportTo": "Vusumuzi S. Kubheka",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_4e703889-8e54-460f-bcf9-6cf7f7bdfc8a_1789036347873.png",
+  "managerEmail": ""
 }

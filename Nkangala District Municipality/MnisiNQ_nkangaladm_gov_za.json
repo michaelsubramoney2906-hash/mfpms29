@@ -10,6 +10,8 @@
   "manager": "Mandla L Mahlangu",
   "directorate": "Office of the MM",
   "reportTo": "Mmaphiri R. Rampedi",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_da57f8a7-7c8a-4d40-bdcd-6d4b41fcc8f8_1790168672548.png",
+  "managerEmail": ""
 }

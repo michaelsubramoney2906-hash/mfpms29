@@ -10,6 +10,8 @@
   "manager": "Jimmy Nhlapho",
   "directorate": "Corporate",
   "reportTo": "Jimmy Nhlapho",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_cfc3f768-aa47-46ee-b34a-43fd59c9888d_1790168649128.png",
+  "managerEmail": ""
 }

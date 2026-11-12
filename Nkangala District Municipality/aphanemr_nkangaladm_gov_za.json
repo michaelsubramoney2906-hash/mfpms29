@@ -7,9 +7,11 @@
   "source": "azure_ad",
   "role": "tenant_user",
   "tenantId": "nkangala_auto",
-  "manager": "Mokgadi Mokgolomotho",
+  "manager": "Sipokazi Wakeni",
   "directorate": "Techinical",
-  "reportTo": "Mokgadi Mokgolomotho",
-  "managerEmail": "",
-  "level": "5"
+  "reportTo": "Sipokazi Wakeni",
+  "level": "5",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_b0c18fcf-13e0-460f-b123-94799e46057e_1789036889796.png",
+  "managerEmail": ""
 }

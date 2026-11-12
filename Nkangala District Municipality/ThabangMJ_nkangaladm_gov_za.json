@@ -10,6 +10,8 @@
   "manager": "Cedrick Makitla",
   "directorate": "Finance",
   "reportTo": "Cedrick Makitla",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_08a429e3-6f93-41ce-a9d7-6ed9df47612a_1788875996451.png",
+  "managerEmail": ""
 }

@@ -10,6 +10,8 @@
   "manager": "Alice L. Stander",
   "directorate": "Finance",
   "reportTo": "Alice L. Stander",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_f6a8d607-7059-43bc-ba76-9c5cf995c6e2_1789035850535.png",
+  "managerEmail": ""
 }

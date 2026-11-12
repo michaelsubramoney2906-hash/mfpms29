@@ -6,10 +6,12 @@
   "department": "Finance Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Nomsa Maphalala",
   "directorate": "Finance",
   "reportTo": "Nomsa Maphalala",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a209a6bc-7a14-47f7-9ccf-2faff58550fb_1788875953950.png",
+  "managerEmail": ""
 }

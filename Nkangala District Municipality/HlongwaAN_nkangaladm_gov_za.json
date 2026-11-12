@@ -5,11 +5,13 @@
   "jobFunction": "Divisional Manager: Treasurer and Assets",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Ali S. Msiza",
   "directorate": "Finance",
   "reportTo": "Ali S. Msiza",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_03e272f5-b14a-4564-ad22-ba59b3c9fb39_1788875865110.png",
+  "managerEmail": ""
 }

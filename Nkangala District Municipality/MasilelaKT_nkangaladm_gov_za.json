@@ -10,6 +10,8 @@
   "manager": "Kabedi P. Chepape",
   "directorate": "Community Services",
   "reportTo": "Kabedi P. Chepape",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

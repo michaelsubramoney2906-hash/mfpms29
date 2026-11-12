@@ -7,9 +7,11 @@
   "source": "azure_ad",
   "role": "Standard User",
   "tenantId": "nkangala_auto",
-  "manager": "Nirupha Parbhoo",
+  "manager": "Nirupa Parbhoo",
   "directorate": "Finance",
   "reportTo": "Nirupa Parbhoo",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_109704ad-35e3-4baf-84e8-c789a44d95e0_1789037291022.png",
+  "managerEmail": "nparbhoo@nkangaladm.gov.za"
 }

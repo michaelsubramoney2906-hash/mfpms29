@@ -10,6 +10,8 @@
   "manager": "Trudie Van Niekerk",
   "directorate": "Finance",
   "reportTo": "Trudie Van Niekerk",
-  "managerEmail": "",
-  "level": "5"
+  "level": "5",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_232d6ecf-d41a-48f6-92a6-1bad642c9eb8_1788875973539.png",
+  "managerEmail": ""
 }

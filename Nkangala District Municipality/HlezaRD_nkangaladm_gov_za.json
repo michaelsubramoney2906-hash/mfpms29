@@ -5,11 +5,13 @@
   "jobFunction": "Manager: Office of The Executive Mayor",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Mmaphiri R. Rampedi",
   "directorate": "Corporate Services",
   "reportTo": "Mmaphiri R. Rampedi",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_01b7d817-210f-4837-b24c-72a52c487f02_1789995006809.png",
+  "managerEmail": ""
 }

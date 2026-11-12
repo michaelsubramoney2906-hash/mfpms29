@@ -6,10 +6,12 @@
   "department": "Planning and Economic Development",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Alvin Bvuma",
   "directorate": "PED",
   "reportTo": "",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_2be6a401-a19f-47c8-94d3-55f5cf74cc3e_1789994926889.png",
+  "managerEmail": ""
 }

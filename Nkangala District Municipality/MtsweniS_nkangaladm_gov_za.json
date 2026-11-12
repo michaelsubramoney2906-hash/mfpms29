@@ -10,6 +10,8 @@
   "manager": "Alfred S. Magampe",
   "directorate": "",
   "reportTo": "Alfred S. Magampe",
-  "managerEmail": "",
-  "level": "5"
+  "level": "5",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_2c0f3b4e-f73e-435b-9f5c-946ce11b8f04_1791365784525.png",
+  "managerEmail": ""
 }

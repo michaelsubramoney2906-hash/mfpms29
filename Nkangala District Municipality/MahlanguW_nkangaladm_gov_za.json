@@ -5,11 +5,13 @@
   "jobFunction": "MPAC Secretary",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Hlabishi L. Phala",
   "directorate": "Corporate Services",
   "reportTo": "Hlabishi L. Phala",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

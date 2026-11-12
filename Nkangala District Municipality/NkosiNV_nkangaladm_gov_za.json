@@ -5,11 +5,13 @@
   "jobFunction": "Secretary: CFO",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Alice Stander",
   "directorate": "Finance",
   "reportTo": "Alice L. Stander",
-  "managerEmail": "",
-  "level": "8"
+  "level": "8",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_e410d412-d91c-41a9-a2f5-c5016b2b0140_1789544576800.png",
+  "managerEmail": ""
 }

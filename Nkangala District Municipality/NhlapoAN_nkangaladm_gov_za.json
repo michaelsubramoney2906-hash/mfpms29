@@ -6,10 +6,12 @@
   "department": "Corporate Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Beauty Mtshali",
   "directorate": "Corporate",
   "reportTo": "Beauty Mtshali",
-  "managerEmail": "",
-  "level": "8"
+  "level": "8",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_2587503c-850c-4ef8-948c-3dffdeaf5e76_1789036477386.png",
+  "managerEmail": ""
 }

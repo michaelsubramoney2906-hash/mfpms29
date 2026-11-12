@@ -10,6 +10,8 @@
   "manager": "Thokozile E. Zulu",
   "directorate": "Community Services",
   "reportTo": "Thokozile E. Zulu",
-  "managerEmail": "",
-  "level": "2"
+  "level": "2",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

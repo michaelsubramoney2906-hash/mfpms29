@@ -6,10 +6,12 @@
   "department": "NEDA",
   "source": "azure_ad",
   "role": "Standard User",
-  "tenantId": "tenant-229",
+  "tenantId": "tenant-neda",
   "manager": "",
   "directorate": "",
   "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

@@ -10,6 +10,8 @@
   "manager": "Bongani Masilela",
   "directorate": "",
   "reportTo": "Bongani M.",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

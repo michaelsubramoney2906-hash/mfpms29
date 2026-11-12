@@ -10,6 +10,8 @@
   "manager": "Ali S. Msiza",
   "directorate": "Finance",
   "reportTo": "Ali S. Msiza",
-  "managerEmail": "",
-  "level": "3"
+  "level": "3",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_6d8e15af-4b2c-4467-8fd9-6f8e24ff5d96_1789035937620.png",
+  "managerEmail": ""
 }

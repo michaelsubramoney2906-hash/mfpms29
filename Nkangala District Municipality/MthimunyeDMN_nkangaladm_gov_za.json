@@ -6,10 +6,12 @@
   "department": "Information and Communication Technology",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Bongani S. Khumalo",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Bongani S. Khumalo",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_8e752579-61e5-4c96-9be5-c8e31b695a2a_1789544491811.png",
+  "managerEmail": "khumalobs@nkangaladm.gov.za"
 }

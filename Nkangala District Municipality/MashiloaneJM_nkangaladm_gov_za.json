@@ -10,6 +10,8 @@
   "manager": "Nkhensani F. Nkuna",
   "directorate": "Community Services",
   "reportTo": "Nkhensani F. Nkuna",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

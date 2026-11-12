@@ -10,6 +10,8 @@
   "manager": "Tatswane C. Kwakwa",
   "directorate": "Finance",
   "reportTo": "Tatswane C. Kwakwa",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

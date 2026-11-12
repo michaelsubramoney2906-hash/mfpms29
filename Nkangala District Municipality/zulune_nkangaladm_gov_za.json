@@ -6,10 +6,12 @@
   "department": "Performance Management Unit",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Sibusiso M. Shabangu",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Sibusiso M. Shabangu",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_f60af742-7b20-4eae-93ff-6ae7877fce6a_1785675340080.png",
+  "managerEmail": "shabangusm@nkangaladm.gov.za"
 }

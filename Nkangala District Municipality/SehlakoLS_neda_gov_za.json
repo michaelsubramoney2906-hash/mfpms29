@@ -1,15 +1,17 @@
 {
   "id": "0fc1131a-198b-4250-aab9-26125de4fb6c",
-  "fullName": "Lydia S. Sehlako",
+  "fullName": "Lydia Sadi Sehlako",
   "email": "SehlakoLS@neda.gov.za",
   "jobFunction": "Divisional Manager: Supply Chain Management",
-  "department": "NEDA",
+  "department": "Finance",
   "source": "azure_ad",
   "role": "Standard User",
-  "tenantId": "tenant-229",
-  "manager": "",
-  "directorate": "",
-  "reportTo": "",
-  "managerEmail": "",
-  "level": "1"
+  "tenantId": "tenant-neda",
+  "manager": "Kulani Collen Chauke",
+  "directorate": "Finance and Administration",
+  "reportTo": "Kulani Collen Chauke",
+  "level": "03",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": "chaukekc@neda.gov.za"
 }

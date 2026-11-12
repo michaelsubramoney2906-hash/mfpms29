@@ -10,6 +10,8 @@
   "manager": "Dick Z. Skhosana",
   "directorate": "Community Services",
   "reportTo": "Dick Z. Skhosana",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

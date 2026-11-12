@@ -10,6 +10,8 @@
   "manager": "Siphesihle O. Nkosi",
   "directorate": "Corporate Services",
   "reportTo": "Siphesihle O. Nkosi",
-  "managerEmail": "",
-  "level": "11"
+  "level": "11",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_1ca22c6e-78c3-4d93-879e-701520ac092d_1788875711988.png",
+  "managerEmail": "nkosiso@nkangaladm.gov.za"
 }

@@ -5,11 +5,13 @@
   "jobFunction": "Administrative Officer",
   "department": "Planning and Economic Development",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Fortress Shabangu",
   "directorate": "PED",
   "reportTo": "Fortress Shabangu",
-  "managerEmail": "",
-  "level": "5"
+  "level": "5",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_bd5000f9-6f02-4656-9e45-489afbaafbcf_1789037105528.png",
+  "managerEmail": ""
 }

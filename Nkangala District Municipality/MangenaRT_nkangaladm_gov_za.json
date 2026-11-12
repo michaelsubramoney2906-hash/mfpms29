@@ -6,10 +6,12 @@
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Alfred S. Magampe",
   "directorate": "Community Services",
   "reportTo": "Alfred S. Magampe",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

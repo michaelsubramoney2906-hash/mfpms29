@@ -10,6 +10,8 @@
   "manager": "Mike",
   "directorate": "Mzansi Flow Operations",
   "reportTo": "Mike",
-  "managerEmail": "",
-  "level": "L3 Specialist"
+  "level": "L3 Specialist",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

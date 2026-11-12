@@ -10,6 +10,8 @@
   "manager": "Nirisha Singh",
   "directorate": "Community Services",
   "reportTo": "Nirisha Singh",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_45d187c8-87fb-4729-aa56-ff38d752e3d9_1790595643653.png",
+  "managerEmail": ""
 }

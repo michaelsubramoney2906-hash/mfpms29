@@ -5,11 +5,13 @@
   "jobFunction": "Clerk Grade I: Projects",
   "department": "Finance Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Malifu Khanye",
   "directorate": "Finance",
   "reportTo": "Malifu Khanye",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_47975525-6d26-4fab-b24e-e228a25b4149_1789544032233.png",
+  "managerEmail": ""
 }

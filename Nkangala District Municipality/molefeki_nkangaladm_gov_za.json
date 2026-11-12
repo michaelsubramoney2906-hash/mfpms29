@@ -10,6 +10,8 @@
   "manager": "Johannes MT. Tlou",
   "directorate": "Community Services",
   "reportTo": "Johannes MT. Tlou",
-  "managerEmail": "",
-  "level": "1"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_f186f04f-ce70-4935-8813-ac8fe2bc96d4_1789982895549.png",
+  "managerEmail": ""
 }

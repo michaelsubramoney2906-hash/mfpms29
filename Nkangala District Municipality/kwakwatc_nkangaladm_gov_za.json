@@ -10,6 +10,8 @@
   "manager": "Rahab Mogodi",
   "directorate": "Finance",
   "reportTo": "Rahab Mogodi",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_b99d53b4-c9f2-483c-9af5-397849cf1e73_1789544661873.png",
+  "managerEmail": ""
 }

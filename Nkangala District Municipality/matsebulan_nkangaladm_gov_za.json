@@ -10,6 +10,8 @@
   "manager": "Marianne Joubert",
   "directorate": "Community Services",
   "reportTo": "Marianne Joubert",
-  "managerEmail": "",
-  "level": "5"
+  "level": "5",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

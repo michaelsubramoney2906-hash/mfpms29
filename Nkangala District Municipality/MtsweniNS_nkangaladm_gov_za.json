@@ -10,6 +10,8 @@
   "manager": "Nokuthula D. Mthimunye",
   "directorate": "Office of the Municipal Manager",
   "reportTo": "Nokuthula D. Mthimunye",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_f6906238-4cdd-474a-8829-b185ec03483d_1789036052328.png",
+  "managerEmail": ""
 }

@@ -10,6 +10,8 @@
   "manager": "Headman Skosana",
   "directorate": "Community Services",
   "reportTo": "Headman Skosana",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_85f3a6da-5ead-434a-b8f6-f660389989a6_1789037419340.png",
+  "managerEmail": ""
 }

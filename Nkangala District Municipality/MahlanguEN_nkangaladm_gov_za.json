@@ -6,10 +6,12 @@
   "department": "Corporate Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Richard D. Hleza",
   "directorate": "Corporate",
   "reportTo": "Richard D. Hleza",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_bf1a0551-2331-4f85-830a-2295fe847742_1789543969877.png",
+  "managerEmail": ""
 }

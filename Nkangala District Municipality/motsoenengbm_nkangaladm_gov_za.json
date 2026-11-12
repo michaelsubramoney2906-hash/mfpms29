@@ -10,6 +10,8 @@
   "manager": "Tiro Mabunda",
   "directorate": "PED",
   "reportTo": "Tiro Mabunda",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_447f7a5e-f8d4-4b18-9f23-bde2a53405e8_1788871848662.png",
+  "managerEmail": ""
 }

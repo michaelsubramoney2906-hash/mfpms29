@@ -5,11 +5,13 @@
   "jobFunction": "Senior Personnel Officer",
   "department": "Corporate Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Mark E. Maseko",
   "directorate": "Corporate",
   "reportTo": "Mark E. Maseko",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_15b7f38f-2a83-4801-8241-adae1ead6de5_1788875740440.png",
+  "managerEmail": ""
 }

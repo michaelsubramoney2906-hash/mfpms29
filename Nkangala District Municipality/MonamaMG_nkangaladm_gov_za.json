@@ -10,6 +10,8 @@
   "manager": "Lucas Masanabo",
   "directorate": "Community Services",
   "reportTo": "Lucas Masanabo",
-  "managerEmail": "",
-  "level": "11"
+  "level": "11",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

@@ -5,11 +5,13 @@
   "jobFunction": "Administrator:Technical Services",
   "department": "Technical Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Jackson Skosana",
   "directorate": "Technical",
   "reportTo": "Jackson Skosana",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_2a1903f5-ed86-4c9a-9d8e-0dff7280b9d7_1789037048478.png",
+  "managerEmail": ""
 }

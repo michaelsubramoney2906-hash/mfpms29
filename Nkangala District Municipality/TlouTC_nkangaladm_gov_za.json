@@ -10,6 +10,8 @@
   "manager": "Tatswane C. Kwakwa",
   "directorate": "Finance",
   "reportTo": "Tatswane C. Kwakwa",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_dd6c73f9-e627-402f-a07d-6103a7c9f422_1789035892980.png",
+  "managerEmail": ""
 }

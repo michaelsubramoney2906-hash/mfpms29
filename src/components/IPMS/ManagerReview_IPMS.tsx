@@ -674,12 +674,19 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         fenyaneSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Jackson Skosana (skosanaj@nkangaladm.gov.za)
+      const skosanaSubordinates = [
+        'nkosis@nkangaladm.gov.za'
+      ];
+      if (managerEmail.includes('skosanaj') || normCurrent.includes('jackson skosana') || (normCurrent.includes('skosana') && !managerEmail.includes('skosanast') && !managerEmail.includes('skosanah') && !managerEmail.includes('skhosanaqj'))) {
+        skosanaSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // Explicit list for Thandiwe Mazwi (mazwit@nkangaladm.gov.za / mazwitc@nkangaladm.gov.za)
       const mazwiSubordinates = [
         'mashamaitenm@nkangaladm.gov.za',
         'phetlavm@nkangaladm.gov.za',
         'phetlav@nkangaladm.gov.za',
-        'nkosis@nkangaladm.gov.za',
         'nkosiso@nkangaladm.gov.za',
         'lebisij@nkangaladm.gov.za',
         'fakuded@nkangaladm.gov.za',
@@ -924,6 +931,14 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
           }
         }
 
+        // Rule: Sanele Nkosi (nkosis@nkangaladm.gov.za) reports to Jackson Skosana (skosanaj@nkangaladm.gov.za), NOT Thandiwe Mazwi
+        if (targetEmail === 'nkosis@nkangaladm.gov.za') {
+          if (managerEmail.includes('mazwit') || normCurrent.includes('mazwi') || normCurrent.includes('thandiwe')) return false;
+          if (managerEmail.includes('skosanaj') || normCurrent.includes('jackson skosana') || (normCurrent.includes('skosana') && !managerEmail.includes('skosanast') && !managerEmail.includes('skosanah') && !managerEmail.includes('skhosanaqj')) || isSystemDeveloper) {
+            return true;
+          }
+        }
+
         // Rule: The 5 ICT officials report strictly to Nokuthula Mthimunye, NOT Bongani Khumalo
         if (mthimunyeSubordinates.includes(targetEmail)) {
           return managerEmail.includes('mthimunyedmn') || normCurrent.includes('nokuthula mthimunye') || isSystemDeveloper;
@@ -931,6 +946,7 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
         const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
           doesManagerMatchCurrentUser(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '', pManagerEmail) ||
+          ((managerEmail.includes('skosanaj') || normCurrent.includes('jackson skosana')) && (skosanaSubordinates.includes(targetEmail) || pManager.includes('skosana'))) ||
           ((managerEmail.includes('shabangusm') || normCurrent.includes('sibusiso') || (normCurrent.includes('shabangu') && !normCurrent.includes('mandla'))) && (shabanguSubordinates.includes(targetEmail) || pManager.includes('shabangu'))) ||
           ((managerEmail.includes('nparbhoo') || managerEmail.includes('parbhoon') || normCurrent.includes('nirupa') || normCurrent.includes('parbhoo')) && (parbhooSubordinates.includes(targetEmail) || pManager.includes('parbhoo'))) ||
           ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(targetEmail) || pManager.includes('links'))) ||
@@ -2406,8 +2422,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
                       return (
                         <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition">
                           <td className="py-3 px-3 font-bold text-slate-800">
-                            {tp.userId?.toLowerCase().includes('nkosis') && (tp.plan.metadata?.name === 'Sanele Nkosi' || !tp.plan.metadata?.name)
-                              ? 'Siphesihle Nkosi'
+                            {tp.userId?.toLowerCase() === 'nkosis@nkangaladm.gov.za'
+                              ? 'Sanele Nkosi'
                               : (tp.plan.metadata?.name || tp.userId)}
                           </td>
                           <td className="py-3 px-3">

@@ -10,6 +10,8 @@
   "manager": "Asnath M. Motau",
   "directorate": "Finance",
   "reportTo": "Asnath M. Motau",
-  "managerEmail": "",
-  "level": "7"
+  "level": "7",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_3351bb90-539a-4283-8d60-93c769434a35_1789035763231.png",
+  "managerEmail": ""
 }

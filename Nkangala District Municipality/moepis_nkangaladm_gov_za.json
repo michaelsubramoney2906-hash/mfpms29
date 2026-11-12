@@ -6,10 +6,12 @@
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Johannes MT. Tlou",
   "directorate": "Community Services",
   "reportTo": "Johannes MT. Tlou",
-  "managerEmail": "",
-  "level": "1"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_b00d0c9e-092d-4d3f-b811-993356a69e36_1789983254441.png",
+  "managerEmail": ""
 }

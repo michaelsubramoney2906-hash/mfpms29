@@ -10,6 +10,8 @@
   "manager": "Thandiwe Mazwi",
   "directorate": "Corporate",
   "reportTo": "Thandiwe Mazwi",
-  "managerEmail": "",
-  "level": "10"
+  "level": "10",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_a9d2d0ce-495e-46f3-90a5-cfb9ff0245e3_1789036640520.png",
+  "managerEmail": ""
 }

@@ -10,6 +10,8 @@
   "manager": "Sanele Nkosi",
   "directorate": "Technical",
   "reportTo": "Sanele Nkosi",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_c2614abf-21d0-4d4d-bea0-8d85dc55a35d_1789036381546.png",
+  "managerEmail": "nkosis@nkangaladm.gov.za"
 }

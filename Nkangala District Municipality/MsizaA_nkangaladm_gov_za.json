@@ -6,10 +6,12 @@
   "department": "Community Development Services",
   "source": "azure_ad",
   "role": "tenant_user",
-  "tenantId": "nkangala_auto",
+  "tenantId": "tenant-229",
   "manager": "Headman Skosana",
   "directorate": "Community Services",
   "reportTo": "Headman Skosana",
-  "managerEmail": "",
-  "level": "4"
+  "level": "4",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_global_88c4c8d0-e179-443e-985c-3d56916c11d3_1788871789346.png",
+  "managerEmail": ""
 }

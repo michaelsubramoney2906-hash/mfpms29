@@ -5,11 +5,13 @@
   "jobFunction": "Environmental Health Practioner: Victor Khanye",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Yolanda Segami",
   "directorate": "Community Services",
   "reportTo": "Yolanda Segami",
-  "managerEmail": "",
-  "level": "1"
+  "level": "1",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

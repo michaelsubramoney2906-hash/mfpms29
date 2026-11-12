@@ -10,6 +10,8 @@
   "manager": "Segadimane K. Ntobeng",
   "directorate": "Community Services",
   "reportTo": "Segadimane K. Ntobeng",
-  "managerEmail": "",
-  "level": "9"
+  "level": "9",
+  "signatureType": "draw",
+  "signatureData": "",
+  "managerEmail": ""
 }

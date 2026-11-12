@@ -5,11 +5,13 @@
   "jobFunction": "Environmental Health Practitioner",
   "department": "Community Development Services",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Alfred S. Magampe",
   "directorate": "Community Services",
   "reportTo": "Alfred S. Magampe",
-  "managerEmail": "",
-  "level": "6"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_tenant-229_1a63467d-7803-4c0c-bf9d-d2ef1699699a_1792577770042.png",
+  "managerEmail": ""
 }

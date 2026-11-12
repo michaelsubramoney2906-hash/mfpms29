@@ -5,11 +5,13 @@
   "jobFunction": "Councillor",
   "department": "Office of the Speaker",
   "source": "azure_ad",
-  "role": "Standard User",
-  "tenantId": "nkangala_auto",
+  "role": "tenant_user",
+  "tenantId": "tenant-229",
   "manager": "Alfred S. Magampe",
   "directorate": "Community Services",
   "reportTo": "Alfred S. Magampe",
-  "managerEmail": "",
-  "level": "1"
+  "level": "6",
+  "signatureType": "upload",
+  "signatureData": "https://skuuhpjbhiablxycsyco.supabase.co/storage/v1/object/public/signatures/signature_tenant-229_ae657438-8e47-42eb-91b6-a7f2d6d6a9d6_1792577807612.png",
+  "managerEmail": ""
 }
