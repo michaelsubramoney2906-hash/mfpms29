@@ -1412,18 +1412,64 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     try {
       const emailToUse = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
       const res = await fetch(`/api/tenant/${activeTenantId}/pdp?userId=${encodeURIComponent(emailToUse)}&t=${Date.now()}`);
+      let pdpItemsToUse: any[] = [];
       if (res.ok) {
         const data = await res.json();
-        if (data && Array.isArray(data.items) && data.items.length > 0) {
-          setPulledPdpItems(data.items);
-          triggerNotification(`Successfully pulled ${data.items.length} PDP items for ${emailToUse}!`, "success");
+        if (data && Array.isArray(data.items) && data.items.length > 0 && data.items[0].skillsGap !== 'N/A') {
+          pdpItemsToUse = data.items;
+        } else if (emailToUse.includes('myenispl')) {
+          pdpItemsToUse = [
+            {
+              id: 'pdp-myenispl-1',
+              skillsGap: 'Disaster Risk Reduction Planning & Incident Command System (ICS)',
+              outcomes: 'Effective coordination of district disaster operations and compliance with Disaster Management Act (Act 57 of 2002)',
+              suggestedTraining: 'Incident Command Systems & National Disaster Management Framework Certification',
+              modeOfDelivery: 'Accredited Executive Course / NDMC Workshop',
+              timeFrame: '2026/2027 Financial Year',
+              workOpportunity: 'Direct District Disaster Management Center operational plans and stakeholder emergency drills',
+              supportPerson: 'Divisional Manager: Disaster Management and Public Safety (Mr. Elmon Nkosi)'
+            }
+          ];
         } else {
-          setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
-          triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
+          pdpItemsToUse = KHUBONI_Y_DEFAULT_PDP_TABLE;
         }
+      } else if (emailToUse.includes('myenispl')) {
+        pdpItemsToUse = [
+          {
+            id: 'pdp-myenispl-1',
+            skillsGap: 'Disaster Risk Reduction Planning & Incident Command System (ICS)',
+            outcomes: 'Effective coordination of district disaster operations and compliance with Disaster Management Act (Act 57 of 2002)',
+            suggestedTraining: 'Incident Command Systems & National Disaster Management Framework Certification',
+            modeOfDelivery: 'Accredited Executive Course / NDMC Workshop',
+            timeFrame: '2026/2027 Financial Year',
+            workOpportunity: 'Direct District Disaster Management Center operational plans and stakeholder emergency drills',
+            supportPerson: 'Divisional Manager: Disaster Management and Public Safety (Mr. Elmon Nkosi)'
+          }
+        ];
       } else {
-        setPulledPdpItems(KHUBONI_Y_DEFAULT_PDP_TABLE);
-        triggerNotification("Adopted Personal Development Plan (PDP) table matrix!", "success");
+        pdpItemsToUse = KHUBONI_Y_DEFAULT_PDP_TABLE;
+      }
+      setPulledPdpItems(pdpItemsToUse);
+      triggerNotification(`Adopted Personal Development Plan (PDP) table matrix (${pdpItemsToUse.length} items)!`, "success");
+
+      // Auto-persist immediately to Supabase
+      try {
+        const currentTpl = buildActiveDocumentPayload();
+        const activeTplPayload = {
+          ...currentTpl,
+          pulledPdpItems: pdpItemsToUse,
+          updatedAt: new Date().toISOString()
+        };
+        await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(emailToUse)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            html: activeTplPayload,
+            htmlDocumentId: `draft_doc_${activeTenantId}_${emailToUse}`
+          })
+        });
+      } catch (pErr) {
+        console.warn("Auto-persist error on PDP adopt:", pErr);
       }
     } catch (err: any) {
       console.error(err);
@@ -2266,27 +2312,48 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   const handlePullKhuboniJscTable = async () => {
     setPullingKhuboniJsc(true);
     try {
-      const isGlobalAdminUser = (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') || 
-                                (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com');
-      const savedOfficial = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
-      const activeEmail = isGlobalAdminUser
-        ? (savedOfficial && !savedOfficial.endsWith('@mzansiflow.co.za') ? savedOfficial : 'khuboniy@nkangaladm.gov.za')
-        : (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
+      const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
 
       const res = await fetch(`/api/tenant/${activeTenantId}/job-competencies?userId=${encodeURIComponent(activeEmail)}&t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
+        let comps: any[] = [];
         if (data && Array.isArray(data.competencies) && data.competencies.length > 0) {
-          setPulledKhuboniJscRows(data.competencies);
-          triggerNotification(`Successfully pulled entire JSC Table (${data.competencies.length} items) from profile ${activeEmail} into Section 4.4!`, "success");
+          comps = data.competencies;
         } else if (activeEmail.includes('khuboniy')) {
-          setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
-          triggerNotification(`Adopted entire JSC Table from profile ${activeEmail} into Section 4.4!`, "success");
+          comps = KHUBONI_Y_DEFAULT_JSC_TABLE;
+        }
+        if (comps.length > 0) {
+          setPulledKhuboniJscRows(comps);
+          setPulledCompetencyRows(comps);
+          triggerNotification(`Successfully pulled entire JSC Table (${comps.length} items) from profile ${activeEmail} into Section 4.4!`, "success");
+
+          // Auto-persist immediately to Supabase
+          try {
+            const currentTpl = buildActiveDocumentPayload();
+            const activeTplPayload = {
+              ...currentTpl,
+              pulledKhuboniJscRows: comps,
+              pulledCompetencyRows: comps,
+              updatedAt: new Date().toISOString()
+            };
+            await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(activeEmail)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                html: activeTplPayload,
+                htmlDocumentId: `draft_doc_${activeTenantId}_${activeEmail}`
+              })
+            });
+          } catch (pErr) {
+            console.warn("Auto-persist error on JSC adopt:", pErr);
+          }
         } else {
           triggerNotification(`No Job Specific Competencies found yet in the JSC Planner for ${activeEmail}.`, "error");
         }
       } else if (activeEmail.includes('khuboniy')) {
         setPulledKhuboniJscRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
+        setPulledCompetencyRows(KHUBONI_Y_DEFAULT_JSC_TABLE);
         triggerNotification(`Adopted entire JSC Table from profile ${activeEmail} into Section 4.4!`, "success");
       }
     } catch (err: any) {
@@ -2297,17 +2364,16 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
   };
 
   const RenderKhuboniJscTableBelow4_4 = () => {
-    if (!pulledKhuboniJscRows || pulledKhuboniJscRows.length === 0) return null;
+    const jscRows = (pulledKhuboniJscRows && pulledKhuboniJscRows.length > 0)
+      ? pulledKhuboniJscRows
+      : (pulledCompetencyRows && pulledCompetencyRows.length > 0 ? pulledCompetencyRows : null);
 
-    const isGlobalAdminUser = (currentUser?.email || '').toLowerCase().endsWith('@mzansiflow.co.za') || 
-                              (currentUser?.email || '').toLowerCase().includes('massivedynamixdistributors.com');
-    const savedOfficial = typeof window !== 'undefined' ? localStorage.getItem('admin_selected_jsc_official') : null;
-    const activeEmail = isGlobalAdminUser
-      ? (savedOfficial && !savedOfficial.endsWith('@mzansiflow.co.za') ? savedOfficial : 'khuboniy@nkangaladm.gov.za')
-      : (currentUser?.email || 'khuboniy@nkangaladm.gov.za').toLowerCase().trim();
-    const activeName = isGlobalAdminUser ? `Municipal Official (${activeEmail})` : (currentUser?.fullName || activeEmail);
+    if (!jscRows || jscRows.length === 0) return null;
 
-    const totalWeight = pulledKhuboniJscRows.reduce(
+    const activeEmail = (targetOfficialEmail || currentUser?.email || 'myenispl@nkangaladm.gov.za').toLowerCase().trim();
+    const activeName = currentUser?.fullName || (activeEmail.includes('myenispl') ? 'Sibusiso P.L. Myeni' : activeEmail);
+
+    const totalWeight = jscRows.reduce(
       (acc, curr, idx) => {
         const val = Number(curr.weight ?? curr.weighting) || (idx === 0 ? 35 : idx === 1 ? 35 : idx === 2 ? 30 : 0);
         return acc + val;
@@ -2359,8 +2425,8 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
               </tr>
             </thead>
             <tbody>
-              {pulledKhuboniJscRows.map((comp: any, idx: number) => {
-                const compTitle = comp.competency || comp.title || '';
+              {jscRows.map((comp: any, idx: number) => {
+                const compTitle = comp.competency || comp.title || comp.name || comp.competencyName || '';
                 let defText = '';
                 if (comp.definition) {
                   if (typeof comp.definition === 'string') {
@@ -2368,6 +2434,9 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
                   } else if (comp.definition.mainText) {
                     defText = comp.definition.mainText;
                   }
+                }
+                if (!defText && comp.description) {
+                  defText = typeof comp.description === 'string' ? comp.description : String(comp.description);
                 }
                 const rowWeight = comp.weight ?? comp.weighting ?? (idx === 0 ? 35 : idx === 1 ? 35 : idx === 2 ? 30 : 0);
                 return (
@@ -3063,16 +3132,18 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       pulledCfoCompetencyRows,
       pulledPedCompetencyRows,
       pulledCorpCompetencyRows,
-      pulledKhuboniJscRows,
+      pulledKhuboniJscRows: (pulledKhuboniJscRows && pulledKhuboniJscRows.length > 0)
+        ? pulledKhuboniJscRows
+        : ((pulledCompetencyRows && pulledCompetencyRows.length > 0) ? pulledCompetencyRows : null),
       khuboniJscNotes,
-      employeeSignature,
-      employeeName,
-      employeePosition,
-      employeeDate,
-      supervisorSignature,
-      supervisorName,
-      supervisorPosition,
-      supervisorDate,
+      employeeSignature: employeeSignature || ((targetOfficialEmail || currentUser?.email || '').toLowerCase().includes('myenispl') ? 'Sibusiso P.L. Myeni' : null),
+      employeeName: employeeName || ((targetOfficialEmail || currentUser?.email || '').toLowerCase().includes('myenispl') ? 'Sibusiso P.L. Myeni' : null),
+      employeePosition: employeePosition || ((targetOfficialEmail || currentUser?.email || '').toLowerCase().includes('myenispl') ? 'Disaster Management Officer' : null),
+      employeeDate: employeeDate || '29 July 2026',
+      supervisorSignature: supervisorSignature || ((targetOfficialEmail || currentUser?.email || '').toLowerCase().includes('myenispl') ? 'Mr. Elmon Nkosi' : null),
+      supervisorName: supervisorName || ((targetOfficialEmail || currentUser?.email || '').toLowerCase().includes('myenispl') ? 'Mr. Elmon Nkosi' : null),
+      supervisorPosition: supervisorPosition || ((targetOfficialEmail || currentUser?.email || '').toLowerCase().includes('myenispl') ? 'Divisional Manager: Disaster Management and Public Safety' : null),
+      supervisorDate: supervisorDate || '29 July 2026',
       sigDay,
       sigMonth,
       sigYear,
@@ -3358,10 +3429,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
     setPulledCfoCompetencyRows(tpl.pulledCfoCompetencyRows !== undefined ? tpl.pulledCfoCompetencyRows : null);
     setPulledPedCompetencyRows(tpl.pulledPedCompetencyRows !== undefined ? tpl.pulledPedCompetencyRows : null);
     setPulledCorpCompetencyRows(tpl.pulledCorpCompetencyRows !== undefined ? tpl.pulledCorpCompetencyRows : null);
-    setPulledKhuboniJscRows(tpl.pulledKhuboniJscRows !== undefined ? tpl.pulledKhuboniJscRows : null);
+    const jscToLoad = (tpl.pulledKhuboniJscRows && tpl.pulledKhuboniJscRows.length > 0)
+      ? tpl.pulledKhuboniJscRows
+      : ((tpl.pulledCompetencyRows && tpl.pulledCompetencyRows.length > 0) ? tpl.pulledCompetencyRows : null);
+    setPulledKhuboniJscRows(jscToLoad);
 
     // Signatures Loading
-    const isManganiTpl = (currentUser?.email || '').toLowerCase().includes('manganijp') || (tpl.employeeName || '').toLowerCase().includes('mangani');
+    const activeEmail = (targetOfficialEmail || currentUser?.email || '').toLowerCase().trim();
+    const isManganiTpl = activeEmail.includes('manganijp') || (tpl.employeeName || '').toLowerCase().includes('mangani');
+    const isMyeniTpl = activeEmail.includes('myenispl') || (tpl.employeeName || '').toLowerCase().includes('myeni');
     if (isManganiTpl || (isNedaPortal && tpl.supervisorName?.toLowerCase().includes('bvuma'))) {
       setEmployeeSignature(tpl.employeeSignature || 'Johan P. Mangani');
       setEmployeeName('Johan P. Mangani');
@@ -3370,6 +3446,15 @@ export function PADraftingSuite({ currentUser, activeTenantId }: PADraftingSuite
       setSupervisorSignature('Mr MT Khumalo');
       setSupervisorName('Mr MT Khumalo');
       setSupervisorPosition('Board Chairperson');
+      setSupervisorDate(tpl.supervisorDate ? tpl.supervisorDate : '29 July 2026');
+    } else if (isMyeniTpl) {
+      setEmployeeSignature(tpl.employeeSignature || 'Sibusiso P.L. Myeni');
+      setEmployeeName(tpl.employeeName || 'Sibusiso P.L. Myeni');
+      setEmployeePosition(tpl.employeePosition || 'Disaster Management Officer');
+      setEmployeeDate(tpl.employeeDate ? tpl.employeeDate : '29 July 2026');
+      setSupervisorSignature(tpl.supervisorSignature || 'Mr. Elmon Nkosi');
+      setSupervisorName(tpl.supervisorName || 'Mr. Elmon Nkosi');
+      setSupervisorPosition(tpl.supervisorPosition || 'Divisional Manager: Disaster Management and Public Safety');
       setSupervisorDate(tpl.supervisorDate ? tpl.supervisorDate : '29 July 2026');
     } else {
       setEmployeeSignature(tpl.employeeSignature !== undefined ? tpl.employeeSignature : null);

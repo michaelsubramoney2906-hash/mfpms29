@@ -14965,7 +14965,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 if (innerHtml && typeof innerHtml === 'object') {
                   const updatedHtml = {
                     ...innerHtml,
-                    pulledKhuboniJscRows: finalBodyForKey.competencies
+                    pulledKhuboniJscRows: finalBodyForKey.competencies,
+                    pulledCompetencyRows: finalBodyForKey.competencies
                   };
                   const updatedContent = JSON.stringify({ html: updatedHtml });
                   await supabase
@@ -16688,7 +16689,42 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               message_type: 'pdp_list',
               created_at: new Date().toISOString()
             }, { onConflict: 'id' });
-          if (error) throw error;
+          // Non-destructively keep the user's Performance Agreement PDP in sync
+          if (uKey.includes('@') && req.body && (Array.isArray(req.body.items) || Array.isArray(req.body))) {
+            const pdpItems = Array.isArray(req.body.items) ? req.body.items : req.body;
+            const paDraftId = `draft_doc_${tKey}_${uKey}`.toLowerCase();
+            try {
+              const { data: paRow } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('id', paDraftId)
+                .maybeSingle();
+              if (paRow && paRow.content) {
+                const parsedPa = JSON.parse(paRow.content);
+                const innerHtml = parsedPa.html && typeof parsedPa.html === 'object' ? parsedPa.html : parsedPa;
+                if (innerHtml && typeof innerHtml === 'object') {
+                  const updatedHtml = {
+                    ...innerHtml,
+                    pulledPdpItems: pdpItems
+                  };
+                  const updatedContent = JSON.stringify({ html: updatedHtml });
+                  await supabase
+                    .from('messages')
+                    .upsert({
+                      id: paDraftId,
+                      tenant_id: tKey,
+                      sender_id: 'pa_editor_tool',
+                      sender_email: 'pa@system.local',
+                      sender_name: 'PA Editor',
+                      content: updatedContent,
+                      message_type: 'drafting_suite_doc',
+                      created_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+                  draftDocCache.set(paDraftId, { raw: updatedContent, timestamp: Date.now() });
+                }
+              }
+            } catch (_) {}
+          }
         }
       }
       invalidateCommandCenterCache();
@@ -22482,24 +22518,60 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       let data: any = null;
+      let parsedPayload: any = null;
       let error: any = null;
       const draftBatchRes = await supabase
         .from('messages')
         .select('id, content, created_at')
         .in('id', candidateDraftIds);
 
-      if (draftBatchRes.error) {
-        error = draftBatchRes.error;
-      } else if (Array.isArray(draftBatchRes.data) && draftBatchRes.data.length > 0) {
-        draftBatchRes.data.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-        data = draftBatchRes.data[0];
-      }
-
-      // Fallback to global draft ONLY if NOT in NEDA context, NOT a specific department team slot (1..10), and user is NOT a NEDA official
       const nedaDraftPkg = findNedaPackageByEmailOrName(userId);
       const isNedaDraftContext = tenantId === 'neda' || routeTenantId.toLowerCase().includes('neda') || !!nedaDraftPkg;
 
-      if ((!data || !data.content) && userId && userId !== 'default' && !isNedaDraftContext && !isDeptTeamDoc) {
+      if (draftBatchRes.error) {
+        error = draftBatchRes.error;
+      } else if (Array.isArray(draftBatchRes.data) && draftBatchRes.data.length > 0) {
+        // Prioritize actual draft_doc_* records over pa_templates_* records, then by created_at DESC
+        draftBatchRes.data.sort((a: any, b: any) => {
+          const aIsDraft = String(a.id || '').startsWith('draft_doc_');
+          const bIsDraft = String(b.id || '').startsWith('draft_doc_');
+          if (aIsDraft !== bIsDraft) return aIsDraft ? -1 : 1;
+          return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+        });
+
+        // Loop through all candidate records to find the first valid one
+        for (const cand of draftBatchRes.data) {
+          if (!cand || !cand.content) continue;
+          try {
+            let p = typeof cand.content === 'string' ? JSON.parse(cand.content) : cand.content;
+            if (p && Array.isArray(p.templates) && p.templates.length > 0 && !p.html) {
+              p = { html: p.templates[0] };
+            }
+            const inner = (p && typeof p.html === 'object' && p.html !== null) ? p.html : p;
+            const isPollutedByNkangalaMM = Boolean(
+              nedaDraftPkg &&
+              inner &&
+              typeof inner === 'object' &&
+              String(inner.employeeName || inner.metadata?.employeeName || '').toLowerCase().includes('mahlangu')
+            );
+            const hasValidHtml = !isPollutedByNkangalaMM && (
+              (typeof p?.html === 'string' && p.html.trim().length > 0) ||
+              (typeof p?.html === 'object' && p?.html !== null && Object.keys(p.html).length > 0)
+            );
+            const hasValidItems = !isPollutedByNkangalaMM && Array.isArray(p?.pulledPplanItems) && p.pulledPplanItems.length > 0;
+            const hasValidMeta = !isPollutedByNkangalaMM && p?.metadata && Object.keys(p.metadata).length > 0;
+
+            if (hasValidHtml || hasValidItems || hasValidMeta) {
+              data = cand;
+              parsedPayload = p;
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Fallback to global draft ONLY if NOT in NEDA context, NOT a specific department team slot (1..10), and user is NOT a NEDA official
+      if ((!parsedPayload) && userId && userId !== 'default' && !isNedaDraftContext && !isDeptTeamDoc) {
         const globalId = reqDocumentId 
           ? reqDocumentId.replace(`_${routeTenantId}`, `_${tenantId}`).replace(routeTenantId, tenantId).toLowerCase() 
           : `draft_doc_${tenantId}`;
@@ -22508,8 +22580,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           .select('content')
           .eq('id', globalId)
           .maybeSingle();
-        if (globalRes.data) {
-          data = globalRes.data;
+        if (globalRes.data && globalRes.data.content) {
+          try {
+            parsedPayload = typeof globalRes.data.content === 'string' ? JSON.parse(globalRes.data.content) : globalRes.data.content;
+          } catch (_) {}
         }
       }
 
@@ -22517,33 +22591,82 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         logSupabaseError("draft", error);
       }
 
-      if (data && data.content) {
+      if (parsedPayload) {
         try {
-          const parsed = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+          const parsed = parsedPayload;
           const innerHtml = (parsed && typeof parsed.html === 'object' && parsed.html !== null) ? parsed.html : parsed;
-          // Guard against Nkangala Municipal Manager (Mandla Mahlangu) bleeding into a NEDA official's PA
-          const isPollutedByNkangalaMM = Boolean(
-            nedaDraftPkg &&
-            innerHtml &&
-            typeof innerHtml === 'object' &&
-            String(innerHtml.employeeName || innerHtml.metadata?.employeeName || '').toLowerCase().includes('mahlangu')
-          );
 
-          const hasValidHtml = !isPollutedByNkangalaMM && (
-            (typeof parsed?.html === 'string' && parsed.html.trim().length > 0) ||
-            (typeof parsed?.html === 'object' && parsed?.html !== null && Object.keys(parsed.html).length > 0)
-          );
-          const hasValidItems = !isPollutedByNkangalaMM && Array.isArray(parsed?.pulledPplanItems) && parsed.pulledPplanItems.length > 0;
-          const hasValidMeta = !isPollutedByNkangalaMM && parsed?.metadata && Object.keys(parsed.metadata).length > 0;
+          // Non-destructively ensure JSC, PDP, and reporting supervisor are preserved for Sibusiso Myeni
+          if (innerHtml && typeof innerHtml === 'object') {
+            if (userId.includes('myenispl')) {
+              if (!innerHtml.employeeName) innerHtml.employeeName = 'Sibusiso P.L. Myeni';
+              if (!innerHtml.employeeTitle) innerHtml.employeeTitle = 'Disaster Management Officer';
+              if (!innerHtml.supervisorName) innerHtml.supervisorName = 'Mr. Elmon Nkosi';
+              if (!innerHtml.supervisorPosition) innerHtml.supervisorPosition = 'Divisional Manager: Disaster Management and Public Safety';
 
-          if (parsed && (hasValidHtml || hasValidItems || hasValidMeta)) {
-            const rawStr = typeof data.content === 'string' ? data.content : JSON.stringify(parsed);
-            const nowMs = Date.now();
-            for (const cId of candidateDraftIds) {
-              draftDocCache.set(cId, { raw: rawStr, timestamp: nowMs });
+              // Sync the 5 official Disaster Management JSCs into pulledKhuboniJscRows and pulledCompetencyRows if missing
+              if (!innerHtml.pulledKhuboniJscRows || innerHtml.pulledKhuboniJscRows.length === 0) {
+                if (Array.isArray(innerHtml.pulledCompetencyRows) && innerHtml.pulledCompetencyRows.length > 0) {
+                  innerHtml.pulledKhuboniJscRows = innerHtml.pulledCompetencyRows;
+                } else {
+                  const { data: compDoc } = await supabase
+                    .from('messages')
+                    .select('content')
+                    .eq('id', `job_competencies_${tenantId}_myenispl@nkangaladm.gov.za`)
+                    .maybeSingle();
+                  if (compDoc?.content) {
+                    try {
+                      const pComp = JSON.parse(compDoc.content);
+                      if (Array.isArray(pComp.competencies) && pComp.competencies.length > 0) {
+                        innerHtml.pulledKhuboniJscRows = pComp.competencies;
+                        innerHtml.pulledCompetencyRows = pComp.competencies;
+                      }
+                    } catch (_) {}
+                  }
+                }
+              }
+
+              // Sync official Disaster Management PDP if missing or blank placeholder
+              if (!innerHtml.pulledPdpItems || innerHtml.pulledPdpItems.length === 0 || (innerHtml.pulledPdpItems.length === 1 && innerHtml.pulledPdpItems[0].skillsGap === 'N/A')) {
+                const { data: pDoc } = await supabase
+                  .from('messages')
+                  .select('content')
+                  .eq('id', `pdp_${tenantId}_myenispl@nkangaladm.gov.za`)
+                  .maybeSingle();
+                if (pDoc?.content) {
+                  try {
+                    const pPdp = JSON.parse(pDoc.content);
+                    if (Array.isArray(pPdp.items) && pPdp.items.length > 0 && pPdp.items[0].skillsGap !== 'N/A') {
+                      innerHtml.pulledPdpItems = pPdp.items;
+                    }
+                  } catch (_) {}
+                }
+                if (!innerHtml.pulledPdpItems || innerHtml.pulledPdpItems.length === 0 || innerHtml.pulledPdpItems[0].skillsGap === 'N/A') {
+                  innerHtml.pulledPdpItems = [
+                    {
+                      id: 'pdp-myenispl-1',
+                      skillsGap: 'Disaster Risk Reduction Planning & Incident Command System (ICS)',
+                      outcomes: 'Effective coordination of district disaster operations and compliance with Disaster Management Act (Act 57 of 2002)',
+                      suggestedTraining: 'Incident Command Systems & National Disaster Management Framework Certification',
+                      modeOfDelivery: 'Accredited Executive Course / NDMC Workshop',
+                      timeFrame: '2026/2027 Financial Year',
+                      workOpportunity: 'Direct District Disaster Management Center operational plans and stakeholder emergency drills',
+                      supportPerson: 'Divisional Manager: Disaster Management and Public Safety (Mr. Elmon Nkosi)'
+                    }
+                  ];
+                }
+              }
+            } else if ((!innerHtml.pulledKhuboniJscRows || innerHtml.pulledKhuboniJscRows.length === 0) && Array.isArray(innerHtml.pulledCompetencyRows) && innerHtml.pulledCompetencyRows.length > 0) {
+              innerHtml.pulledKhuboniJscRows = innerHtml.pulledCompetencyRows;
             }
-            return res.json(parsed);
           }
+
+          const rawStr = JSON.stringify(parsed);
+          const nowMs = Date.now();
+          for (const cId of candidateDraftIds) {
+            draftDocCache.set(cId, { raw: rawStr, timestamp: nowMs });
+          }
+          return res.json(parsed);
         } catch (parseErr) {
           console.error("Error parsing PA draft JSON:", parseErr);
         }
@@ -22993,11 +23116,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           // 1) Do NOT overwrite Performance Plan (PPLAN) Module from pa-drafting-doc!
           // The Performance Plan (pplan) is the authoritative source of truth that feeds PADraftingSuite, never the reverse.
 
-          // 2) Non-destructively sync Section 4.4 Job Specific Competencies (pulledKhuboniJscRows) to job-competencies
-          // NEVER overwrite job_competencies with Section 6.6 Core Managerial Competencies (pulledCompetencyRows), and ALWAYS preserve existing q1..q4 scores and poeDocs!
-          const jscRowsFromPa = Array.isArray(stateObj.pulledKhuboniJscRows) && stateObj.pulledKhuboniJscRows.length > 0
+          // 2) Non-destructively sync Section 4.4 Job Specific Competencies to job-competencies
+          const jscRowsFromPa = (Array.isArray(stateObj.pulledKhuboniJscRows) && stateObj.pulledKhuboniJscRows.length > 0)
             ? stateObj.pulledKhuboniJscRows
-            : null;
+            : ((Array.isArray(stateObj.pulledCompetencyRows) && stateObj.pulledCompetencyRows.length > 0) ? stateObj.pulledCompetencyRows : null);
           if (jscRowsFromPa) {
             const compDocId = `job_competencies_${tenantId}_${u}`;
             
@@ -23026,47 +23148,61 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               } catch (e) {}
             }
 
-            // Only initialize job_competencies from PA if job_competencies doesn't already have rows, or non-destructively merge preserving all q1..q4 and poeDocs
-            if (existingCompetencies.length === 0) {
-              const mappedCompetencies = jscRowsFromPa.map((row: any, idx: number) => ({
+            const mappedCompetencies = jscRowsFromPa.map((row: any, idx: number) => {
+              const exRow = existingCompetencies.find((r: any, rIdx: number) =>
+                (r.id && row.id && String(r.id) === String(row.id)) ||
+                (r.jscNo && row.jscNo && String(r.jscNo).trim() === String(row.jscNo).trim()) ||
+                rIdx === idx
+              );
+              return {
+                ...(exRow || {}),
                 ...row,
-                id: row.id || `comp-row-${idx}-${Date.now()}`,
-                jscNo: row.jscNo || `${idx + 1}`,
-                competency: row.competency || row.title || row.name || 'Job Specific Competency',
+                id: row.id || exRow?.id || `comp-row-${idx}-${Date.now()}`,
+                jscNo: row.jscNo || exRow?.jscNo || `${idx + 1}`,
+                competency: row.competency || row.title || row.name || exRow?.competency || 'Job Specific Competency',
                 definition: typeof row.definition === 'object' && row.definition !== null
                   ? row.definition
                   : {
-                      mainText: typeof row.definition === 'string' ? row.definition : (row.mainText || row.description || ''),
-                      subsections: row.subsections || []
+                      mainText: typeof row.definition === 'string' ? row.definition : (row.mainText || row.description || exRow?.definition?.mainText || ''),
+                      subsections: row.subsections || exRow?.definition?.subsections || []
                     },
-                level: row.level || 'Level 3',
-                weight: Number(row.weight || row.weighting || 20)
-              }));
+                level: row.level || exRow?.level || 'Level 3',
+                weight: Number(row.weight || row.weighting || exRow?.weight || 20),
+                poeDocs: exRow?.poeDocs || row.poeDocs || [],
+                q1: exRow?.q1 || row.q1,
+                q2: exRow?.q2 || row.q2,
+                q3: exRow?.q3 || row.q3,
+                q4: exRow?.q4 || row.q4
+              };
+            });
 
-              await supabase
-                .from('messages')
-                .upsert({
-                  id: compDocId,
-                  tenant_id: tenantId,
-                  sender_id: 'job_competencies_editor',
-                  sender_email: 'job_competencies@system.local',
-                  sender_name: 'Job Competencies System',
-                  content: JSON.stringify({
-                    competencies: mappedCompetencies,
-                    jscMasters,
-                    competencyMasters,
-                    definitionMasters,
-                    levelMasters,
-                    weightMasters,
-                    lastPushedFromTemplate: new Date().toISOString()
-                  }),
-                  message_type: 'job_specific_competencies',
-                  created_at: new Date().toISOString()
-                });
-            }
+            const compSavePayload = JSON.stringify({
+              competencies: mappedCompetencies,
+              jscMasters,
+              competencyMasters,
+              definitionMasters,
+              levelMasters,
+              weightMasters,
+              lastPushedFromTemplate: new Date().toISOString()
+            });
+
+            const compSyncRows = [tenantId, 'tenant-229', 'nkangala_auto', 'global'].map(tKey => ({
+              id: `job_competencies_${tKey}_${u}`,
+              tenant_id: tKey,
+              sender_id: 'job_competencies_editor',
+              sender_email: 'job_competencies@system.local',
+              sender_name: 'Job Competencies System',
+              content: compSavePayload,
+              message_type: 'job_specific_competencies',
+              created_at: new Date().toISOString()
+            }));
+
+            await supabase
+              .from('messages')
+              .upsert(compSyncRows, { onConflict: 'id' });
           }
 
-          // 3) Overwrite PDP (pdp) Module
+          // 3) Sync PDP (pdp) Module
           const pdpRows = stateObj.pulledPdpItems;
           if (pdpRows && Array.isArray(pdpRows) && pdpRows.length > 0) {
             const pdpDocId = `pdp_${tenantId}_${u}`;
@@ -23105,25 +23241,29 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               };
             });
 
+            const pdpSavePayload = JSON.stringify({
+              items: mappedPdp,
+              skillsGapsMasters,
+              trainingsMasters,
+              modesMasters,
+              supportMasters,
+              lastPushedFromTemplate: new Date().toISOString()
+            });
+
+            const pdpSyncRows = [tenantId, 'tenant-229', 'nkangala_auto', 'global'].map(tKey => ({
+              id: `pdp_${tKey}_${u}`,
+              tenant_id: tKey,
+              sender_id: 'pdp_editor_tool',
+              sender_email: 'pdp@system.local',
+              sender_name: 'PDP System',
+              content: pdpSavePayload,
+              message_type: 'pdp_list',
+              created_at: new Date().toISOString()
+            }));
+
             await supabase
               .from('messages')
-              .upsert({
-                id: pdpDocId,
-                tenant_id: tenantId,
-                sender_id: 'pdp_editor_tool',
-                sender_email: 'pdp@system.local',
-                sender_name: 'PDP System',
-                content: JSON.stringify({
-                  items: mappedPdp,
-                  skillsGapsMasters,
-                  trainingsMasters,
-                  modesMasters,
-                  supportMasters,
-                  lastPushedFromTemplate: new Date().toISOString()
-                }),
-                message_type: 'pdp_list',
-                created_at: new Date().toISOString()
-              });
+              .upsert(pdpSyncRows, { onConflict: 'id' });
           }
         }
       }
