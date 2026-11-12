@@ -711,10 +711,11 @@ export function getKhumaloNkosiAliases(email: string): string[] {
     baseSet.add('nsibandenp@nkangaladm.gov.za');
     baseSet.add('zulune@nkangaladm.gov.za');
   }
-  if (clean === 'msizaa@nkangaladm.gov.za' || clean === 'msizaas@nkangaladm.gov.za' || clean === 'msizaas@nkangala.gov.za' || clean.includes('msizaas') || clean.includes('msizaa')) {
+  if (clean === 'msizaas@nkangaladm.gov.za' || clean === 'msizaas@nkangala.gov.za' || clean.includes('msizaas')) {
     baseSet.add('msizaas@nkangaladm.gov.za');
-    baseSet.add('msizaa@nkangaladm.gov.za');
     baseSet.add('msizaas@nkangala.gov.za');
+  } else if (clean === 'msizaa@nkangaladm.gov.za' || clean === 'msizaa@nkangala.gov.za' || clean.includes('msizaa')) {
+    baseSet.add('msizaa@nkangaladm.gov.za');
   }
   if (clean.includes('mtshweniwm') || clean.includes('mtsweniwm')) {
     baseSet.add('mtshweniwm@nkangaladm.gov.za');
@@ -25739,7 +25740,7 @@ User Request: ${prompt}`;
           "joubertm@nkangaladm.gov.za": { name: "M Joubert", dept: "Financial Services", job: "Senior Manager: Financial Management & Budgeting" },
           "tloujmt@nkangaladm.gov.za": { name: "JMT Tlou", dept: "Office of the Municipal Manager", job: "PMS Specialist / Audit Lead" },
           "nhlapomj@nkangaladm.gov.za": { name: "MJ Nhlapo", dept: "Corporate Services", job: "Manager: Human Resources & Administration" },
-          "msizaas@nkangaladm.gov.za": { name: "AS Msiza", dept: "Technical Services", job: "Manager: Water & Sanitation Services" },
+          "msizaas@nkangaladm.gov.za": { name: "Ali Simon Msiza", dept: "Finance", job: "Manager: Finance" },
           "shabangusm@nkangaladm.gov.za": { name: "SM Shabangu", dept: "Community Services", job: "Manager: Disaster Management & Fire Services" },
           "rakauj@nkangaladm.gov.za": { name: "J Rakau", dept: "Financial Services", job: "Manager: Supply Chain Management (SCM)" },
           "madihlabapk@nkangaladm.gov.za": { name: "PK Madihlaba", dept: "Planning and Economic Development", job: "Manager: Spatial Planning & GIS" }

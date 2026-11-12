@@ -88,6 +88,14 @@ export const OFFICIAL_COMPLIANCE_DIRECTORY: VerifiedOfficial[] = [
     status: "Section 57 Verified"
   },
   {
+    fullName: "Ali Simon Msiza",
+    jobFunction: "Manager: Finance",
+    department: "Financial Services & Budget Office",
+    email: "msizaas@nkangaladm.gov.za",
+    refCode: "SEC57-NDM-0213",
+    status: "Section 57 Verified"
+  },
+  {
     fullName: "Ananias Hlongwa",
     jobFunction: "Senior Accountant: Expenditure & Payroll",
     department: "Financial Services & Budget Office",

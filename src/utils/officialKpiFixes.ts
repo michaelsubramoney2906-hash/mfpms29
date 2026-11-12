@@ -3435,6 +3435,136 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 29. Mr. Ali Simon Msiza (msizaas@nkangaladm.gov.za / msizaas@nkangala.gov.za):
+  // Canonical 42 KPIs across 6 KPAs from his signed 2026/27 Performance Agreement (Manager: Finance)
+  // Reporting to CFO Alice Stander (standeral@nkangaladm.gov.za)
+  if (normEmail === 'msizaas@nkangaladm.gov.za' || normEmail === 'msizaas@nkangala.gov.za' || normEmail.startsWith('msizaas@')) {
+    const msizaCanonical42 = [
+      // KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION (Weighting: 35%)
+      { origIdx: 1, id: 'msiza-finance-kpi-1', kpiNo: 'M_11', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '22', kpi: 'Number of new/reviewed policies approved by Council by 30 June 2027', annualTarget: '22', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '22', poe: 'Report to Council and Council Resolution(s)', budget: 'OPEX' },
+      { origIdx: 2, id: 'msiza-finance-kpi-2', kpiNo: 'M_15', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '80', kpi: 'Percentage of action plans implemented to address Strategic Risks Identified per quarter (Finance)', annualTarget: '90%', q1Target: '90%', q2Target: '90%', q3Target: '90%', q4Target: '90%', poe: 'Signed Quarterly Strategic Risk report', budget: 'OPEX' },
+      { origIdx: 3, id: 'msiza-finance-kpi-3', kpiNo: 'M_16', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '93', kpi: 'Percentage of action plans implemented to address Operational Risks Identified per quarter (Finance)', annualTarget: '98%', q1Target: '98%', q2Target: '98%', q3Target: '98%', q4Target: '98%', poe: 'Signed Quarterly Operational Risk report', budget: 'OPEX' },
+      { origIdx: 4, id: 'msiza-finance-kpi-4', kpiNo: 'M_17', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '83', kpi: 'Percentage of action plans implemented to address Fraud and corruption Risks Identified per quarter (Finance)', annualTarget: '96%', q1Target: '96%', q2Target: '96%', q3Target: '96%', q4Target: '96%', poe: 'Signed Quarterly Fraud and corruption Risk report', budget: 'OPEX' },
+      { origIdx: 5, id: 'msiza-finance-kpi-5', kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '15%', weighting: '15', baseline: '1 (Unqualified with matters)', kpi: 'Attain clean audit opinion by 31 December 2026.', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: "AG’s Audit Report", budget: 'OPEX' },
+      { origIdx: 6, id: 'msiza-finance-kpi-6', kpiNo: 'M_22', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '25', kpi: 'Number of repeat audit findings (circular 88) by 30 December 2026.', annualTarget: '≤ 0', q1Target: 'N/A', q2Target: '≤ 0', q3Target: 'N/A', q4Target: 'N/A', poe: "AG’s Audit Report", budget: 'OPEX' },
+      { origIdx: 7, id: 'msiza-finance-kpi-7', kpiNo: 'M_23', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '1', kpi: 'Number of Action Plan on issues raised by the Auditor General tabled to Council by 30 December 2026.', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'Audit Action Plan and Council resolution', budget: 'OPEX' },
+      { origIdx: 8, id: 'msiza-finance-kpi-8', kpiNo: 'M_24', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '100%', kpi: 'Percentage of AG Findings raised in the Management Letter resolved (Finance) by 30 June 2027.', annualTarget: '100%', q1Target: 'N/A', q2Target: 'N/A', q3Target: '40%', q4Target: '100%', poe: 'Signed Progress Report on the Implementation of the Audit Action Plan.', budget: 'OPEX' },
+      { origIdx: 9, id: 'msiza-finance-kpi-9', kpiNo: 'M_36', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '100%', kpi: 'Percentage of strategic lekgotla resolutions implemented by 30 June 2027. (Finance)', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Strategic Lekgotla monitoring report', budget: 'OPEX' },
+      { origIdx: 10, id: 'msiza-finance-kpi-10', kpiNo: 'M_37', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: 'New', kpi: 'Number of reports on Council Resolutions submitted to Council per quarter (Finance)', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly Reports and Council Resolution.', budget: 'OPEX' },
+      { origIdx: 11, id: 'msiza-finance-kpi-11', kpiNo: 'M_40', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '82%', kpi: 'Percentage of internal audit recommendations implemented by 30 June 2027 (Finance)', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly IA report', budget: 'OPEX' },
+      { origIdx: 12, id: 'msiza-finance-kpi-12', kpiNo: 'M_41', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '100', kpi: 'Percentage of audit committee resolutions implemented by 30 June 2027.', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Audit committee resolution register', budget: 'OPEX' },
+      { origIdx: 13, id: 'msiza-finance-kpi-13', kpiNo: '13', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '1', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX' },
+      { origIdx: 14, id: 'msiza-finance-kpi-14', kpiNo: '14', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '4', kpi: 'Number of performance agreements signed with subordinates and submitted to OPME & PMDS unit for the 2026/2027 financial year by 30 July 2026', annualTarget: '4', q1Target: '4', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX' },
+      { origIdx: 15, id: 'msiza-finance-kpi-15', kpiNo: '15', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '4', kpi: 'Number of self-assessment report compiled and submitted to Supervisor per quarter.', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS unit', budget: 'OPEX' },
+      { origIdx: 16, id: 'msiza-finance-kpi-16', kpiNo: '16', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '1', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX' },
+      { origIdx: 17, id: 'msiza-finance-kpi-17', kpiNo: '17', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '4', kpi: 'Number of informal performance evaluation conducted with all subordinates per quarter', annualTarget: '2 (Q1 & Q3)', q1Target: 'N/A', q2Target: '1 (Q1)', q3Target: 'N/A', q4Target: '1 (Q3)', poe: 'Compliance certificate from OPME & PMDS unit', budget: 'OPEX' },
+      { origIdx: 18, id: 'msiza-finance-kpi-18', kpiNo: '18', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '4', kpi: 'Number of quarterly leave reconciliation report submitted to Departmental General Manager (within 30 days after end of each quarter)', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Compliance certificate from corporate services', budget: 'OPEX' },
+      { origIdx: 19, id: 'msiza-finance-kpi-19', kpiNo: '19', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '100%', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services', budget: 'OPEX' },
+      { origIdx: 20, id: 'msiza-finance-kpi-20', kpiNo: '20', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: '100%', kpi: 'Percentage of leave approvals processed within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027.', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services', budget: 'OPEX' },
+      { origIdx: 21, id: 'msiza-finance-kpi-21', kpiNo: '21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '1%', weighting: '1', baseline: 'New', kpi: 'Number of departmental Training Needs Analysis submitted (TNA) by 30 March 2027', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Compliance Certificate issued by HRM&D Unit.', budget: 'OPEX' },
+
+      // KPA 2: FINANCIAL VIABILITY (Weighting: 10%)
+      { origIdx: 22, id: 'msiza-finance-kpi-22', kpiNo: '22', kpa: 'KPA 2: FINANCIAL VIABILITY AND MANAGEMENT', weight: '4%', weighting: '4', baseline: '1', kpi: 'Submission of the Annual Financial Statements to Auditor General by 31 August 2025', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Annual financial Statement and Acknowledgement of receipt from AG.', budget: 'N/A' },
+      { origIdx: 23, id: 'msiza-finance-kpi-23', kpiNo: '23', kpa: 'KPA 2: FINANCIAL VIABILITY AND MANAGEMENT', weight: '4%', weighting: '4', baseline: '1', kpi: 'Submission of Interim Annual Financial Statements by 28 Feb 2026', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Interim AFS and acknowledgement form IA', budget: 'N/A' },
+      { origIdx: 24, id: 'msiza-finance-kpi-24', kpiNo: '24', kpa: 'KPA 2: FINANCIAL VIABILITY AND MANAGEMENT', weight: '1%', weighting: '1', baseline: '1.07:1', kpi: 'Current Ratio expressed as current assets / current liabilities (GKPI) per quarter', annualTarget: '1.0:1', q1Target: '1.0:1', q2Target: '1.0:1', q3Target: '1.0:1', q4Target: '1.0:1', poe: 'Signed Quarterly Section 52 Report ( Current Ratio)', budget: 'N/A' },
+      { origIdx: 25, id: 'msiza-finance-kpi-25', kpiNo: '25', kpa: 'KPA 2: FINANCIAL VIABILITY AND MANAGEMENT', weight: '1%', weighting: '1', baseline: '12', kpi: 'Number of monthly investment reports prepared and submitted to the MM by 30 June 2026', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Monthly Investment reports', budget: 'N/A' },
+
+      // KPA 3: SUPPLY CHAIN MANAGEMENT (Weighting: 15%)
+      { origIdx: 26, id: 'msiza-finance-kpi-26', kpiNo: 'M_64', kpa: 'KPA 3: SUPPLY CHAIN MANAGEMENT', weight: '2%', weighting: '2', baseline: '86%', kpi: 'Percentage implementation of the procurement plan by 30 June 2027.', annualTarget: '90%', q1Target: '90%', q2Target: '90%', q3Target: '90%', q4Target: '90%', poe: 'Signed Quarterly Procurement plan report', budget: 'OPEX' },
+      { origIdx: 27, id: 'msiza-finance-kpi-27', kpiNo: '27', kpa: 'KPA 3: SUPPLY CHAIN MANAGEMENT', weight: '5%', weighting: '5', baseline: '100%', kpi: '100% attendance at scheduled Bid Committee meetings per quarter', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Signed Quarterly Bid Committee Attendance Report', budget: 'OPEX' },
+      { origIdx: 28, id: 'msiza-finance-kpi-28', kpiNo: '28', kpa: 'KPA 3: SUPPLY CHAIN MANAGEMENT', weight: '5%', weighting: '5', baseline: 'New', kpi: 'Average number of days from the point of advertising to the letter of award per 80/20 procurement process (circular 88) by 30 June 2025', annualTarget: '120 Days', q1Target: '120 Days', q2Target: '120 Days', q3Target: '120 Days', q4Target: '120 Days', poe: 'Signed Average number of days SCM report', budget: 'N/A' },
+      { origIdx: 29, id: 'msiza-finance-kpi-29', kpiNo: '29', kpa: 'KPA 3: SUPPLY CHAIN MANAGEMENT', weight: '3%', weighting: '3', baseline: 'New', kpi: 'Percentage of total municipal operating expenditure spent on contracted services physically residing within the municipal area (circular 88) by 30 June 2025', annualTarget: '10%', q1Target: 'N/A', q2Target: 'N/A', q3Target: '10%', q4Target: '10%', poe: 'Reports on Contracted Services', budget: 'NA' },
+
+      // KPA 4: BUDGET AND REPORTING (Weighting: 20%)
+      { origIdx: 30, id: 'msiza-finance-kpi-30', kpiNo: '30', kpa: 'KPA 4: BUDGET AND REPORTING', weight: '5%', weighting: '5', baseline: '1', kpi: 'Section 72 (midyear) MFMA report submitted to Executive Mayor and relevant stakeholders within legislative timeframes by 25 January 2026', annualTarget: '1', q1Target: 'NA', q2Target: 'NA', q3Target: '1', q4Target: 'NA', poe: 'Signed Mid-Year Budget and Performance Report and Acknowledgment of Receipt By EM Office', budget: 'N/A' },
+      { origIdx: 31, id: 'msiza-finance-kpi-31', kpiNo: '31', kpa: 'KPA 4: BUDGET AND REPORTING', weight: '5%', weighting: '5', baseline: '4', kpi: 'Number of quarterly section 52(d) MFMA reports submitted to Executive Mayor and other relevant stakeholders within 30 days of the end of each quarter', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly section 52(d) MFMA report and acknowledgement of Executive Mayor’s office', budget: 'N/A' },
+      { origIdx: 32, id: 'msiza-finance-kpi-32', kpiNo: '32', kpa: 'KPA 4: BUDGET AND REPORTING', weight: '5%', weighting: '5', baseline: '12', kpi: 'Number of monthly section 71 MFMA reports submitted to Executive Mayor within 10 working days after end of each quarter.', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Signed Section 71 MFMA reports and acknowledgement of Executive Mayor’s office', budget: 'N/A' },
+      { origIdx: 33, id: 'msiza-finance-kpi-33', kpiNo: '33', kpa: 'KPA 4: BUDGET AND REPORTING', weight: '3%', weighting: '3', baseline: '1', kpi: 'Submission for approval of DRAFT MTREF Budget by the 31st March 2026', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: '1', q4Target: 'N/A', poe: 'Approved MTREF Budget and Council resolution', budget: 'N/A' },
+      { origIdx: 34, id: 'msiza-finance-kpi-34', kpiNo: '34', kpa: 'KPA 4: BUDGET AND REPORTING', weight: '2%', weighting: '2', baseline: '1', kpi: 'Submission for approval of MTREF Budget by the 31st May 2026', annualTarget: '1', q1Target: 'N/A', q2Target: 'N/A', q3Target: 'N/A', q4Target: '1', poe: 'Approved MTREF Budget and Council resolution', budget: 'N/A' },
+
+      // KPA 5: EXPENDITURE MANAGEMENT (Weighting: 10%)
+      { origIdx: 35, id: 'msiza-finance-kpi-35', kpiNo: 'M_53', kpa: 'KPA 5: EXPENDITURE MANAGEMENT', weight: '2%', weighting: '2', baseline: '93%', kpi: 'Percentage of operational budget actually spent (circular 88) by 30 June 2027. Finance', annualTarget: '90%', q1Target: '20%', q2Target: '40%', q3Target: '60%', q4Target: '90%', poe: 'Signed Operational Expenditure progress report', budget: 'R' },
+      { origIdx: 36, id: 'msiza-finance-kpi-36', kpiNo: '36', kpa: 'KPA 5: EXPENDITURE MANAGEMENT', weight: '2%', weighting: '2', baseline: '87%', kpi: 'Percentage of capital budget actually spent by 30 June 2026 (circular 88) ( Finance)', annualTarget: '90%', q1Target: '20%', q2Target: '40%', q3Target: '60%', q4Target: '90%', poe: 'Signed Capital Expenditure progress report', budget: 'R' },
+      { origIdx: 37, id: 'msiza-finance-kpi-37', kpiNo: '37', kpa: 'KPA 5: EXPENDITURE MANAGEMENT', weight: '5%', weighting: '5', baseline: 'new', kpi: 'Percentage of municipal payments made to service providers who submitted complete forms within 30-days of invoice submission (circular 88)', annualTarget: '30 days', q1Target: '30 days', q2Target: '30 days', q3Target: '30 days', q4Target: '30 days', poe: 'Expenditure Report & Official Invoice Register', budget: 'OPEX' },
+      { origIdx: 38, id: 'msiza-finance-kpi-38', kpiNo: '38', kpa: 'KPA 5: EXPENDITURE MANAGEMENT', weight: '1%', weighting: '1', baseline: '100%', kpi: 'Percentage spent on Financial Management Grant (FMG) by 30 June 2026.', annualTarget: '100%', q1Target: '25%', q2Target: '50%', q3Target: '75%', q4Target: '100%', poe: 'Signed Financial Management Grant expenditure progress report.', budget: 'OPEX' },
+
+      // KPA 6: ASSET MANAGEMENT (Weighting: 10%)
+      { origIdx: 39, id: 'msiza-finance-kpi-39', kpiNo: '39', kpa: 'KPA 6: ASSET MANAGEMENT', weight: '3%', weighting: '3', baseline: '12', kpi: 'Number of monthly FAR reports compiled and submitted to the MM by 30 June 2026 (within 15 days after end of month)', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Signed Monthly FAR reports', budget: 'OPEX' },
+      { origIdx: 40, id: 'msiza-finance-kpi-40', kpiNo: '40', kpa: 'KPA 6: ASSET MANAGEMENT', weight: '2%', weighting: '2', baseline: '4', kpi: 'Number of quarterly assets reports submitted to the MM by 30 June 2026 (within 15 days after end of quarter)', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly Assets Reports', budget: 'OPEX' },
+      { origIdx: 41, id: 'msiza-finance-kpi-41', kpiNo: '41', kpa: 'KPA 6: ASSET MANAGEMENT', weight: '3%', weighting: '3', baseline: '12', kpi: 'Number of monthly insurance reports prepared and submitted to the MM by 30 June 2026 (within 15 days after end of month)', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Signed Monthly Insurance reports', budget: 'OPEX' },
+      { origIdx: 42, id: 'msiza-finance-kpi-42', kpiNo: '42', kpa: 'KPA 6: ASSET MANAGEMENT', weight: '2%', weighting: '2', baseline: '4', kpi: 'Number of quarterly insurance reports submitted to the MM by 30 June 2026 (within 15 days after end of quarter)', annualTarget: '4', q1Target: '1', q2Target: '1', q3Target: '1', q4Target: '1', poe: 'Signed Quarterly Insurance reports', budget: 'OPEX' }
+    ];
+
+    result = msizaCanonical42.map((canon) => {
+      const existing = result.find((it: any) => String(it?.id || '') === canon.id) ||
+        (canon.origIdx > 0 ? result.find((it: any) => String(it?.id || '').endsWith(`-${canon.origIdx}`)) : null) ||
+        result.find((it: any) => String(it?.kpiNo || it?.['kpi no'] || '').trim().toUpperCase() === canon.kpiNo.toUpperCase()) ||
+        result.find((it: any) => {
+          const d = String(it?.kpi || it?.description || it?.kpiDescription || '').toLowerCase();
+          return d.slice(0, 30) === canon.kpi.toLowerCase().slice(0, 30);
+        });
+
+      const q1NotApplicable = canon.q1Target.toUpperCase() === 'N/A';
+      return {
+        ...(existing || {}),
+        id: canon.id,
+        kpiNo: canon.kpiNo,
+        'kpi no': canon.kpiNo,
+        refNumber: canon.kpiNo,
+        kpa: canon.kpa,
+        functionalKpa: canon.kpa,
+        'functional kpa': canon.kpa,
+        weight: canon.weight,
+        weighting: canon.weighting,
+        '%wt': canon.weight,
+        baseline: canon.baseline,
+        kpi: canon.kpi,
+        description: canon.kpi,
+        kpiDescription: canon.kpi,
+        annualTarget: canon.annualTarget,
+        target: canon.annualTarget,
+        q1Target: canon.q1Target,
+        q2Target: canon.q2Target,
+        q3Target: canon.q3Target,
+        q4Target: canon.q4Target,
+        poe: canon.poe,
+        portfolioOfEvidence: canon.poe,
+        meansOfVerification: canon.poe,
+        q1Poe: canon.poe,
+        q2Poe: canon.poe,
+        q3Poe: canon.poe,
+        q4Poe: canon.poe,
+        annualRequiredPoe: canon.poe,
+        midtermPoe: canon.poe,
+        budget: canon.budget,
+        location: 'Nkangala District',
+        q1Applicable: !q1NotApplicable,
+        q1Locked: q1NotApplicable,
+        q1Actual: existing?.q1Actual ?? '',
+        q2Actual: existing?.q2Actual ?? '',
+        q3Actual: existing?.q3Actual ?? '',
+        q4Actual: existing?.q4Actual ?? '',
+        annualActual: existing?.annualActual ?? '',
+        q1Score: existing?.q1Score ?? '',
+        myScore: existing?.myScore ?? existing?.q1Score ?? '',
+        managerScore: existing?.managerScore ?? '',
+        q1ManagerScore: existing?.q1ManagerScore ?? existing?.managerScore ?? '',
+        q1PoeDocs: Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : [],
+        q2PoeDocs: Array.isArray(existing?.q2PoeDocs) ? existing.q2PoeDocs : [],
+        q3PoeDocs: Array.isArray(existing?.q3PoeDocs) ? existing.q3PoeDocs : [],
+        q4PoeDocs: Array.isArray(existing?.q4PoeDocs) ? existing.q4PoeDocs : [],
+        annualPoeDocs: Array.isArray(existing?.annualPoeDocs) ? existing.annualPoeDocs : [],
+        midtermPoeDocs: Array.isArray(existing?.midtermPoeDocs) ? existing.midtermPoeDocs : [],
+        reviewStatus: existing?.reviewStatus || 'Draft',
+        reviewApprovalStatus: existing?.reviewApprovalStatus || '',
+        q1PoeStatus: existing?.q1PoeStatus || 'Draft',
+        manager: 'Alice Stander',
+        managerEmail: 'standeral@nkangaladm.gov.za',
+        reportTo: 'Alice Stander'
+      };
+    });
+  }
+
   return result;
 }
 
