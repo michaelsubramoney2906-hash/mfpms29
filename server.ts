@@ -12504,10 +12504,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const sen = normalizeNkangalaEmail(n.senderEmail);
           const recName = (n.recipientName || '').toLowerCase().trim();
           
+          // Prevent cross-contamination: Sanele Nkosi (nkosis@nkangaladm.gov.za) reports to Jackson Skosana (skosanaj@nkangaladm.gov.za), NOT Thandiwe Mazwi
+          if (sen === 'nkosis@nkangaladm.gov.za' && n.actionType === 'submission') {
+            if (normEmail.includes('mazwit')) return false;
+            if (normEmail.includes('skosanaj')) return true;
+          }
+
           if (userAliases.includes(rec) || userAliases.includes(sen) || rec === 'all' || !rec) return true;
           if (isAuditor && (rec === 'internal_audit' || rec === 'auditor' || rec === 'audit' || rec.includes('audit'))) return true;
           if (isManager && (rec === 'managers' || rec === 'manager' || rec.includes('manager'))) return true;
           if (isDpmc && (rec === 'dpmc' || rec.includes('dpmc'))) return true;
+          if (normEmail.includes('skosanaj') && (rec.includes('skosanaj') || recName.includes('jackson skosana'))) return true;
           if (normEmail.includes('khuboni') && (rec.includes('khuboni') || recName.includes('khuboni') || sen.includes('zulune'))) return true;
           if (normEmail.includes('zulune') && (sen.includes('zulune') || rec.includes('zulune') || sen.includes('khuboni'))) return true;
 
@@ -12544,13 +12551,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         recipientName: notification.recipientName || '',
         title: notification.title || 'IPMS Notification',
         message: notification.message || '',
+        type: notification.type || '',
         kpiId: notification.kpiId || '',
+        kpiIds: Array.isArray(notification.kpiIds) ? notification.kpiIds : [],
         kpiNo: notification.kpiNo || '',
         quarter: notification.quarter || '',
         actionType: notification.actionType || 'info', // 'submission' | 'approval' | 'revision_requested' | 'rejected'
+        senderCapacity: notification.senderCapacity || undefined,
+        employeeEmail: notification.employeeEmail || notification.senderEmail || '',
         poeDocsCount: notification.poeDocsCount || 0,
         attachments: notification.attachments || [],
-        createdAt: new Date().toISOString(),
+        createdAt: notification.createdAt || new Date().toISOString(),
         read: false,
         readAt: null
       };

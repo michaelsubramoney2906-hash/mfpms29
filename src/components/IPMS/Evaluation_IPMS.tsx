@@ -662,12 +662,68 @@ export function EvaluationIPMS({
     await persistEvaluationItems(nextItems, undefined, 'POE document removed and updated in Supabase.');
   };
 
+  const dispatchManagerSubmissionNotification = async (submittedItems: any[], isSingle: boolean) => {
+    try {
+      const tenant = activeTenantId || 'tenant-229';
+      const normEmail = (userEmail || '').toLowerCase().trim();
+      const mgrEmail = normEmail === 'nkosis@nkangaladm.gov.za'
+        ? 'skosanaj@nkangaladm.gov.za'
+        : String(metadata?.managerEmail || (currentUser as any)?.managerEmail || 'managers').toLowerCase().trim();
+      const mgrName = normEmail === 'nkosis@nkangaladm.gov.za'
+        ? 'Jackson Skosana'
+        : String(metadata?.manager || metadata?.reportTo || currentUser?.manager || currentUser?.reportTo || 'Line Manager').trim();
+      const senderDisplayName = normEmail === 'nkosis@nkangaladm.gov.za'
+        ? 'Sanele Nkosi'
+        : String(metadata?.name || currentUser?.fullName || (currentUser as any)?.name || userEmail).trim();
+      const qUpper = selectedQuarter.toUpperCase();
+      const submittedIds = submittedItems.map((it) => String(it.id || it.kpiNo || '')).filter(Boolean);
+      const poeCount = submittedItems.reduce((acc, it) => {
+        const docs = Array.isArray(it[qKeys.poeDocsKey]) ? it[qKeys.poeDocsKey].length : 0;
+        return acc + docs;
+      }, 0);
+
+      const firstItem = submittedItems[0];
+      const title = isSingle && firstItem
+        ? `📥 KPI #${firstItem.kpiNo || firstItem.id} Submitted for Approval (${qUpper})`
+        : `📥 ${submittedItems.length} KPI(s) & ${poeCount} POE Document(s) Submitted for Approval (${qUpper})`;
+      const message = isSingle && firstItem
+        ? `${senderDisplayName} (${userEmail}) has submitted KPI #${firstItem.kpiNo || firstItem.id} ("${firstItem.kpi || ''}") with reported actuals and ${poeCount} POE file(s) for ${qUpper} Line Manager evaluation and approval.`
+        : `${senderDisplayName} (${userEmail}) has submitted ${submittedItems.length} reported KPI(s) and ${poeCount} Portfolio of Evidence (POE) document(s) for ${qUpper} Line Manager evaluation and approval.`;
+
+      await fetch(`/api/tenant/${tenant}/ipms-notifications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification: {
+            senderEmail: userEmail,
+            senderName: senderDisplayName,
+            recipientEmail: mgrEmail,
+            recipientName: mgrName,
+            employeeEmail: userEmail,
+            title,
+            message,
+            kpiId: isSingle && firstItem ? String(firstItem.id || firstItem.kpiNo || '') : (submittedIds[0] || ''),
+            kpiIds: submittedIds,
+            kpiNo: isSingle && firstItem ? String(firstItem.kpiNo || '') : `${submittedItems.length} KPIs`,
+            quarter: qUpper,
+            actionType: 'submission',
+            senderCapacity: 'standard_user',
+            poeDocsCount: poeCount
+          }
+        })
+      });
+    } catch (notifErr) {
+      console.warn('Could not dispatch manager submission notification:', notifErr);
+    }
+  };
+
   const handleSubmitSingleKpi = async (item: any) => {
     if (readOnly) return;
     const itemKey = item.id || item.kpiNo;
+    let updatedTarget: any = item;
     const nextItems = items.map((it) => {
       if ((it.id && it.id === itemKey) || (it.kpiNo && it.kpiNo === itemKey)) {
-        return {
+        updatedTarget = {
           ...it,
           reviewStatus: 'Submitted for Approval',
           reviewApprovalStatus: '',
@@ -675,11 +731,13 @@ export function EvaluationIPMS({
           resubmittedAt: new Date().toISOString(),
           [qKeys.poeStatusKey]: 'Pending Verification'
         };
+        return updatedTarget;
       }
       return it;
     });
     setItems(nextItems);
     await persistEvaluationItems(nextItems, undefined, `KPI ${item.kpiNo || ''} submitted for line manager approval!`);
+    await dispatchManagerSubmissionNotification([updatedTarget], true);
   };
 
   const handleUnlockSingleKpi = async (item: any) => {
@@ -702,9 +760,10 @@ export function EvaluationIPMS({
 
   const handleSubmitAllReported = async () => {
     if (readOnly) return;
+    const newlySubmitted: any[] = [];
     const nextItems = items.map((it) => {
       if (hasItemReportedInQuarter(it) && it.reviewStatus !== 'Approved') {
-        return {
+        const updated = {
           ...it,
           reviewStatus: 'Submitted for Approval',
           reviewApprovalStatus: '',
@@ -712,6 +771,8 @@ export function EvaluationIPMS({
           resubmittedAt: new Date().toISOString(),
           [qKeys.poeStatusKey]: 'Pending Verification'
         };
+        newlySubmitted.push(updated);
+        return updated;
       }
       return it;
     });
@@ -721,6 +782,9 @@ export function EvaluationIPMS({
       { reviewStatus: 'Submitted for Approval' },
       'All reported KPIs and POE evidence submitted for Line Manager approval!'
     );
+    if (newlySubmitted.length > 0) {
+      await dispatchManagerSubmissionNotification(newlySubmitted, false);
+    }
   };
 
   // Summary metrics for active quarter
