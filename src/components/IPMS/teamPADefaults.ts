@@ -22,14 +22,14 @@ const CDS_CONFIG: DepartmentConfig = {
       name: "TEAM CONTROL ROOM",
       description: "Disaster Management Control Room Operations, Emergency Call Taking & Radio Communication",
       defaultRows: [
-        ["1", "HERMAN DUMISANI MPOFU", "P120106", "Team Leader"],
-        ["2", "PONTTSHO CEDRIC MADITSI", "FF-0204", "Team Member"],
-        ["3", "SMANGELE ELIZABETH MIGGELS", "P114346", "Team Member"],
-        ["4", "ANIL VALLA", "P120023", "Team Member"],
-        ["5", "MANTOMBE DORAH KHUMALO", "P118930", "Team Member"],
-        ["6", "PETER SIPHO SIBEKO", "P113786", "Team Member"],
-        ["7", "DORCAS MASHILOANE", "P114339", "Team Member"],
-        ["8", "MMANOKO CATHRINE  SELOBA", "P115222", "Team Member"]
+        ["1", "HERMAN DUMISANI MPOFU", "P120106", "CONTROL OPERATOR"],
+        ["2", "PONTTSHO CEDRIC MADITSI", "P114353", "CONTROL OPERATOR"],
+        ["3", "SMANGELE ELIZABETH MIGGELS", "P114346", "CONTROL OPERATOR"],
+        ["4", "ANIL VALLA", "P120023", "CONTROL OPERATOR"],
+        ["5", "MANTOMBE DORAH KHUMALO", "P118930", "CONTROL OPERATOR"],
+        ["6", "PETER SIPHO SIBEKO", "P113786", "CONTROL OPERATOR"],
+        ["7", "DORCAS MASHILOANE", "P114339", "CONTROL OPERATOR"],
+        ["8", "MMANOKO CATHRINE  SELOBA", "P115222", "CONTROL OPERATOR"]
       ]
     },
     {
@@ -124,14 +124,14 @@ const CDS_CONFIG: DepartmentConfig = {
       name: "Disaster Management & Incident Command Support",
       description: "Strategic coordination, emergency communications, and operational logistics",
       defaultRows: [
-        ["1", "HERMAN DUMISANI MPOFU", "P120106", "Team Leader"],
-        ["2", "PONTTSHO CEDRIC MADITSI", "FF-0204", "Team Member"],
-        ["3", "SMANGELE ELIZABETH MIGGELS", "P114346", "Team Member"],
-        ["4", "ANIL VALLA", "P120023", "Team Member"],
-        ["5", "MANTOMBE DORAH KHUMALO", "P118930", "Team Member"],
-        ["6", "PETER SIPHO SIBEKO", "P113786", "Team Member"],
-        ["7", "DORCAS MASHILOANE", "P114339", "Team Member"],
-        ["8", "MMANOKO CATHRINE  SELOBA", "P115222", "Team Member"]
+        ["1", "HERMAN DUMISANI MPOFU", "P120106", "CONTROL OPERATOR"],
+        ["2", "PONTTSHO CEDRIC MADITSI", "P114353", "CONTROL OPERATOR"],
+        ["3", "SMANGELE ELIZABETH MIGGELS", "P114346", "CONTROL OPERATOR"],
+        ["4", "ANIL VALLA", "P120023", "CONTROL OPERATOR"],
+        ["5", "MANTOMBE DORAH KHUMALO", "P118930", "CONTROL OPERATOR"],
+        ["6", "PETER SIPHO SIBEKO", "P113786", "CONTROL OPERATOR"],
+        ["7", "DORCAS MASHILOANE", "P114339", "CONTROL OPERATOR"],
+        ["8", "MMANOKO CATHRINE  SELOBA", "P115222", "CONTROL OPERATOR"]
       ]
     }
   ]

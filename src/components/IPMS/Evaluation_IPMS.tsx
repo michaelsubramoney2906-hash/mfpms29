@@ -351,10 +351,12 @@ export function EvaluationIPMS({
     try {
       const tenant = activeTenantId || 'tenant-229';
       const endpoint = isTeamEvaluation ? 'team-pplan' : 'pplan';
+      const isMyeniTeamScope = isTeamEvaluation && userEmail.toLowerCase().includes('myenispl');
+      const fallbackUserEmail = isMyeniTeamScope ? 'mpofuhd@nkangaladm.gov.za' : userEmail;
       const [primaryRes, fallbackRes] = await Promise.all([
         fetch(`/api/tenant/${tenant}/${endpoint}?userId=${encodeURIComponent(userEmail)}&t=${Date.now()}`),
         isTeamEvaluation
-          ? fetch(`/api/tenant/${tenant}/pplan?userId=${encodeURIComponent(userEmail)}&t=${Date.now()}`)
+          ? fetch(`/api/tenant/${tenant}/pplan?userId=${encodeURIComponent(fallbackUserEmail)}&t=${Date.now()}`)
           : Promise.resolve(null)
       ]);
 
@@ -541,7 +543,7 @@ export function EvaluationIPMS({
         })
       });
 
-      if (isTeamEvaluation) {
+      if (isTeamEvaluation && !userEmail.toLowerCase().includes('myenispl')) {
         await fetch(`/api/tenant/${tenant}/pplan?userId=${encodeURIComponent(userEmail)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1167,7 +1169,7 @@ export function EvaluationIPMS({
 
                   return (
                     <tr
-                      key={itemKey}
+                      key={`${itemKey}-${idx}`}
                       className={`transition ${
                         hasItemReportedInQuarter(item)
                           ? 'bg-emerald-950/10 hover:bg-emerald-950/20'

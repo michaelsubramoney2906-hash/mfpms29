@@ -1154,9 +1154,15 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     }
   }
 
-  // 14b. Control Room Disaster Team (MpofuHD@nkangaladm.gov.za & 7 Control Operators) - Strictly 11 KPIs from signed 2026/2027 Control Room PA
+  // 14b. Control Room Disaster Team (MpofuHD@nkangaladm.gov.za & 7 Control Operators + CDS Team 1 Control Room Myeni) - Strictly 11 KPIs from signed 2026/2027 Control Room PA
   const controlRoomOperatorPrefixes = ['mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc', 'seleshoatj'];
-  if (controlRoomOperatorPrefixes.some(p => normEmail === `${p}@nkangaladm.gov.za` || normEmail.startsWith(`${p}@`))) {
+  const isControlRoomTeamScope =
+    normEmail === 'myenispl@nkangaladm.gov.za_team' ||
+    normEmail === 'myenispl@nkangaldm.gov.za_team' ||
+    normEmail === 'myenispl_team' ||
+    normEmail === 'dept_team_cds_team_1' ||
+    controlRoomOperatorPrefixes.some(p => normEmail === `${p}@nkangaladm.gov.za` || normEmail.startsWith(`${p}@`));
+  if (isControlRoomTeamScope) {
     const controlRoomCanonical11 = [
       { kpiNo: 'M_22', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '1 (Unqualified with matters)', annualTarget: '1 (Clean audit)', q1Target: 'N/A', q2Target: '1 (Clean audit)', q3Target: 'N/A', q4Target: 'N/A', poe: "AG's Audit Report", budget: 'OPEX', kpi: 'Attain clean audit opinion by 31 December 2026.', matchKey: 'clean audit opinion' },
       { kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2027', matchKey: 'compile and sign the annual performance agreement' },
@@ -1183,7 +1189,7 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       const isQ4Na = canon.q4Target.toUpperCase() === 'N/A';
       return {
         ...(existing || {}),
-        id: existing?.id || `team-ipp-kpi-1790760159082-${idx + 1}`,
+        id: `team-ipp-kpi-1790760159082-${idx + 1}`,
         kpiNo: canon.kpiNo,
         'kpi no': canon.kpiNo,
         kpa: canon.kpa,
@@ -1225,7 +1231,10 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         q1Actual: isQ1Na ? '' : (existing?.q1Actual || ''),
         q1PoeDocs: isQ1Na ? [] : (Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : []),
         reviewStatus: isQ1Na ? 'N/A' : (existing?.reviewStatus || 'Draft'),
-        q1PoeStatus: isQ1Na ? 'N/A' : (existing?.q1PoeStatus || 'Draft')
+        q1PoeStatus: isQ1Na ? 'N/A' : (existing?.q1PoeStatus || 'Draft'),
+        manager: 'Sibusiso P.L. Myeni',
+        managerEmail: 'myenispl@nkangaladm.gov.za',
+        reportTo: 'Sibusiso P.L. Myeni'
       };
     });
   }
@@ -3365,7 +3374,7 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
   // Canonical 13 personal KPIs across 5 KPAs from his signed 2026/27 Performance Agreement (Disaster Management Officer)
   // Reporting to Mr. Elmon Nkosi (nkosije@nkangaladm.gov.za)
   // Retains 100% of reported actuals, self-scores, POE attachments, and review statuses
-  if (normEmail === 'myenispl@nkangaladm.gov.za' || normEmail === 'myenispl@nkangaldm.gov.za' || normEmail.startsWith('myenispl@')) {
+  if (!normEmail.endsWith('_team') && (normEmail === 'myenispl@nkangaladm.gov.za' || normEmail === 'myenispl@nkangaldm.gov.za' || normEmail.startsWith('myenispl@'))) {
     const myeniCanonical13 = [
       { origIdx: 1, id: 'myeni-personal-kpi-1', kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '10%', baseline: '1', kpi: 'Attain clean audit opinion by 31 December 2026.', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: 'AG Audit report', budget: 'OPEX' },
       { origIdx: 2, id: 'myeni-personal-kpi-2', kpiNo: '2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: '5%', baseline: '1', kpi: 'Compile and sign the annual performance agreement for the 2026/2027 financial year and submit to OPME & PMDS unit by 30 July 2026', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Signed Performance Agreement', budget: 'OPEX' },

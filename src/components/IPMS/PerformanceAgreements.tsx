@@ -572,9 +572,11 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         }
 
         // When !isPlan (Performance Agreements mode), only fetch the plan metadata without blocking on KPAs/KPIs
+        const isMyeniTeamPlan = Boolean(isTeamPlan && targetEmail.toLowerCase().includes('myenispl'));
+        const kpaKpiTargetEmail = isMyeniTeamPlan ? 'mpofuhd@nkangaladm.gov.za' : targetEmail;
         const [kpaRes, kpisRes, res] = await Promise.all([
-          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`) : Promise.resolve(null),
-          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`) : Promise.resolve(null),
+          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(kpaKpiTargetEmail)}`) : Promise.resolve(null),
+          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(kpaKpiTargetEmail)}`) : Promise.resolve(null),
           fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`)
         ]);
 
@@ -620,6 +622,14 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
           if (Array.isArray(usersData) && usersData.length > 0) {
             baseMeta = applyMatchedUserToMeta(usersData, baseMeta);
+          }
+
+          if (isMyeniTeamPlan) {
+            baseMeta.name = 'CDS TEAM 1 (Control Room MYENI)';
+            baseMeta.department = 'Community Development Services (Disaster Management Control Room)';
+            baseMeta.manager = 'Sibusiso P.L. Myeni';
+            baseMeta.managerEmail = 'myenispl@nkangaladm.gov.za';
+            baseMeta.reportTo = 'Sibusiso P.L. Myeni';
           }
 
           setMetadata(baseMeta);
@@ -739,7 +749,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               });
             }
 
-            currentItems = applyOfficialKpiRules(targetEmail, currentItems);
+            const effectiveRuleEmail = isMyeniTeamPlan ? 'myenispl@nkangaladm.gov.za_team' : targetEmail;
+            currentItems = applyOfficialKpiRules(effectiveRuleEmail, currentItems);
           }
 
           const isCleared = data.metadata && data.metadata._isCleared === true;
@@ -971,11 +982,18 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           const origCount = Array.isArray(data.items) ? data.items.length : 0;
 
           if (currentItems.length > 0) {
-            // Propagate unique POE across all quarters and lock
-            currentItems = currentItems.map(it => {
+            // Propagate unique POE across all quarters, lock, and guarantee unique item.id per row
+            const usedIds = new Set<string>();
+            currentItems = currentItems.map((it, idx) => {
               const poeDesc = (it.poe || it.annualRequiredPoe || it.q1Poe || it.q2Poe || it.midtermPoe || it.q3Poe || it.q4Poe || (it.kpi ? `Signed verification report and approved evidence portfolio for: ${it.kpi}` : 'Signed verification report and evidence portfolio files')).trim();
+              let safeId = String(it.id || `kpi-row-${idx + 1}`).trim();
+              if (usedIds.has(safeId)) {
+                safeId = `${safeId}-${idx + 1}`;
+              }
+              usedIds.add(safeId);
               return {
                 ...it,
+                id: safeId,
                 poe: poeDesc,
                 annualRequiredPoe: poeDesc,
                 q1Poe: poeDesc,
@@ -1075,6 +1093,12 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
     );
   }, [isTeamPlan, selectedUserEmail, currentUser?.email, currentUser?.fullName, metadata?.email, metadata?.name]);
 
+  const isControlRoomTeamScope = React.useMemo(() => {
+    const activeTargetEmail = (selectedUserEmail || currentUser?.email || metadata?.email || '').toLowerCase().trim();
+    const controlPrefixes = ['myenispl', 'mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc', 'dept_team_cds_team_1'];
+    return Boolean(isTeamPlan && controlPrefixes.some(p => activeTargetEmail.includes(p)));
+  }, [isTeamPlan, selectedUserEmail, currentUser?.email, metadata?.email]);
+
   const handlePushToPmsTeamPA = async () => {
     setIsPushingToPmsTeamPa(true);
     setPushToPmsTeamPaBanner(null);
@@ -1133,6 +1157,61 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ metadata, items, rows: items })
         }).catch(() => {});
+      }
+
+      if (isControlRoomTeamScope) {
+        const docIdCdsTeam1 = `draft_doc_cds_team_1_${activeTenantId}`;
+        let existingCdsState: any = {};
+        try {
+          const getRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=myenispl@nkangaladm.gov.za&documentId=${docIdCdsTeam1}&t=${Date.now()}`);
+          if (getRes.ok) {
+            const getJson = await getRes.json();
+            if (getJson && getJson.html) {
+              existingCdsState = typeof getJson.html === 'string' ? JSON.parse(getJson.html) : getJson.html;
+            }
+          }
+        } catch (e) {}
+
+        const updatedCdsTeamPaState = {
+          ...existingCdsState,
+          annexureA: true,
+          isPPlanAdopted: true,
+          pulledPplanItems: filteredTeamItems,
+          pulledFilteredPplanItems: filteredTeamItems,
+          pushedFromTeamPerformancePlanAt: new Date().toISOString(),
+          pushedByEmail: (currentUser?.email || targetEmail).toLowerCase().trim(),
+          updatedAt: new Date().toISOString()
+        };
+
+        const controlRecipients = [
+          'myenispl@nkangaladm.gov.za',
+          'mpofuhd@nkangaladm.gov.za',
+          'maditsipc@nkangaladm.gov.za',
+          'nhlabathise@nkangaladm.gov.za',
+          'vallaa@nkangaladm.gov.za',
+          'khumalomd@nkangaladm.gov.za',
+          'sibekops@nkangaladm.gov.za',
+          'mashiloanedt@nkangaladm.gov.za',
+          'selobamc@nkangaladm.gov.za'
+        ];
+
+        await Promise.all(
+          controlRecipients.map(u =>
+            fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=${encodeURIComponent(u)}&documentId=${docIdCdsTeam1}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                html: updatedCdsTeamPaState,
+                htmlDocumentId: docIdCdsTeam1
+              })
+            })
+          )
+        );
+
+        window.dispatchEvent(new CustomEvent('pms-team-pa-updated', { detail: { items: filteredTeamItems } }));
+        setPushToPmsTeamPaBanner(`Successfully pushed ${filteredTeamItems.length} Control Room Team KPIs to CDS Team PA - Team 1 (Control Room Myeni)!`);
+        setTimeout(() => setPushToPmsTeamPaBanner(null), 6000);
+        return;
       }
 
       // 2. Fetch existing PMS Team PA draft document to preserve all sections, rosters, signatures, PDPs, JSCs
@@ -1195,8 +1274,8 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
       setPushToPmsTeamPaBanner(`Successfully pushed ${filteredTeamItems.length} Filtered Team Performance Plan KPIs to PMS Team PA!`);
       setTimeout(() => setPushToPmsTeamPaBanner(null), 6000);
     } catch (err: any) {
-      console.error('Error pushing Filtered Team Performance Plan to PMS Team PA:', err);
-      setPushToPmsTeamPaBanner('Failed to push Filtered Team Performance Plan to PMS Team PA.');
+      console.error('Error pushing Filtered Team Performance Plan to Team PA:', err);
+      setPushToPmsTeamPaBanner('Failed to push Filtered Team Performance Plan to Team PA.');
     } finally {
       setIsPushingToPmsTeamPa(false);
     }
@@ -2755,14 +2834,14 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
             onClick={handlePushToPmsTeamPA}
             disabled={isPushingToPmsTeamPa}
             className="bg-indigo-600 hover:bg-indigo-500 border border-indigo-400 text-white font-black px-3.5 py-1.5 rounded-xl text-[11px] uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer shadow-xs disabled:opacity-50"
-            title="Push Filtered Team Performance Plan directly into PMS Team PA (Annexure A)"
+            title={isControlRoomTeamScope ? "Push Control Room Team Performance Plan directly into CDS Team PA - Team 1 (Control Room Myeni)" : "Push Filtered Team Performance Plan directly into PMS Team PA (Annexure A)"}
           >
             {isPushingToPmsTeamPa ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-200" />
             ) : (
               <Send className="w-3.5 h-3.5 text-indigo-200" />
             )}
-            <span>{isPushingToPmsTeamPa ? "Pushing..." : "Push to PMS Team PA"}</span>
+            <span>{isPushingToPmsTeamPa ? "Pushing..." : (isControlRoomTeamScope ? "Push to CDS Team PA" : "Push to PMS Team PA")}</span>
           </button>
         )}
 
@@ -3708,7 +3787,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
                 ) : (
                   items.map((item, index) => (
                     <tr 
-                      key={item.id} 
+                      key={item.id ? `${item.id}_${index}` : `kpi_row_${index}`} 
                       className="group bg-white hover:bg-slate-50 transition duration-100"
                     >
                       {/* KPI indicator row number */}
