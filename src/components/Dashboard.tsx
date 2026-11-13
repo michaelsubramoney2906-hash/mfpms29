@@ -80,6 +80,12 @@ import { useFinancialYear } from '../context/FinancialYearContext';
 import { useTheme } from '../context/ThemeContext';
 import { SupportModule } from './Support/SupportModule';
 import { resilientFetch } from '../utils/resilientFetch';
+import {
+  useIPMSReportingCutoff,
+  IPMSReportingCutoffBannerAndModal,
+  IPMSLockedClosureScreen,
+  isCutoffControlledModule,
+} from './IPMS/IPMSReportingCutoffBannerAndModal';
 
 const fetchWithRetry = async (url: string, options?: RequestInit, retries = 3, delay = 1000): Promise<Response> => {
   return resilientFetch(url, options, { maxRetries: retries, retryDelayMs: delay });
@@ -95,6 +101,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
   const { financialYear, isPriorYear, getEffectiveYearForModule } = useFinancialYear();
   const { isDark, toggleTheme } = useTheme();
   const userEmail = (user.email || '').toLowerCase().trim();
+  const ipmsCutoffState = useIPMSReportingCutoff(userEmail, user.tenantId || 'tenant-229');
   
   // Check if session is currently impersonating another persona
   const isCurrentlyImpersonating = typeof window !== 'undefined' && 
@@ -1199,14 +1206,31 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
                     Active Tenant: {currentTenant.name}
                  </div>
               </div>
-              {activeModule.id === 'ipms' && isNkangalaUser && (
-                <div className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>IPMS Unlocked</span>
-                </div>
+              {isCutoffControlledModule(activeModule.id) && isNkangalaUser && (
+                ipmsCutoffState.isLocked ? (
+                  <div className="bg-red-600/25 text-red-200 border border-red-500/60 px-3 py-1 rounded text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                    <span>{activeModule.name} Locked — Quarter Reporting Closed</span>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{activeModule.name} Unlocked ({ipmsCutoffState.hours}h:{ipmsCutoffState.minutes}m:{ipmsCutoffState.seconds}s left)</span>
+                  </div>
+                )
               )}
             </div>
           </div>
+
+          {/* QUARTER REPORTING CUTOFF COUNTDOWN BANNER, RED CLOSURE BANNER & 15-MINUTE ACKNOWLEDGEMENT MODAL */}
+          {isCutoffControlledModule(activeModule.id) && ipmsCutoffState.isNkangalaUser && (
+            <IPMSReportingCutoffBannerAndModal
+              currentUser={fullUserProfile}
+              activeTenantId={activeTenantId}
+              cutoffState={ipmsCutoffState}
+              moduleName={activeModule.name}
+            />
+          )}
 
           {/* DUAL-POSITION ROLE CAPACITY SWITCHER FOR THANDIWE M. LENGWATE */}
           {isLengwateDualUser && (
@@ -1344,7 +1368,9 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           )}
 
         {/* Content Area */}
-        {activeModule.id === 'dashboard' ? (
+        {isCutoffControlledModule(activeModule.id) && ipmsCutoffState.isLocked ? (
+          <IPMSLockedClosureScreen currentUser={fullUserProfile} moduleName={activeModule.name} />
+        ) : activeModule.id === 'dashboard' ? (
             <div className="flex-1 min-h-0 bg-transparent rounded-2xl overflow-hidden shadow-2xl relative z-10">
               <DashboardOverview currentUser={fullUserProfile} activeTenantId={activeTenantId} />
             </div>

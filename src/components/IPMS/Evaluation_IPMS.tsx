@@ -27,6 +27,8 @@ import type { User } from '../../types';
 import { OfficeDocumentViewer } from './OfficeDocumentViewer';
 import { downloadOriginalFile } from '../../utils/documentBinaryHelper';
 import { isUserUnrestricted } from '../../utils/unrestrictedHelper';
+import { JSCSelfEvaluationSection } from './JSCModules';
+import { CoreCompetenciesSelfEvaluation } from './CoreCompetenciesSelfEvaluation';
 
 export interface PoeDocument {
   id: string;
@@ -298,6 +300,7 @@ export function EvaluationIPMS({
   const [statusFilter, setStatusFilter] = useState<'all' | 'reported' | 'submitted' | 'pending'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [previewDoc, setPreviewDoc] = useState<{ doc: PoeDocument; list: PoeDocument[] } | null>(null);
+  const [activeEvalTab, setActiveEvalTab] = useState<'kpi' | 'jsc' | 'ccomp'>('kpi');
 
   // Allow unrestricted system admins/managers to inspect any official's profile
   const canSwitchProfile = useMemo(() => {
@@ -1009,6 +1012,70 @@ export function EvaluationIPMS({
         </div>
       </div>
 
+      {/* 3-TAB SELF EVALUATION SELECTOR: 1. KPI Self Evaluation | 2. JSC Self Evaluation | 3. Core Competencies Self Evaluation */}
+      <div className="bg-slate-950 border border-slate-800 rounded-2xl p-2 flex flex-wrap items-center gap-2 shadow-lg">
+        <button
+          type="button"
+          onClick={() => setActiveEvalTab('kpi')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            activeEvalTab === 'kpi'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/40'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <FileCheck className="w-4 h-4" />
+          <span>1. {isTeamEvaluation ? 'Team KPI Self Evaluation' : 'KPI Self Evaluation'}</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-black/30 font-mono">
+            {summaryStats.totalKpis} KPIs
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveEvalTab('jsc')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            activeEvalTab === 'jsc'
+              ? 'bg-teal-600 text-white shadow-md shadow-teal-900/40'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          <span>2. {isTeamEvaluation ? 'Team JSC Self Evaluation' : 'JSC Self Evaluation (Job Specific Competencies)'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveEvalTab('ccomp')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition cursor-pointer ${
+            activeEvalTab === 'ccomp'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/40'
+              : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Award className="w-4 h-4" />
+          <span>3. {isTeamEvaluation ? 'Team Core Competencies Self Evaluation' : 'Core Competencies Self Evaluation'}</span>
+        </button>
+      </div>
+
+      {activeEvalTab === 'jsc' ? (
+        <div className="bg-white dark:bg-slate-950 rounded-2xl border border-slate-800 p-4 shadow-xl">
+          <JSCSelfEvaluationSection
+            currentUser={{ ...currentUser, email: userEmail }}
+            activeTenantId={activeTenantId}
+            defaultEmployeeEmail={userEmail}
+            isTeamJSC={isTeamEvaluation}
+          />
+        </div>
+      ) : activeEvalTab === 'ccomp' ? (
+        <div className="bg-white dark:bg-slate-950 rounded-2xl border border-slate-800 p-4 shadow-xl">
+          <CoreCompetenciesSelfEvaluation
+            currentUser={{ ...currentUser, email: userEmail }}
+            activeTenantId={activeTenantId}
+            isTeamEvaluation={isTeamEvaluation}
+          />
+        </div>
+      ) : (
+        <>
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
@@ -1470,6 +1537,8 @@ export function EvaluationIPMS({
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* Document Viewer Modal */}
       {previewDoc && (

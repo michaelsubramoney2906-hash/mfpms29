@@ -26577,6 +26577,57 @@ User Request: ${prompt}`;
   });
 
   // ----------------------------------------------------
+  // IPMS QUARTER REPORTING 11:59:59 PM TODAY CUTOFF ENDPOINT
+  // ----------------------------------------------------
+  const getTodaySastCutoffMs = (): { dateStr: string; cutoffTimestampMs: number } => {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Johannesburg',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      const dateStr = formatter.format(new Date());
+      const cutoffTimestampMs = new Date(`${dateStr}T23:59:59.999+02:00`).getTime();
+      if (!Number.isNaN(cutoffTimestampMs)) {
+        return { dateStr, cutoffTimestampMs };
+      }
+    } catch {}
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+    return {
+      dateStr,
+      cutoffTimestampMs: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime(),
+    };
+  };
+
+  app.get('/api/tenant/:tenantId/ipms-reporting-cutoff', async (req, res) => {
+    try {
+      const { dateStr, cutoffTimestampMs } = getTodaySastCutoffMs();
+      const nowMs = Date.now();
+      const remainingMs = Math.max(0, cutoffTimestampMs - nowMs);
+      const isLocked = remainingMs <= 0;
+      return res.json({
+        tenantId: req.params.tenantId || 'tenant-229',
+        dateStr,
+        cutoffTimestampMs,
+        cutoffIso: new Date(cutoffTimestampMs).toISOString(),
+        nowMs,
+        remainingMs,
+        isLocked,
+        forceLocked: false,
+        bannerMessage:
+          'Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head',
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || 'Failed to compute cutoff' });
+    }
+  });
+
+  // ----------------------------------------------------
   // NEDA 30-DAY USER ACTIVITY EXCEL AUDIT EXPORT
   // ----------------------------------------------------
   app.get('/api/admin/audit-export/neda', async (req, res) => {
