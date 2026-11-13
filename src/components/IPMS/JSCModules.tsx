@@ -74,6 +74,12 @@ export const getTargetManagerForUser = (userEmail: string, fallbackManager?: str
   if (norm.includes('myenispl')) {
     return 'nkosije@nkangaladm.gov.za';
   }
+  if (['mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc'].some(id => norm.includes(id))) {
+    return 'myenispl@nkangaladm.gov.za';
+  }
+  if (['ntulimp', 'mahlangua', 'skosanac', 'mananamn', 'nsingwaneb', 'mahlanguss'].some(id => norm.includes(id))) {
+    return 'bembem@nkangaladm.gov.za';
+  }
   if (['sitholedm', 'shongwesb', 'mtswenins', 'serememj', 'mokwenarm'].some(id => norm.includes(id))) {
     return 'mthimunyedmn@nkangaladm.gov.za';
   }

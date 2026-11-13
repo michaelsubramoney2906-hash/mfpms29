@@ -572,11 +572,9 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         }
 
         // When !isPlan (Performance Agreements mode), only fetch the plan metadata without blocking on KPAs/KPIs
-        const isMyeniTeamPlan = Boolean(isTeamPlan && targetEmail.toLowerCase().includes('myenispl'));
-        const kpaKpiTargetEmail = isMyeniTeamPlan ? 'mpofuhd@nkangaladm.gov.za' : targetEmail;
         const [kpaRes, kpisRes, res] = await Promise.all([
-          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(kpaKpiTargetEmail)}`) : Promise.resolve(null),
-          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(kpaKpiTargetEmail)}`) : Promise.resolve(null),
+          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpas?userId=${encodeURIComponent(targetEmail)}`) : Promise.resolve(null),
+          isPlan ? fetch(`/api/tenant/${activeTenantId}/kpis?userId=${encodeURIComponent(targetEmail)}`) : Promise.resolve(null),
           fetch(`/api/tenant/${activeTenantId}/${apiEndpoint}?userId=${encodeURIComponent(targetEmail)}`)
         ]);
 
@@ -622,14 +620,6 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
           if (Array.isArray(usersData) && usersData.length > 0) {
             baseMeta = applyMatchedUserToMeta(usersData, baseMeta);
-          }
-
-          if (isMyeniTeamPlan) {
-            baseMeta.name = 'CDS TEAM 1 (Control Room MYENI)';
-            baseMeta.department = 'Community Development Services (Disaster Management Control Room)';
-            baseMeta.manager = 'Sibusiso P.L. Myeni';
-            baseMeta.managerEmail = 'myenispl@nkangaladm.gov.za';
-            baseMeta.reportTo = 'Sibusiso P.L. Myeni';
           }
 
           setMetadata(baseMeta);
@@ -749,8 +739,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
               });
             }
 
-            const effectiveRuleEmail = isMyeniTeamPlan ? 'myenispl@nkangaladm.gov.za_team' : targetEmail;
-            currentItems = applyOfficialKpiRules(effectiveRuleEmail, currentItems);
+            currentItems = applyOfficialKpiRules(targetEmail, currentItems);
           }
 
           const isCleared = data.metadata && data.metadata._isCleared === true;
@@ -1095,7 +1084,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
 
   const isControlRoomTeamScope = React.useMemo(() => {
     const activeTargetEmail = (selectedUserEmail || currentUser?.email || metadata?.email || '').toLowerCase().trim();
-    const controlPrefixes = ['myenispl', 'mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc', 'dept_team_cds_team_1'];
+    const controlPrefixes = ['mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc', 'dept_team_cds_team_1'];
     return Boolean(isTeamPlan && controlPrefixes.some(p => activeTargetEmail.includes(p)));
   }, [isTeamPlan, selectedUserEmail, currentUser?.email, metadata?.email]);
 
@@ -1163,7 +1152,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         const docIdCdsTeam1 = `draft_doc_cds_team_1_${activeTenantId}`;
         let existingCdsState: any = {};
         try {
-          const getRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=myenispl@nkangaladm.gov.za&documentId=${docIdCdsTeam1}&t=${Date.now()}`);
+          const getRes = await fetch(`/api/tenant/${activeTenantId}/pa-drafting-doc?userId=mpofuhd@nkangaladm.gov.za&documentId=${docIdCdsTeam1}&t=${Date.now()}`);
           if (getRes.ok) {
             const getJson = await getRes.json();
             if (getJson && getJson.html) {
@@ -1184,7 +1173,6 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         };
 
         const controlRecipients = [
-          'myenispl@nkangaladm.gov.za',
           'mpofuhd@nkangaladm.gov.za',
           'maditsipc@nkangaladm.gov.za',
           'nhlabathise@nkangaladm.gov.za',
@@ -1209,7 +1197,7 @@ export function PerformanceAgreements({ currentUser, activeTenantId, isPlan, isT
         );
 
         window.dispatchEvent(new CustomEvent('pms-team-pa-updated', { detail: { items: filteredTeamItems } }));
-        setPushToPmsTeamPaBanner(`Successfully pushed ${filteredTeamItems.length} Control Room Team KPIs to CDS Team PA - Team 1 (Control Room Myeni)!`);
+        setPushToPmsTeamPaBanner(`Successfully pushed ${filteredTeamItems.length} Control Room Team KPIs to CDS Team PA - Team 1 (TEAM CONTROL ROOM)!`);
         setTimeout(() => setPushToPmsTeamPaBanner(null), 6000);
         return;
       }

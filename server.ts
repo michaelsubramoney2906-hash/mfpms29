@@ -698,8 +698,11 @@ export function getKhumaloNkosiAliases(email: string): string[] {
   const baseSet = new Set<string>([clean]);
   if (raw && raw !== clean) baseSet.add(raw);
 
-  if (clean === 'myenispl@nkangaladm.gov.za_team' || clean === 'myenispl@nkangaldm.gov.za_team' || clean === 'myenispl_team' || clean === 'dept_team_cds_team_1') {
-    return Array.from(new Set(['myenispl@nkangaladm.gov.za_team', 'dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]));
+  if (clean === 'dept_team_cds_team_1' || isDisasterControlTeamMember(clean)) {
+    return Array.from(new Set(['dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]));
+  }
+  if (clean === 'dept_team_technical_services_team_10' || isJetpatcherTeamMember(clean)) {
+    return Array.from(new Set(['dept_team_technical_services_team_10', ...JETPATCHER_TEAM_EMAILS]));
   }
   if (clean.includes('myenispl')) {
     // Sibusiso P.L. Myeni personal scope must NEVER fan out to Control Room Operator emails
@@ -725,12 +728,6 @@ export function getKhumaloNkosiAliases(email: string): string[] {
     baseSet.add('mtsweniwm@nkangaladm.gov.za');
     baseSet.add('MtshweniWM@nkangaladm.gov.za');
   }
-  if (isDisasterControlTeamMember(clean)) {
-    DISASTER_CONTROL_TEAM_EMAILS.forEach(e => baseSet.add(e));
-  }
-  if (isJetpatcherTeamMember(clean)) {
-    JETPATCHER_TEAM_EMAILS.forEach(e => baseSet.add(e));
-  }
   const nedaPkg = findNedaPackageByEmailOrName(clean);
   if (nedaPkg) {
     baseSet.add(nedaPkg.primaryEmail.toLowerCase());
@@ -744,7 +741,7 @@ export function getKhumaloNkosiAliases(email: string): string[] {
 
 export function isTeamPmsCoOwner(email: string): boolean {
   const clean = (email || '').toLowerCase().trim();
-  return clean === 'nsibandenp@nkangaladm.gov.za' || clean === 'zulune@nkangaladm.gov.za' || clean.includes('nsibandenp') || clean.includes('zulune') || isJetpatcherTeamMember(clean);
+  return clean === 'nsibandenp@nkangaladm.gov.za' || clean === 'zulune@nkangaladm.gov.za' || clean.includes('nsibandenp') || clean.includes('zulune');
 }
 
 async function syncKhumaloNkosiDualProfile() {
@@ -12518,6 +12515,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           if (isManager && (rec === 'managers' || rec === 'manager' || rec.includes('manager'))) return true;
           if (isDpmc && (rec === 'dpmc' || rec.includes('dpmc'))) return true;
           if (normEmail.includes('skosanaj') && (rec.includes('skosanaj') || recName.includes('jackson skosana'))) return true;
+          if (normEmail.includes('bembem') && (rec.includes('bembem') || recName.includes('bembe') || isJetpatcherTeamMember(sen))) return true;
+          if (normEmail.includes('myenispl') && (rec.includes('myenispl') || recName.includes('myeni') || isDisasterControlTeamMember(sen))) return true;
           if (normEmail.includes('khuboni') && (rec.includes('khuboni') || recName.includes('khuboni') || sen.includes('zulune'))) return true;
           if (normEmail.includes('zulune') && (sen.includes('zulune') || rec.includes('zulune') || sen.includes('khuboni'))) return true;
 
@@ -19180,6 +19179,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             'nkosiso': ['sukazip@nkangaladm.gov.za', 'xabang@nkangaladm.gov.za'],
             'nkosis': ['wakenis@nkangaladm.gov.za', 'mokgolomothome@nkangaladm.gov.za'],
             'nkosije': ['myenispl@nkangaladm.gov.za'],
+            'myenispl': [
+              'mpofuhd@nkangaladm.gov.za', 'maditsipc@nkangaladm.gov.za', 'nhlabathise@nkangaladm.gov.za',
+              'vallaa@nkangaladm.gov.za', 'khumalomd@nkangaladm.gov.za', 'sibekops@nkangaladm.gov.za',
+              'mashiloanedt@nkangaladm.gov.za', 'selobamc@nkangaladm.gov.za'
+            ],
+            'bembem': [
+              'ntulimp@nkangaladm.gov.za', 'mahlangua@nkangaladm.gov.za', 'skosanac@nkangaladm.gov.za',
+              'mananamn@nkangaladm.gov.za', 'nsingwaneb@nkangaladm.gov.za', 'mahlanguss@nkangaladm.gov.za'
+            ],
             'motshwenenm': ['mazwitc@nkangaladm.gov.za'],
             'skosanaj': [
               'nkosis@nkangaladm.gov.za'
@@ -20893,6 +20901,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const kpiPayloadStr = JSON.stringify({ kpis: cleanKpiItems });
       const lightweightMirrorPayloadStr = JSON.stringify({ metadata: updatedMeta, items: cleanKpiItems });
       const isTeamPms = isTeamPmsCoOwner(userId);
+      const isTeamSyncUser = isTeamPms || isDisasterControlTeamMember(userId) || isJetpatcherTeamMember(userId);
 
       // Always populate local in-memory caches across all candidate tenant buckets for immediate 0ms UI consistency
       const nowMs = Date.now();
@@ -20900,8 +20909,10 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         for (const tId of syncTenants) {
           pplanCache.set(`pplan_${tId}_${u}`, { raw: payloadStr, timestamp: nowMs });
           kpisCache.set(`kpis_${tId}_${u}`, { raw: kpiPayloadStr, timestamp: nowMs });
-          if (isTeamPms) {
+          if (isTeamSyncUser) {
             pplanCache.set(`team_pplan_${tId}_${u}`, { raw: payloadStr, timestamp: nowMs });
+          }
+          if (isTeamPms) {
             pplanCache.set(`team_pplan_${tId}_all`, { raw: payloadStr, timestamp: nowMs });
           }
         }
@@ -20929,7 +20940,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 message_type: 'pplan_list',
                 created_at: nowIso
               });
-              if (isTeamPms) {
+              if (isTeamSyncUser) {
                 primaryRows.push({
                   id: `team_pplan_${tId}_${u}`,
                   tenant_id: tId,
@@ -20962,7 +20973,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 message_type: 'pplan_list',
                 created_at: nowIso
               });
-              if (isTeamPms) {
+              if (isTeamSyncUser) {
                 secondaryRows.push({
                   id: `team_pplan_${tId}_${u}`,
                   tenant_id: tId,
@@ -21164,34 +21175,41 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
-  // Team Performance Plan (TEAM-PPLAN) Dedicated Routes - Synchronized across Team PMS co-owners and CDS Team 1 (Control Room Myeni)
+  // Team Performance Plan (TEAM-PPLAN) Dedicated Routes - Synchronized across Team PMS co-owners, CDS Team 1 (Control Room), and Technical Services Team 10 (Jetpatchers)
   app.get("/api/tenant/:tenantId/team-pplan", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).toLowerCase().trim() : 'default';
     const userId = normalizeNkangalaEmail(rawUserId) || rawUserId;
     try {
+      if (userId.includes('myenispl')) {
+        return res.json({ metadata: { name: 'Team Performance Plan', period: '2026/2027' }, items: [], rows: [] });
+      }
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const isControlRoomTeam = userId.includes('myenispl') || isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isControlRoomTeam = isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isJetpatcherTeam = isJetpatcherTeamMember(userId) || userId === 'dept_team_technical_services_team_10';
       const aliasUsers = isControlRoomTeam
-        ? Array.from(new Set(['myenispl@nkangaladm.gov.za', 'myenispl@nkangaladm.gov.za_team', 'dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
-        : getKhumaloNkosiAliases(userId);
+        ? Array.from(new Set(['dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
+        : isJetpatcherTeam
+          ? Array.from(new Set(['dept_team_technical_services_team_10', ...JETPATCHER_TEAM_EMAILS]))
+          : getKhumaloNkosiAliases(userId);
       const documentId = `team_pplan_${tenantId}_${userId}`;
-      const isTeamPms = !isControlRoomTeam && isTeamPmsCoOwner(userId);
+      const isTeamPms = !isControlRoomTeam && !isJetpatcherTeam && isTeamPmsCoOwner(userId);
 
       const fallbackKeys = Array.from(new Set([
         ...(isControlRoomTeam ? [
           `pplan_tenant-229_mpofuhd@nkangaladm.gov.za`,
           `team_pplan_tenant-229_mpofuhd@nkangaladm.gov.za`,
-          `team_pplan_${tenantId}_myenispl@nkangaladm.gov.za`,
-          `team_pplan_tenant-229_myenispl@nkangaladm.gov.za`,
           `team_pplan_tenant-229_dept_team_cds_team_1`
+        ] : isJetpatcherTeam ? [
+          `pplan_tenant-229_ntulimp@nkangaladm.gov.za`,
+          `team_pplan_tenant-229_ntulimp@nkangaladm.gov.za`,
+          `team_pplan_tenant-229_dept_team_technical_services_team_10`
         ] : [documentId]),
         ...aliasUsers.flatMap(aUser => [
           `team_pplan_${tenantId}_${aUser}`,
           `team_evaluation_${tenantId}_${aUser}`,
-          // Never read Sibusiso Myeni's personal pplan when loading the Team Performance Plan
-          ...(!aUser.includes('myenispl') && aUser !== 'dept_team_cds_team_1' ? [`pplan_tenant-229_${aUser}`] : []),
+          ...(!aUser.includes('myenispl') && !aUser.startsWith('dept_team_') ? [`pplan_tenant-229_${aUser}`] : []),
           `team_pplan_tenant-229_${aUser}`,
           `team_evaluation_tenant-229_${aUser}`,
           `team_pplan_nkangala_auto_${aUser}`,
@@ -21218,9 +21236,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const fbParsed = JSON.parse(matchRow.content);
               const fbList = Array.isArray(fbParsed) ? fbParsed : (fbParsed.items || fbParsed.rows || fbParsed.kpis || []);
               if (Array.isArray(fbList) && fbList.length > 0) {
-                const effectiveSanitizeUser = isControlRoomTeam ? 'mpofuhd@nkangaladm.gov.za' : userId;
-                const cleanedList = isControlRoomTeam
-                  ? applyOfficialUserKpiFixes(fbList, 'mpofuhd@nkangaladm.gov.za').map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
+                const effectiveSanitizeUser = isControlRoomTeam
+                  ? 'mpofuhd@nkangaladm.gov.za'
+                  : isJetpatcherTeam
+                    ? 'ntulimp@nkangaladm.gov.za'
+                    : userId;
+                const cleanedList = (isControlRoomTeam || isJetpatcherTeam)
+                  ? applyOfficialUserKpiFixes(fbList, effectiveSanitizeUser).map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
                   : fbList.map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser));
                 validLists.push(cleanedList);
                 if (fbParsed.metadata && Object.keys(bestMeta).length === 0) {
@@ -21240,7 +21262,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               .slice(0, 11);
             const controlMeta = {
               ...bestMeta,
-              name: 'CDS TEAM 1 (Control Room MYENI)',
+              name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+              email: 'mpofuhd@nkangaladm.gov.za',
               department: 'Community Development Services (Disaster Management Control Room)',
               position: 'CONTROL OPERATOR',
               manager: 'Sibusiso P.L. Myeni',
@@ -21249,6 +21272,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               period: '2026/2027 Financial Year'
             };
             return res.json({ metadata: controlMeta, items: finalControlItems, rows: finalControlItems });
+          }
+
+          if (isJetpatcherTeam) {
+            const mergedJetpatcher = validLists.length > 1
+              ? mergePlanItemsWithSecondary(validLists[0], validLists.slice(1), false, false)
+              : validLists[0];
+            const finalJetpatcherItems = applyOfficialUserKpiFixes(mergedJetpatcher, 'ntulimp@nkangaladm.gov.za')
+              .map((it: any) => sanitizePplanItem(it, 'ntulimp@nkangaladm.gov.za'))
+              .slice(0, 9);
+            const jetpatcherMeta = {
+              ...bestMeta,
+              name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+              email: 'ntulimp@nkangaladm.gov.za',
+              department: 'Technical Services',
+              position: 'Driver/Operator (Jetpatcher)',
+              manager: 'Mxolisi AVM Bembe',
+              managerEmail: 'bembem@nkangaladm.gov.za',
+              reportTo: 'Mxolisi AVM Bembe',
+              period: '2026/2027 Financial Year'
+            };
+            return res.json({ metadata: jetpatcherMeta, items: finalJetpatcherItems, rows: finalJetpatcherItems });
           }
 
           validLists.sort((a, b) => b.length - a.length);
@@ -21265,7 +21309,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           .slice(0, 11);
         return res.json({
           metadata: {
-            name: 'CDS TEAM 1 (Control Room MYENI)',
+            name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+            email: 'mpofuhd@nkangaladm.gov.za',
             department: 'Community Development Services (Disaster Management Control Room)',
             position: 'CONTROL OPERATOR',
             manager: 'Sibusiso P.L. Myeni',
@@ -21275,6 +21320,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           },
           items: defaultControlItems,
           rows: defaultControlItems
+        });
+      }
+
+      if (isJetpatcherTeam) {
+        const defaultJetpatcherItems = applyOfficialUserKpiFixes([], 'ntulimp@nkangaladm.gov.za')
+          .map((it: any) => sanitizePplanItem(it, 'ntulimp@nkangaladm.gov.za'))
+          .slice(0, 9);
+        return res.json({
+          metadata: {
+            name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+            email: 'ntulimp@nkangaladm.gov.za',
+            department: 'Technical Services',
+            position: 'Driver/Operator (Jetpatcher)',
+            manager: 'Mxolisi AVM Bembe',
+            managerEmail: 'bembem@nkangaladm.gov.za',
+            reportTo: 'Mxolisi AVM Bembe',
+            period: '2026/2027 Financial Year'
+          },
+          items: defaultJetpatcherItems,
+          rows: defaultJetpatcherItems
         });
       }
 
@@ -21293,33 +21358,44 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const isControlRoomTeam = userId.includes('myenispl') || isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isControlRoomTeam = isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isJetpatcherTeam = isJetpatcherTeamMember(userId) || userId === 'dept_team_technical_services_team_10';
       
       const targetUsers = isControlRoomTeam
-        ? Array.from(new Set(['myenispl@nkangaladm.gov.za', 'myenispl@nkangaladm.gov.za_team', 'dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
-        : getKhumaloNkosiAliases(userId);
-      if (!isControlRoomTeam && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
+        ? Array.from(new Set(['dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
+        : isJetpatcherTeam
+          ? Array.from(new Set(['dept_team_technical_services_team_10', ...JETPATCHER_TEAM_EMAILS]))
+          : getKhumaloNkosiAliases(userId);
+      if (!isControlRoomTeam && !isJetpatcherTeam && (userId.includes('mahlanguml') || userId.includes('mahlangulm') || userId.includes('mandlaml'))) {
         if (!targetUsers.includes('mahlanguml@nkangaladm.gov.za')) targetUsers.push('mahlanguml@nkangaladm.gov.za');
         if (!targetUsers.includes('mahlangulm@nkangaladm.gov.za')) targetUsers.push('mahlangulm@nkangaladm.gov.za');
       }
 
-      const syncTenants = (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || userId.includes('@nkangaladm.gov.za') || isControlRoomTeam)
+      const syncTenants = (tenantId === 'tenant-229' || tenantId === 'nkangala_auto' || userId.includes('@nkangaladm.gov.za') || isControlRoomTeam || isJetpatcherTeam)
         ? ['tenant-229', 'nkangala_auto', 'global']
         : [tenantId, 'global'];
 
-      const effectiveSanitizeUser = isControlRoomTeam ? 'mpofuhd@nkangaladm.gov.za' : userId;
+      const effectiveSanitizeUser = isControlRoomTeam
+        ? 'mpofuhd@nkangaladm.gov.za'
+        : isJetpatcherTeam
+          ? 'ntulimp@nkangaladm.gov.za'
+          : userId;
       let sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser)) : [];
       if (isControlRoomTeam) {
         sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'mpofuhd@nkangaladm.gov.za')
           .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
           .slice(0, 11);
+      } else if (isJetpatcherTeam) {
+        sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'ntulimp@nkangaladm.gov.za')
+          .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
+          .slice(0, 9);
       }
 
       // Merge with existing co-owner KPIs/POEs so neither co-owner overwrites the other's uploaded POEs
       if (supabase && sanitizedItems.length > 0) {
         const existingKeys = Array.from(new Set(
           targetUsers.flatMap(u => [
-            ...(!u.includes('myenispl') && u !== 'dept_team_cds_team_1' ? [`pplan_tenant-229_${u}`] : []),
+            ...(!u.includes('myenispl') && !u.startsWith('dept_team_') ? [`pplan_tenant-229_${u}`] : []),
             `team_evaluation_tenant-229_${u}`,
             `team_pplan_tenant-229_${u}`
           ])
@@ -21334,8 +21410,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 const list = Array.isArray(p) ? p : (p.items || p.rows || []);
                 if (Array.isArray(list) && list.length > 0) {
                   secondaryLists.push(
-                    isControlRoomTeam
-                      ? applyOfficialUserKpiFixes(list, 'mpofuhd@nkangaladm.gov.za')
+                    (isControlRoomTeam || isJetpatcherTeam)
+                      ? applyOfficialUserKpiFixes(list, effectiveSanitizeUser)
                       : list
                   );
                 }
@@ -21346,13 +21422,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             sanitizedItems = mergePlanItemsWithSecondary(
               sanitizedItems,
               secondaryLists,
-              !isControlRoomTeam,
+              !isControlRoomTeam && !isJetpatcherTeam,
               Boolean(metadata && metadata._authoritativePoeUpdate)
             ).map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser));
             if (isControlRoomTeam) {
               sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'mpofuhd@nkangaladm.gov.za')
                 .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
                 .slice(0, 11);
+            } else if (isJetpatcherTeam) {
+              sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'ntulimp@nkangaladm.gov.za')
+                .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
+                .slice(0, 9);
             }
           }
         }
@@ -21361,19 +21441,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const nowIso = new Date().toISOString();
-      const isJetpatcher = isJetpatcherTeamMember(userId);
-      const defaultTeamMgrName = isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcher ? 'Mxolisi AVM Bembe' : 'Stanley M. Shabangu');
-      const defaultTeamMgrEmail = isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcher ? 'bembem@nkangaladm.gov.za' : 'shabangusm@nkangaladm.gov.za');
+      const defaultTeamMgrName = isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcherTeam ? 'Mxolisi AVM Bembe' : 'Stanley M. Shabangu');
+      const defaultTeamMgrEmail = isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcherTeam ? 'bembem@nkangaladm.gov.za' : 'shabangusm@nkangaladm.gov.za');
       const updatedMeta = {
-        ...(metadata || { name: isControlRoomTeam ? 'CDS TEAM 1 (Control Room MYENI)' : 'Team Performance Plan' }),
+        ...(metadata || { name: isControlRoomTeam ? 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)' : (isJetpatcherTeam ? 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)' : 'Team Performance Plan') }),
         ...(isControlRoomTeam ? {
-          name: 'CDS TEAM 1 (Control Room MYENI)',
+          name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+          email: 'mpofuhd@nkangaladm.gov.za',
           department: 'Community Development Services (Disaster Management Control Room)',
           position: 'CONTROL OPERATOR'
+        } : isJetpatcherTeam ? {
+          name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+          email: 'ntulimp@nkangaladm.gov.za',
+          department: 'Technical Services',
+          position: 'Driver/Operator (Jetpatcher)'
         } : {}),
-        manager: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.manager) || defaultTeamMgrName)),
-        managerEmail: isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcher ? 'bembem@nkangaladm.gov.za' : ((metadata && metadata.managerEmail) || defaultTeamMgrEmail)),
-        reportTo: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.reportTo) || defaultTeamMgrName)),
+        manager: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcherTeam ? 'Mxolisi AVM Bembe' : ((metadata && metadata.manager) || defaultTeamMgrName)),
+        managerEmail: isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcherTeam ? 'bembem@nkangaladm.gov.za' : ((metadata && metadata.managerEmail) || defaultTeamMgrEmail)),
+        reportTo: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcherTeam ? 'Mxolisi AVM Bembe' : ((metadata && metadata.reportTo) || defaultTeamMgrName)),
         _isFredExtracted: true,
         updatedAt: nowIso
       };
@@ -21384,7 +21469,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       });
       const kpiPayloadStr = JSON.stringify({ kpis: cleanKpis });
       const upsertRows: any[] = [];
-      const isTeamPms = !isControlRoomTeam && isTeamPmsCoOwner(userId);
+      const isTeamPms = !isControlRoomTeam && !isJetpatcherTeam && isTeamPmsCoOwner(userId);
 
       for (const u of targetUsers) {
         for (const tId of syncTenants) {
@@ -21411,7 +21496,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             message_type: 'team_evaluation_doc',
             created_at: nowIso
           });
-          if (isControlRoomTeam && !u.includes('myenispl') && u !== 'dept_team_cds_team_1') {
+          if ((isControlRoomTeam || isJetpatcherTeam) && !u.includes('myenispl') && !u.startsWith('dept_team_')) {
             const memberPplanId = `pplan_${tId}_${u}`;
             const memberKpisId = `kpis_${tId}_${u}`;
             pplanCache.set(memberPplanId, { raw: payloadStr, timestamp: Date.now() });
@@ -21421,7 +21506,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               tenant_id: tId,
               sender_id: 'pplan_editor_tool',
               sender_email: u,
-              sender_name: 'Disaster Management Control Team',
+              sender_name: isControlRoomTeam ? 'Disaster Management Control Team' : 'Technical Services Team 10 Jetpatcher',
               content: payloadStr,
               message_type: 'pplan_list',
               created_at: nowIso
@@ -21431,7 +21516,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               tenant_id: tId,
               sender_id: 'kpi_manager_tool',
               sender_email: u,
-              sender_name: 'Disaster Management Control Team',
+              sender_name: isControlRoomTeam ? 'Disaster Management Control Team' : 'Technical Services Team 10 Jetpatcher',
               content: kpiPayloadStr,
               message_type: 'kpis_list',
               created_at: nowIso
@@ -21518,6 +21603,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const aliasUsers = getKhumaloNkosiAliases(userId);
+      const isTeamPms = isTeamPmsCoOwner(userId);
       
       const candidateDocIds = Array.from(new Set([
         ...aliasUsers.flatMap(aUser => [
@@ -21529,9 +21615,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `job_competencies_nkangala_auto_${aUser}`,
           `team_jsc_global_${aUser}`
         ]),
-        `team_jsc_${tenantId}_all`,
-        `team_jsc_tenant-229_all`,
-        `team_jsc_global_all`
+        ...(isTeamPms ? [
+          `team_jsc_${tenantId}_all`,
+          `team_jsc_tenant-229_all`,
+          `team_jsc_global_all`
+        ] : [])
       ]));
 
       const { data: rows } = await supabase
@@ -21580,6 +21668,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const targetUsers = getKhumaloNkosiAliases(userId);
       const isTeamPms = isTeamPmsCoOwner(userId);
+      const isTeamSyncUser = isTeamPms || isDisasterControlTeamMember(userId) || isJetpatcherTeamMember(userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
       let bodyToSave = req.body;
@@ -21606,7 +21695,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             message_type: 'team_jsc_list',
             created_at: nowIso
           });
-          if (isTeamPms) {
+          if (isTeamSyncUser && !u.startsWith('dept_team_')) {
             upsertRows.push({
               id: `job_competencies_${tKey}_${u}`,
               tenant_id: tKey,
@@ -21619,16 +21708,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             });
           }
         }
-        upsertRows.push({
-          id: `team_jsc_${tKey}_all`,
-          tenant_id: tKey,
-          sender_id: 'team_jsc_editor',
-          sender_email: 'team_jsc@system.local',
-          sender_name: 'Team JSC Editor',
-          content: payload,
-          message_type: 'team_jsc_list',
-          created_at: nowIso
-        });
+        if (isTeamPms) {
+          upsertRows.push({
+            id: `team_jsc_${tKey}_all`,
+            tenant_id: tKey,
+            sender_id: 'team_jsc_editor',
+            sender_email: 'team_jsc@system.local',
+            sender_name: 'Team JSC Editor',
+            content: payload,
+            message_type: 'team_jsc_list',
+            created_at: nowIso
+          });
+        }
       }
       await supabase.from('messages').upsert(upsertRows, { onConflict: 'id' });
       invalidateCommandCenterCache();
@@ -21639,7 +21730,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
-  // Team PDP (Personal Development Plans) Routes - Synchronized across Team PMS co-owners
+  // Team PDP (Personal Development Plans) Routes - Synchronized across Team PMS co-owners, Control Room, and Jetpatchers
   app.get("/api/tenant/:tenantId/team-pdp", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
@@ -21648,6 +21739,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const aliasUsers = getKhumaloNkosiAliases(userId);
+      const isTeamPms = isTeamPmsCoOwner(userId);
       
       const candidateDocIds = Array.from(new Set([
         ...aliasUsers.flatMap(aUser => [
@@ -21659,9 +21751,11 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           `pdp_nkangala_auto_${aUser}`,
           `team_pdp_global_${aUser}`
         ]),
-        `team_pdp_${tenantId}_all`,
-        `team_pdp_tenant-229_all`,
-        `team_pdp_global_all`
+        ...(isTeamPms ? [
+          `team_pdp_${tenantId}_all`,
+          `team_pdp_tenant-229_all`,
+          `team_pdp_global_all`
+        ] : [])
       ]));
 
       const { data: rows } = await supabase
@@ -21699,6 +21793,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const tenantId = await resolveTenantId(routeTenantId, userId);
       const targetUsers = getKhumaloNkosiAliases(userId);
       const isTeamPms = isTeamPmsCoOwner(userId);
+      const isTeamSyncUser = isTeamPms || isDisasterControlTeamMember(userId) || isJetpatcherTeamMember(userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
       const payload = JSON.stringify(req.body);
@@ -21717,7 +21812,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             message_type: 'team_pdp_list',
             created_at: nowIso
           });
-          if (isTeamPms) {
+          if (isTeamSyncUser && !u.startsWith('dept_team_')) {
             upsertRows.push({
               id: `pdp_${tKey}_${u}`,
               tenant_id: tKey,
@@ -21730,16 +21825,18 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             });
           }
         }
-        upsertRows.push({
-          id: `team_pdp_${tKey}_all`,
-          tenant_id: tKey,
-          sender_id: 'team_pdp_editor',
-          sender_email: 'team_pdp@system.local',
-          sender_name: 'Team PDP Editor',
-          content: payload,
-          message_type: 'team_pdp_list',
-          created_at: nowIso
-        });
+        if (isTeamPms) {
+          upsertRows.push({
+            id: `team_pdp_${tKey}_all`,
+            tenant_id: tKey,
+            sender_id: 'team_pdp_editor',
+            sender_email: 'team_pdp@system.local',
+            sender_name: 'Team PDP Editor',
+            content: payload,
+            message_type: 'team_pdp_list',
+            created_at: nowIso
+          });
+        }
       }
       await supabase.from('messages').upsert(upsertRows, { onConflict: 'id' });
       invalidateCommandCenterCache();
@@ -22053,35 +22150,40 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     }
   });
 
-  // Team Evaluation Routes - Synchronized across Team PMS co-owners, CDS Team 1 (Control Room Myeni), and standard Performance Plan
+  // Team Evaluation Routes - Synchronized across Team PMS co-owners, CDS Team 1 (Control Room), Technical Services Team 10 (Jetpatchers), and standard Performance Plan
   app.get("/api/tenant/:tenantId/team-evaluation", async (req, res) => {
     const { tenantId: routeTenantId } = req.params;
     const rawUserId = req.query.userId ? String(req.query.userId).trim() : 'default';
     const userId = normalizeNkangalaEmail(rawUserId.toLowerCase()) || rawUserId.toLowerCase();
     try {
+      if (userId.includes('myenispl')) {
+        return res.json({ metadata: { name: 'Team Evaluation', period: '2026/2027' }, items: [], rows: [] });
+      }
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const isControlRoomTeam = userId.includes('myenispl') || isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isControlRoomTeam = isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isJetpatcherTeam = isJetpatcherTeamMember(userId) || userId === 'dept_team_technical_services_team_10';
       const aliasUsers = isControlRoomTeam
-        ? Array.from(new Set(['myenispl@nkangaladm.gov.za', 'myenispl@nkangaladm.gov.za_team', 'dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
-        : getKhumaloNkosiAliases(userId);
-      const isTeamPms = !isControlRoomTeam && isTeamPmsCoOwner(userId);
+        ? Array.from(new Set(['dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
+        : isJetpatcherTeam
+          ? Array.from(new Set(['dept_team_technical_services_team_10', ...JETPATCHER_TEAM_EMAILS]))
+          : getKhumaloNkosiAliases(userId);
+      const isTeamPms = !isControlRoomTeam && !isJetpatcherTeam && isTeamPmsCoOwner(userId);
       
       const candidateDocIds = Array.from(new Set([
         ...(isControlRoomTeam ? [
           `pplan_tenant-229_mpofuhd@nkangaladm.gov.za`,
           `team_pplan_tenant-229_mpofuhd@nkangaladm.gov.za`,
-          `team_evaluation_tenant-229_mpofuhd@nkangaladm.gov.za`,
-          `team_evaluation_${tenantId}_myenispl@nkangaladm.gov.za`,
-          `team_evaluation_tenant-229_myenispl@nkangaladm.gov.za`,
-          `team_pplan_${tenantId}_myenispl@nkangaladm.gov.za`,
-          `team_pplan_tenant-229_myenispl@nkangaladm.gov.za`
+          `team_evaluation_tenant-229_mpofuhd@nkangaladm.gov.za`
+        ] : isJetpatcherTeam ? [
+          `pplan_tenant-229_ntulimp@nkangaladm.gov.za`,
+          `team_pplan_tenant-229_ntulimp@nkangaladm.gov.za`,
+          `team_evaluation_tenant-229_ntulimp@nkangaladm.gov.za`
         ] : []),
         ...aliasUsers.flatMap(aUser => [
           `team_evaluation_${tenantId}_${aUser}`,
           `team_evaluation_tenant-229_${aUser}`,
-          // Never read Sibusiso Myeni's personal pplan when loading Team Evaluation
-          ...(!aUser.includes('myenispl') && aUser !== 'dept_team_cds_team_1' ? [`pplan_tenant-229_${aUser}`] : []),
+          ...(!aUser.includes('myenispl') && !aUser.startsWith('dept_team_') ? [`pplan_tenant-229_${aUser}`] : []),
           `team_pplan_${tenantId}_${aUser}`,
           `team_pplan_tenant-229_${aUser}`,
           `team_pplan_nkangala_auto_${aUser}`
@@ -22110,9 +22212,13 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               const parsed = JSON.parse(match.content);
               const items = parsed.items || parsed.rows || parsed.kpis || [];
               if (Array.isArray(items) && items.length > 0) {
-                const effectiveSanitizeUser = isControlRoomTeam ? 'mpofuhd@nkangaladm.gov.za' : userId;
-                const cleanedList = isControlRoomTeam
-                  ? applyOfficialUserKpiFixes(items, 'mpofuhd@nkangaladm.gov.za').map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
+                const effectiveSanitizeUser = isControlRoomTeam
+                  ? 'mpofuhd@nkangaladm.gov.za'
+                  : isJetpatcherTeam
+                    ? 'ntulimp@nkangaladm.gov.za'
+                    : userId;
+                const cleanedList = (isControlRoomTeam || isJetpatcherTeam)
+                  ? applyOfficialUserKpiFixes(items, effectiveSanitizeUser).map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
                   : items.map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser));
                 validLists.push(cleanedList);
                 if (parsed.metadata && Object.keys(bestMeta).length === 0) {
@@ -22132,7 +22238,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               .slice(0, 11);
             const controlMeta = {
               ...bestMeta,
-              name: 'CDS TEAM 1 (Control Room MYENI)',
+              name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+              email: 'mpofuhd@nkangaladm.gov.za',
               department: 'Community Development Services (Disaster Management Control Room)',
               position: 'CONTROL OPERATOR',
               manager: 'Sibusiso P.L. Myeni',
@@ -22141,6 +22248,27 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
               period: '2026/2027 Financial Year'
             };
             return res.json({ metadata: controlMeta, items: finalControlItems, rows: finalControlItems });
+          }
+
+          if (isJetpatcherTeam) {
+            const mergedJetpatcher = validLists.length > 1
+              ? mergePlanItemsWithSecondary(validLists[0], validLists.slice(1), false, false)
+              : validLists[0];
+            const finalJetpatcherItems = applyOfficialUserKpiFixes(mergedJetpatcher, 'ntulimp@nkangaladm.gov.za')
+              .map((it: any) => sanitizePplanItem(it, 'ntulimp@nkangaladm.gov.za'))
+              .slice(0, 9);
+            const jetpatcherMeta = {
+              ...bestMeta,
+              name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+              email: 'ntulimp@nkangaladm.gov.za',
+              department: 'Technical Services',
+              position: 'Driver/Operator (Jetpatcher)',
+              manager: 'Mxolisi AVM Bembe',
+              managerEmail: 'bembem@nkangaladm.gov.za',
+              reportTo: 'Mxolisi AVM Bembe',
+              period: '2026/2027 Financial Year'
+            };
+            return res.json({ metadata: jetpatcherMeta, items: finalJetpatcherItems, rows: finalJetpatcherItems });
           }
 
           validLists.sort((a, b) => b.length - a.length);
@@ -22157,7 +22285,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           .slice(0, 11);
         return res.json({
           metadata: {
-            name: 'CDS TEAM 1 (Control Room MYENI)',
+            name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+            email: 'mpofuhd@nkangaladm.gov.za',
             department: 'Community Development Services (Disaster Management Control Room)',
             position: 'CONTROL OPERATOR',
             manager: 'Sibusiso P.L. Myeni',
@@ -22167,6 +22296,26 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           },
           items: defaultControlItems,
           rows: defaultControlItems
+        });
+      }
+
+      if (isJetpatcherTeam) {
+        const defaultJetpatcherItems = applyOfficialUserKpiFixes([], 'ntulimp@nkangaladm.gov.za')
+          .map((it: any) => sanitizePplanItem(it, 'ntulimp@nkangaladm.gov.za'))
+          .slice(0, 9);
+        return res.json({
+          metadata: {
+            name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+            email: 'ntulimp@nkangaladm.gov.za',
+            department: 'Technical Services',
+            position: 'Driver/Operator (Jetpatcher)',
+            manager: 'Mxolisi AVM Bembe',
+            managerEmail: 'bembem@nkangaladm.gov.za',
+            reportTo: 'Mxolisi AVM Bembe',
+            period: '2026/2027 Financial Year'
+          },
+          items: defaultJetpatcherItems,
+          rows: defaultJetpatcherItems
         });
       }
 
@@ -22185,26 +22334,37 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
     try {
       const supabase = getSupabase();
       const tenantId = await resolveTenantId(routeTenantId, userId);
-      const isControlRoomTeam = userId.includes('myenispl') || isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isControlRoomTeam = isDisasterControlTeamMember(userId) || userId === 'dept_team_cds_team_1';
+      const isJetpatcherTeam = isJetpatcherTeamMember(userId) || userId === 'dept_team_technical_services_team_10';
       const targetUsers = isControlRoomTeam
-        ? Array.from(new Set(['myenispl@nkangaladm.gov.za', 'myenispl@nkangaladm.gov.za_team', 'dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
-        : getKhumaloNkosiAliases(userId);
-      const isTeamPms = !isControlRoomTeam && isTeamPmsCoOwner(userId);
+        ? Array.from(new Set(['dept_team_cds_team_1', ...DISASTER_CONTROL_TEAM_EMAILS]))
+        : isJetpatcherTeam
+          ? Array.from(new Set(['dept_team_technical_services_team_10', ...JETPATCHER_TEAM_EMAILS]))
+          : getKhumaloNkosiAliases(userId);
+      const isTeamPms = !isControlRoomTeam && !isJetpatcherTeam && isTeamPmsCoOwner(userId);
       
       const targetTenants = Array.from(new Set([tenantId, 'tenant-229', 'nkangala_auto', 'global']));
-      const effectiveSanitizeUser = isControlRoomTeam ? 'mpofuhd@nkangaladm.gov.za' : userId;
+      const effectiveSanitizeUser = isControlRoomTeam
+        ? 'mpofuhd@nkangaladm.gov.za'
+        : isJetpatcherTeam
+          ? 'ntulimp@nkangaladm.gov.za'
+          : userId;
       let sanitizedItems = Array.isArray(items) ? items.map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser)) : [];
       if (isControlRoomTeam) {
         sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'mpofuhd@nkangaladm.gov.za')
           .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
           .slice(0, 11);
+      } else if (isJetpatcherTeam) {
+        sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'ntulimp@nkangaladm.gov.za')
+          .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
+          .slice(0, 9);
       }
 
       // Merge with existing co-owner KPIs/POEs across pplan, team_evaluation, and team_pplan
       if (supabase && sanitizedItems.length > 0) {
         const existingKeys = Array.from(new Set(
           targetUsers.flatMap(u => [
-            ...(!u.includes('myenispl') && u !== 'dept_team_cds_team_1' ? [`pplan_tenant-229_${u}`] : []),
+            ...(!u.includes('myenispl') && !u.startsWith('dept_team_') ? [`pplan_tenant-229_${u}`] : []),
             `team_evaluation_tenant-229_${u}`,
             `team_pplan_tenant-229_${u}`
           ])
@@ -22219,8 +22379,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                 const list = Array.isArray(p) ? p : (p.items || p.rows || []);
                 if (Array.isArray(list) && list.length > 0) {
                   secondaryLists.push(
-                    isControlRoomTeam
-                      ? applyOfficialUserKpiFixes(list, 'mpofuhd@nkangaladm.gov.za')
+                    (isControlRoomTeam || isJetpatcherTeam)
+                      ? applyOfficialUserKpiFixes(list, effectiveSanitizeUser)
                       : list
                   );
                 }
@@ -22231,13 +22391,17 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             sanitizedItems = mergePlanItemsWithSecondary(
               sanitizedItems,
               secondaryLists,
-              !isControlRoomTeam,
+              !isControlRoomTeam && !isJetpatcherTeam,
               Boolean(metadata && metadata._authoritativePoeUpdate)
             ).map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser));
             if (isControlRoomTeam) {
               sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'mpofuhd@nkangaladm.gov.za')
                 .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
                 .slice(0, 11);
+            } else if (isJetpatcherTeam) {
+              sanitizedItems = applyOfficialUserKpiFixes(sanitizedItems, 'ntulimp@nkangaladm.gov.za')
+                .map((it: any) => sanitizePplanItem(it, effectiveSanitizeUser))
+                .slice(0, 9);
             }
           }
         }
@@ -22246,19 +22410,24 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       }
 
       const nowIso = new Date().toISOString();
-      const isJetpatcher = isJetpatcherTeamMember(userId);
-      const defaultTeamMgrName = isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcher ? 'Mxolisi AVM Bembe' : 'Stanley M. Shabangu');
-      const defaultTeamMgrEmail = isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcher ? 'bembem@nkangaladm.gov.za' : 'shabangusm@nkangaladm.gov.za');
+      const defaultTeamMgrName = isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcherTeam ? 'Mxolisi AVM Bembe' : 'Stanley M. Shabangu');
+      const defaultTeamMgrEmail = isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcherTeam ? 'bembem@nkangaladm.gov.za' : 'shabangusm@nkangaladm.gov.za');
       const updatedMeta = {
-        ...(metadata || { name: isControlRoomTeam ? 'CDS TEAM 1 (Control Room MYENI)' : 'Team Evaluation' }),
+        ...(metadata || { name: isControlRoomTeam ? 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)' : (isJetpatcherTeam ? 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)' : 'Team Evaluation') }),
         ...(isControlRoomTeam ? {
-          name: 'CDS TEAM 1 (Control Room MYENI)',
+          name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+          email: 'mpofuhd@nkangaladm.gov.za',
           department: 'Community Development Services (Disaster Management Control Room)',
           position: 'CONTROL OPERATOR'
+        } : isJetpatcherTeam ? {
+          name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+          email: 'ntulimp@nkangaladm.gov.za',
+          department: 'Technical Services',
+          position: 'Driver/Operator (Jetpatcher)'
         } : {}),
-        manager: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.manager) || defaultTeamMgrName)),
-        managerEmail: isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcher ? 'bembem@nkangaladm.gov.za' : ((metadata && metadata.managerEmail) || defaultTeamMgrEmail)),
-        reportTo: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcher ? 'Mxolisi AVM Bembe' : ((metadata && metadata.reportTo) || defaultTeamMgrName)),
+        manager: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcherTeam ? 'Mxolisi AVM Bembe' : ((metadata && metadata.manager) || defaultTeamMgrName)),
+        managerEmail: isControlRoomTeam ? 'myenispl@nkangaladm.gov.za' : (isJetpatcherTeam ? 'bembem@nkangaladm.gov.za' : ((metadata && metadata.managerEmail) || defaultTeamMgrEmail)),
+        reportTo: isControlRoomTeam ? 'Sibusiso P.L. Myeni' : (isJetpatcherTeam ? 'Mxolisi AVM Bembe' : ((metadata && metadata.reportTo) || defaultTeamMgrName)),
         _isFredExtracted: true,
         updatedAt: nowIso
       };
@@ -22295,7 +22464,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             message_type: 'team_pplan_list',
             created_at: nowIso
           });
-          if (isTeamPms || (isControlRoomTeam && !u.includes('myenispl') && u !== 'dept_team_cds_team_1')) {
+          if (isTeamPms || ((isControlRoomTeam || isJetpatcherTeam) && !u.includes('myenispl') && !u.startsWith('dept_team_'))) {
             const pplanDocId = `pplan_${tKey}_${u}`;
             const kpisDocId = `kpis_${tKey}_${u}`;
             pplanCache.set(pplanDocId, { raw: payload, timestamp: Date.now() });
@@ -22818,8 +22987,6 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           'draft_doc_cds_team_1_tenant-229',
           'draft_doc_cds_team_1_nkangala_auto',
           'draft_doc_cds_team_1_global',
-          'draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za',
-          'draft_doc_cds_team_1_nkangala_auto_myenispl@nkangaladm.gov.za',
           ...DISASTER_CONTROL_TEAM_EMAILS.flatMap(em => [
             `draft_doc_cds_team_1_tenant-229_${em}`,
             `draft_doc_cds_team_1_nkangala_auto_${em}`
@@ -22929,9 +23096,9 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const parsed = parsedPayload;
           const innerHtml = (parsed && typeof parsed.html === 'object' && parsed.html !== null) ? parsed.html : parsed;
 
-          // Non-destructively ensure JSC, PDP, and reporting supervisor are preserved for Sibusiso Myeni
+          // Non-destructively ensure JSC, PDP, and reporting supervisor are preserved for Sibusiso Myeni's personal PA only
           if (innerHtml && typeof innerHtml === 'object') {
-            if (userId.includes('myenispl')) {
+            if (userId.includes('myenispl') && !isDeptTeamDoc && !isCdsTeam1Doc) {
               if (!innerHtml.employeeName) innerHtml.employeeName = 'Sibusiso P.L. Myeni';
               if (!innerHtml.employeeTitle) innerHtml.employeeTitle = 'Disaster Management Officer';
               if (!innerHtml.supervisorName) innerHtml.supervisorName = 'Mr. Elmon Nkosi';
@@ -27484,14 +27651,18 @@ User Request: ${prompt}`;
         }
       }
 
-      // 2. Disaster Management Control Team (TEAM CONTROL ROOM):
-      // Synchronize the captured Team PA (draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za) and its 11 KPIs, 5 KPAs, 5 JSCs, and 8 Member PDPs across all Control Team members,
-      // plus team_pplan and team_evaluation for myenispl@nkangaladm.gov.za, dept_team_cds_team_1, and all 8 Control Operators (leaving Myeni's personal PA/pplan untouched)
-      const { data: myeniDraftRow } = await supabase
+      // 2. Disaster Management Control Team (CDS TEAM 1 — TEAM CONTROL ROOM):
+      // Ownership belongs to Team Leader Herman D. Mpofu (MpofuHD@nkangaladm.gov.za) and the 7 Control Operators,
+      // reporting to Manager Sibusiso P.L. Myeni (myenispl@nkangaladm.gov.za).
+      // Remove any legacy CDS Team 1 rows under myenispl@nkangaladm.gov.za while keeping Myeni's personal PA/pplan untouched.
+      const { data: controlDraftCandidates } = await supabase
         .from('messages')
-        .select('content')
-        .eq('id', 'draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za')
-        .maybeSingle();
+        .select('id, content')
+        .in('id', [
+          'draft_doc_cds_team_1_tenant-229_mpofuhd@nkangaladm.gov.za',
+          'draft_doc_cds_team_1_tenant-229',
+          'draft_doc_cds_team_1_tenant-229_myenispl@nkangaladm.gov.za'
+        ]);
 
       const { data: mpofuPlanRow } = await supabase
         .from('messages')
@@ -27499,8 +27670,25 @@ User Request: ${prompt}`;
         .eq('id', 'pplan_tenant-229_mpofuhd@nkangaladm.gov.za')
         .maybeSingle();
 
-      if (myeniDraftRow?.content) {
-        const parsedDraft = JSON.parse(myeniDraftRow.content);
+      // Remove legacy team_pplan / team_evaluation / draft_doc_cds_team_1 keys tied to myenispl@nkangaladm.gov.za
+      const legacyMyeniTeamKeys = targetTenants.flatMap(tId => [
+        `draft_doc_cds_team_1_${tId}_myenispl@nkangaladm.gov.za`,
+        `team_pplan_${tId}_myenispl@nkangaladm.gov.za`,
+        `team_evaluation_${tId}_myenispl@nkangaladm.gov.za`,
+        `team_pplan_${tId}_myenispl@nkangaladm.gov.za_team`,
+        `kpas_${tId}_myenispl@nkangaladm.gov.za_team`,
+        `kpis_${tId}_myenispl@nkangaladm.gov.za_team`
+      ]);
+      for (const k of legacyMyeniTeamKeys) {
+        draftDocCache.delete(k);
+        pplanCache.delete(k);
+        kpisCache.delete(k);
+      }
+      await supabase.from('messages').delete().in('id', legacyMyeniTeamKeys);
+
+      const bestControlDraftRow = (controlDraftCandidates || []).find((r: any) => r?.content);
+      if (bestControlDraftRow?.content) {
+        const parsedDraft = JSON.parse(bestControlDraftRow.content);
         const draftState = parsedDraft.html && typeof parsedDraft.html === 'object' ? parsedDraft.html : parsedDraft;
         const parsedMpofuPlan = mpofuPlanRow?.content ? JSON.parse(mpofuPlanRow.content) : null;
         const rawControlTeamKpis: any[] = (parsedMpofuPlan?.items && Array.isArray(parsedMpofuPlan.items) && parsedMpofuPlan.items.length > 0)
@@ -27561,7 +27749,7 @@ User Request: ${prompt}`;
           html: {
             ...draftState,
             empSupervisor: 'SIBUSISO MYENI',
-            empName: 'TEAM CONTROL ROOM',
+            empName: 'HERMAN DUMISANI MPOFU (TEAM CONTROL ROOM)',
             empPosition: 'CONTROL OPERATOR',
             empDept: 'COMMUNITY DEVELOPMENT SERVICES',
             rows: canonicalControlRosterRows,
@@ -27575,10 +27763,15 @@ User Request: ${prompt}`;
           }
         });
 
+        const submittedControlKpiIds = controlTeamKpis
+          .filter((it: any) => it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Approved')
+          .map((it: any) => String(it.id || it.kpiNo || ''))
+          .filter(Boolean);
+
         const teamScopePlanPayload = JSON.stringify({
           metadata: {
-            name: 'CDS TEAM 1 (Control Room MYENI)',
-            email: 'myenispl@nkangaladm.gov.za',
+            name: 'Herman Dumisani Mpofu — CDS TEAM 1 (TEAM CONTROL ROOM)',
+            email: 'mpofuhd@nkangaladm.gov.za',
             department: 'Community Development Services (Disaster Management Control Room)',
             position: 'CONTROL OPERATOR',
             manager: 'Sibusiso P.L. Myeni',
@@ -27586,13 +27779,13 @@ User Request: ${prompt}`;
             reportTo: 'Sibusiso P.L. Myeni',
             period: '2026/2027 Financial Year',
             financialYear: '2026/2027',
+            submittedKpiIds: submittedControlKpiIds,
+            reviewStatus: submittedControlKpiIds.length > 0 ? 'Submitted for Approval' : 'Draft',
             _isFredExtracted: true,
             updatedAt: nowIso
           },
           items: controlTeamKpis
         });
-        const teamScopeKpisPayload = JSON.stringify({ kpis: controlTeamKpis });
-        const teamScopeKpasPayload = JSON.stringify({ kpas: controlTeamKpas });
 
         const controlRoomBatch: any[] = [];
         for (const tId of targetTenants) {
@@ -27601,87 +27794,24 @@ User Request: ${prompt}`;
               id: `draft_doc_cds_team_1_${tId}`,
               tenant_id: tId,
               sender_id: 'pa_editor_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
+              sender_email: 'mpofuhd@nkangaladm.gov.za',
+              sender_name: 'Herman Dumisani Mpofu — Disaster Management Control Team',
               content: draftContentStr,
               message_type: 'drafting_suite_doc',
-              created_at: nowIso
-            },
-            {
-              id: `draft_doc_cds_team_1_${tId}_myenispl@nkangaladm.gov.za`,
-              tenant_id: tId,
-              sender_id: 'pa_editor_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
-              content: draftContentStr,
-              message_type: 'drafting_suite_doc',
-              created_at: nowIso
-            },
-            {
-              id: `team_pplan_${tId}_myenispl@nkangaladm.gov.za`,
-              tenant_id: tId,
-              sender_id: 'team_pplan_editor_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
-              content: teamScopePlanPayload,
-              message_type: 'team_pplan_list',
-              created_at: nowIso
-            },
-            {
-              id: `team_evaluation_${tId}_myenispl@nkangaladm.gov.za`,
-              tenant_id: tId,
-              sender_id: 'team_evaluation_editor',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
-              content: teamScopePlanPayload,
-              message_type: 'team_evaluation_doc',
-              created_at: nowIso
-            },
-            {
-              id: `team_pplan_${tId}_myenispl@nkangaladm.gov.za_team`,
-              tenant_id: tId,
-              sender_id: 'team_pplan_editor_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
-              content: teamScopePlanPayload,
-              message_type: 'team_pplan_list',
               created_at: nowIso
             },
             {
               id: `team_pplan_${tId}_dept_team_cds_team_1`,
               tenant_id: tId,
               sender_id: 'team_pplan_editor_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
+              sender_email: 'mpofuhd@nkangaladm.gov.za',
+              sender_name: 'Herman Dumisani Mpofu — Disaster Management Control Team',
               content: teamScopePlanPayload,
               message_type: 'team_pplan_list',
-              created_at: nowIso
-            },
-            {
-              id: `kpas_${tId}_myenispl@nkangaladm.gov.za_team`,
-              tenant_id: tId,
-              sender_id: 'kpa_manager_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
-              content: teamScopeKpasPayload,
-              message_type: 'kpas_list',
-              created_at: nowIso
-            },
-            {
-              id: `kpis_${tId}_myenispl@nkangaladm.gov.za_team`,
-              tenant_id: tId,
-              sender_id: 'kpi_manager_tool',
-              sender_email: 'myenispl@nkangaladm.gov.za',
-              sender_name: 'Disaster Management Control Team',
-              content: teamScopeKpisPayload,
-              message_type: 'kpis_list',
               created_at: nowIso
             }
           );
           draftDocCache.set(`draft_doc_cds_team_1_${tId}`, { raw: draftContentStr, timestamp: Date.now() });
-          draftDocCache.set(`draft_doc_cds_team_1_${tId}_myenispl@nkangaladm.gov.za`, { raw: draftContentStr, timestamp: Date.now() });
-          pplanCache.set(`team_pplan_${tId}_myenispl@nkangaladm.gov.za`, { raw: teamScopePlanPayload, timestamp: Date.now() });
-          pplanCache.set(`team_pplan_${tId}_myenispl@nkangaladm.gov.za_team`, { raw: teamScopePlanPayload, timestamp: Date.now() });
           pplanCache.set(`team_pplan_${tId}_dept_team_cds_team_1`, { raw: teamScopePlanPayload, timestamp: Date.now() });
         }
 
@@ -27715,6 +27845,11 @@ User Request: ${prompt}`;
                 .map((it: any) => sanitizePplanItem(it, memberEmail))
             : controlTeamKpis.slice(0, 11).map((it: any) => sanitizePplanItem(it, memberEmail));
 
+          const memberSubmittedIds = mergedMemberKpis
+            .filter((it: any) => it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Approved')
+            .map((it: any) => String(it.id || it.kpiNo || ''))
+            .filter(Boolean);
+
           const memberPlanPayload = JSON.stringify({
             metadata: {
               ...(parsedMpofuPlan?.metadata || {}),
@@ -27726,6 +27861,8 @@ User Request: ${prompt}`;
               managerEmail: 'myenispl@nkangaladm.gov.za',
               reportTo: 'Sibusiso P.L. Myeni',
               financialYear: '2026/2027',
+              submittedKpiIds: memberSubmittedIds,
+              reviewStatus: memberSubmittedIds.length > 0 ? 'Submitted for Approval' : 'Draft',
               _isFredExtracted: true,
               updatedAt: nowIso
             },
@@ -27879,6 +28016,256 @@ User Request: ${prompt}`;
 
         const dedupedControlRoom = Array.from(new Map(controlRoomBatch.map(r => [r.id, r])).values());
         await supabase.from('messages').upsert(dedupedControlRoom, { onConflict: 'id' });
+      }
+
+      // 2b. Technical Services Team 10 Jetpatcher (Michael P. Ntuli — NtuliMP@nkangaladm.gov.za & 5 Jetpatcher Operators -> Manager Mxolisi AVM Bembe — bembem@nkangaladm.gov.za):
+      // Ensure the 9 Jetpatcher KPIs, 8 reported Q1 actuals, and 16 uploaded POE documents are strictly isolated from PMS Team's 17 KPIs and submitted for approval to Mr. Mxolisi Bembe.
+      const { data: ntuliPlanRow } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('id', 'pplan_tenant-229_ntulimp@nkangaladm.gov.za')
+        .maybeSingle();
+
+      if (ntuliPlanRow?.content) {
+        const parsedNtuliPlan = JSON.parse(ntuliPlanRow.content);
+        const rawNtuliItems = Array.isArray(parsedNtuliPlan?.items) ? parsedNtuliPlan.items : [];
+        const jetpatcherKpis = applyOfficialUserKpiFixes(rawNtuliItems, 'ntulimp@nkangaladm.gov.za')
+          .map((it: any) => sanitizePplanItem(it, 'ntulimp@nkangaladm.gov.za'))
+          .slice(0, 9);
+        const submittedJetpatcherIds = jetpatcherKpis
+          .filter((it: any) => it.reviewStatus === 'Submitted for Approval' || it.reviewStatus === 'Approved')
+          .map((it: any) => String(it.id || it.kpiNo || ''))
+          .filter(Boolean);
+
+        const jetpatcherBatch: any[] = [];
+        const jetpatcherTeamScopePayload = JSON.stringify({
+          metadata: {
+            ...(parsedNtuliPlan?.metadata || {}),
+            name: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+            email: 'ntulimp@nkangaladm.gov.za',
+            department: 'Technical Services',
+            position: 'Driver/Operator (Jetpatcher)',
+            manager: 'Mxolisi AVM Bembe',
+            managerEmail: 'bembem@nkangaladm.gov.za',
+            reportTo: 'Mxolisi AVM Bembe',
+            financialYear: '2026/2027',
+            submittedKpiIds: submittedJetpatcherIds,
+            reviewStatus: submittedJetpatcherIds.length > 0 ? 'Submitted for Approval' : 'Draft',
+            _isFredExtracted: true,
+            updatedAt: nowIso
+          },
+          items: jetpatcherKpis
+        });
+
+        for (const tId of targetTenants) {
+          const teamScopeId = `team_pplan_${tId}_dept_team_technical_services_team_10`;
+          pplanCache.set(teamScopeId, { raw: jetpatcherTeamScopePayload, timestamp: Date.now() });
+          jetpatcherBatch.push({
+            id: teamScopeId,
+            tenant_id: tId,
+            sender_id: 'team_pplan_editor_tool',
+            sender_email: 'ntulimp@nkangaladm.gov.za',
+            sender_name: 'Technical Services Team 10 Jetpatcher',
+            content: jetpatcherTeamScopePayload,
+            message_type: 'team_pplan_list',
+            created_at: nowIso
+          });
+        }
+
+        const jetpatcherRosterNames: Record<string, string> = {
+          'ntulimp@nkangaladm.gov.za': 'Michael P. Ntuli',
+          'mahlangua@nkangaladm.gov.za': 'April Mahlangu',
+          'skosanac@nkangaladm.gov.za': 'C. Skosana',
+          'mananamn@nkangaladm.gov.za': 'M.N. Manana',
+          'nsingwaneb@nkangaladm.gov.za': 'B. Nsingwane',
+          'mahlanguss@nkangaladm.gov.za': 'S.S. Mahlangu'
+        };
+
+        for (const jpEmail of JETPATCHER_TEAM_EMAILS) {
+          const jpName = jetpatcherRosterNames[jpEmail] || jpEmail;
+          const jpItems = jetpatcherKpis.map((it: any) => sanitizePplanItem(it, jpEmail));
+          const jpPlanPayload = JSON.stringify({
+            metadata: {
+              ...(parsedNtuliPlan?.metadata || {}),
+              name: jpName,
+              email: jpEmail,
+              department: 'Technical Services',
+              position: 'Driver/Operator (Jetpatcher)',
+              manager: 'Mxolisi AVM Bembe',
+              managerEmail: 'bembem@nkangaladm.gov.za',
+              reportTo: 'Mxolisi AVM Bembe',
+              financialYear: '2026/2027',
+              submittedKpiIds: submittedJetpatcherIds,
+              reviewStatus: submittedJetpatcherIds.length > 0 ? 'Submitted for Approval' : 'Draft',
+              _isFredExtracted: true,
+              updatedAt: nowIso
+            },
+            items: jpItems
+          });
+          const jpKpisPayload = JSON.stringify({ kpis: jpItems });
+
+          for (const tId of targetTenants) {
+            const pId = `pplan_${tId}_${jpEmail}`;
+            const tpId = `team_pplan_${tId}_${jpEmail}`;
+            const teId = `team_evaluation_${tId}_${jpEmail}`;
+            const kId = `kpis_${tId}_${jpEmail}`;
+            pplanCache.set(pId, { raw: jpPlanPayload, timestamp: Date.now() });
+            pplanCache.set(tpId, { raw: jpPlanPayload, timestamp: Date.now() });
+            kpisCache.set(kId, { raw: jpKpisPayload, timestamp: Date.now() });
+
+            jetpatcherBatch.push(
+              {
+                id: pId,
+                tenant_id: tId,
+                sender_id: 'pplan_editor_tool',
+                sender_email: jpEmail,
+                sender_name: jpName,
+                content: jpPlanPayload,
+                message_type: 'pplan_list',
+                created_at: nowIso
+              },
+              {
+                id: tpId,
+                tenant_id: tId,
+                sender_id: 'team_pplan_editor_tool',
+                sender_email: jpEmail,
+                sender_name: jpName,
+                content: jpPlanPayload,
+                message_type: 'team_pplan_list',
+                created_at: nowIso
+              },
+              {
+                id: teId,
+                tenant_id: tId,
+                sender_id: 'team_evaluation_editor',
+                sender_email: jpEmail,
+                sender_name: jpName,
+                content: jpPlanPayload,
+                message_type: 'team_evaluation_doc',
+                created_at: nowIso
+              },
+              {
+                id: kId,
+                tenant_id: tId,
+                sender_id: 'kpi_manager_tool',
+                sender_email: jpEmail,
+                sender_name: jpName,
+                content: jpKpisPayload,
+                message_type: 'kpis_list',
+                created_at: nowIso
+              }
+            );
+          }
+        }
+
+        const dedupedJetpatcher = Array.from(new Map(jetpatcherBatch.map(r => [r.id, r])).values());
+        await supabase.from('messages').upsert(dedupedJetpatcher, { onConflict: 'id' });
+      }
+
+      // 2c. Ensure Line Manager Workflow Inbox notifications exist for Mxolisi Bembe (from Michael P. Ntuli) and Sibusiso Myeni (from Herman D. Mpofu)
+      for (const notifTenant of ['tenant-229', 'nkangala_auto']) {
+        const notifDocId = `ipms_notifications_${notifTenant}`;
+        const { data: notifRow } = await supabase
+          .from('messages')
+          .select('content')
+          .eq('id', notifDocId)
+          .maybeSingle();
+        let notifList: any[] = [];
+        if (notifRow?.content) {
+          try {
+            const parsedN = JSON.parse(notifRow.content);
+            if (Array.isArray(parsedN.notifications)) notifList = parsedN.notifications;
+          } catch (_) {}
+        }
+
+        const hasNtuliToBembe = notifList.some(
+          (n: any) =>
+            String(n?.senderEmail || '').toLowerCase() === 'ntulimp@nkangaladm.gov.za' &&
+            String(n?.recipientEmail || '').toLowerCase() === 'bembem@nkangaladm.gov.za' &&
+            n?.actionType === 'submission'
+        );
+        if (!hasNtuliToBembe) {
+          notifList.unshift({
+            id: 'notif_jetpatcher_team10_ntulimp_q1',
+            threadId: 'notif_jetpatcher_team10_ntulimp_q1',
+            parentId: null,
+            type: 'SUBMISSION_FOR_APPROVAL',
+            actionType: 'submission',
+            module: 'KPI',
+            title: '📥 8 KPI(s) & 16 POE Document(s) Submitted for Approval (Q1)',
+            message: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher) (ntulimp@nkangaladm.gov.za) has submitted 8 reported KPI(s) and 16 Portfolio of Evidence (POE) document(s) for Q1 Line Manager evaluation and approval.',
+            senderEmail: 'ntulimp@nkangaladm.gov.za',
+            senderName: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+            senderRole: 'Team Leader: Jetpatcher Driver/Operators',
+            recipientEmail: 'bembem@nkangaladm.gov.za',
+            recipientName: 'Mxolisi AVM Bembe',
+            recipientRole: 'Line Manager',
+            targetUserEmail: 'ntulimp@nkangaladm.gov.za',
+            targetUserName: 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)',
+            kpiIds: [
+              'extracted-sync-1796516244137-1',
+              'extracted-sync-1796516244137-2',
+              'extracted-sync-1796516244137-3',
+              'extracted-sync-1796516244137-4',
+              'extracted-sync-1796516244137-5',
+              'extracted-sync-1796516244137-6',
+              'extracted-sync-1796516244137-7',
+              'extracted-sync-1796516244137-8'
+            ],
+            quarter: 'q1',
+            status: 'unread',
+            actionStatus: 'Pending Review',
+            createdAt: nowIso
+          });
+        }
+
+        const hasMpofuToMyeni = notifList.some(
+          (n: any) =>
+            String(n?.senderEmail || '').toLowerCase() === 'mpofuhd@nkangaladm.gov.za' &&
+            String(n?.recipientEmail || '').toLowerCase() === 'myenispl@nkangaladm.gov.za' &&
+            n?.actionType === 'submission'
+        );
+        if (!hasMpofuToMyeni) {
+          notifList.unshift({
+            id: 'notif_cds_team1_mpofuhd_q1',
+            threadId: 'notif_cds_team1_mpofuhd_q1',
+            parentId: null,
+            type: 'SUBMISSION_FOR_APPROVAL',
+            actionType: 'submission',
+            module: 'KPI',
+            title: '📥 4 KPI(s) & 4 POE Document(s) Submitted for Approval (Q1)',
+            message: 'Herman Dumisani Mpofu — CDS Team 1 (TEAM CONTROL ROOM) (mpofuhd@nkangaladm.gov.za) has submitted 4 reported KPI(s) and 4 Portfolio of Evidence (POE) document(s) for Q1 Line Manager evaluation and approval.',
+            senderEmail: 'mpofuhd@nkangaladm.gov.za',
+            senderName: 'Herman Dumisani Mpofu — CDS Team 1 (TEAM CONTROL ROOM)',
+            senderRole: 'Team Leader: Control Room Operators',
+            recipientEmail: 'myenispl@nkangaladm.gov.za',
+            recipientName: 'Sibusiso P.L. Myeni',
+            recipientRole: 'Line Manager',
+            targetUserEmail: 'mpofuhd@nkangaladm.gov.za',
+            targetUserName: 'Herman Dumisani Mpofu — CDS Team 1 (TEAM CONTROL ROOM)',
+            kpiIds: [
+              'team-ipp-kpi-1790760159082-2',
+              'team-ipp-kpi-1790760159082-3',
+              'team-ipp-kpi-1790760159082-4',
+              'team-ipp-kpi-1790760159082-5'
+            ],
+            quarter: 'q1',
+            status: 'unread',
+            actionStatus: 'Pending Review',
+            createdAt: nowIso
+          });
+        }
+
+        await supabase.from('messages').upsert({
+          id: notifDocId,
+          tenant_id: notifTenant,
+          sender_id: 'ipms_notification_engine',
+          sender_email: 'notifications@mzansiflow.co.za',
+          sender_name: 'IPMS Workflow Engine',
+          content: JSON.stringify({ notifications: notifList }),
+          message_type: 'ipms_notifications',
+          created_at: nowIso
+        }, { onConflict: 'id' });
       }
 
       // Reconcile M.A. Lukhele (lukhelema@nkangaladm.gov.za) Amended PA:

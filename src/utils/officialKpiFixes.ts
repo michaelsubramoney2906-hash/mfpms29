@@ -1154,12 +1154,9 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     }
   }
 
-  // 14b. Control Room Disaster Team (MpofuHD@nkangaladm.gov.za & 7 Control Operators + CDS Team 1 Control Room Myeni) - Strictly 11 KPIs from signed 2026/2027 Control Room PA
+  // 14b. Control Room Disaster Team (MpofuHD@nkangaladm.gov.za & 7 Control Operators + CDS Team 1 Control Room) - Strictly 11 KPIs from signed 2026/2027 Control Room PA
   const controlRoomOperatorPrefixes = ['mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc', 'seleshoatj'];
   const isControlRoomTeamScope =
-    normEmail === 'myenispl@nkangaladm.gov.za_team' ||
-    normEmail === 'myenispl@nkangaldm.gov.za_team' ||
-    normEmail === 'myenispl_team' ||
     normEmail === 'dept_team_cds_team_1' ||
     controlRoomOperatorPrefixes.some(p => normEmail === `${p}@nkangaladm.gov.za` || normEmail.startsWith(`${p}@`));
   if (isControlRoomTeamScope) {
@@ -1187,6 +1184,10 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
       const isQ2Na = canon.q2Target.toUpperCase() === 'N/A';
       const isQ3Na = canon.q3Target.toUpperCase() === 'N/A';
       const isQ4Na = canon.q4Target.toUpperCase() === 'N/A';
+      const hasReportedEvidence = !isQ1Na && Boolean(
+        (existing?.q1Actual && String(existing.q1Actual).trim() !== '' && String(existing.q1Actual).trim().toUpperCase() !== 'N/A') ||
+        (Array.isArray(existing?.q1PoeDocs) && existing.q1PoeDocs.length > 0)
+      );
       return {
         ...(existing || {}),
         id: `team-ipp-kpi-1790760159082-${idx + 1}`,
@@ -1230,8 +1231,23 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
         q1Applicable: !isQ1Na,
         q1Actual: isQ1Na ? '' : (existing?.q1Actual || ''),
         q1PoeDocs: isQ1Na ? [] : (Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : []),
-        reviewStatus: isQ1Na ? 'N/A' : (existing?.reviewStatus || 'Draft'),
-        q1PoeStatus: isQ1Na ? 'N/A' : (existing?.q1PoeStatus || 'Draft'),
+        reviewStatus: isQ1Na
+          ? 'N/A'
+          : (!hasReportedEvidence
+              ? 'Draft'
+              : (existing?.reviewStatus === 'Revision Requested' || (existing?.reviewStatus === 'Approved' && existing?.managerComment)
+                  ? existing.reviewStatus
+                  : 'Submitted for Approval')),
+        reviewApprovalStatus: isQ1Na || !hasReportedEvidence
+          ? ''
+          : (existing?.reviewStatus === 'Revision Requested'
+              ? 'Revision Requested'
+              : (existing?.reviewStatus === 'Approved' && existing?.managerComment ? 'Approved' : 'Pending')),
+        q1PoeStatus: isQ1Na
+          ? 'N/A'
+          : (!hasReportedEvidence
+              ? 'Draft'
+              : (existing?.reviewStatus === 'Approved' && existing?.managerComment ? 'Approved' : 'Pending Verification')),
         manager: 'Sibusiso P.L. Myeni',
         managerEmail: 'myenispl@nkangaladm.gov.za',
         reportTo: 'Sibusiso P.L. Myeni'
@@ -3352,7 +3368,7 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
   }
 
   // 27. Jetpatchers / Technical Services Team 10 (ntulimp, mahlangua, skosanac, mananamn, nsingwaneb, mahlanguss, dept_team_technical_services_team_10):
-  // Stamp line manager as Mxolisi AVM Bembe (bembem@nkangaladm.gov.za)
+  // Strictly enforce the 9 official Team 10 Jetpatcher KPIs and stamp line manager as Mxolisi AVM Bembe (bembem@nkangaladm.gov.za)
   const jetpatcherEmails = [
     'ntulimp@nkangaladm.gov.za',
     'mahlangua@nkangaladm.gov.za',
@@ -3363,11 +3379,103 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     'dept_team_technical_services_team_10'
   ];
   if (jetpatcherEmails.includes(normEmail)) {
-    result = result.map((item: any) => ({
-      ...item,
-      manager: 'Mxolisi AVM Bembe',
-      managerEmail: 'bembem@nkangaladm.gov.za'
-    }));
+    const jetpatcherCanonical9 = [
+      { id: 'extracted-sync-1796516244137-0', kpiNo: 'M_21', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 5, baseline: '1', annualTarget: '1', q1Target: 'N/A', q2Target: '1', q3Target: 'N/A', q4Target: 'N/A', poe: "AG’s Audit Report", budget: 'OPEX', kpi: 'Maintain clean audit opinion by 30 December 2026', matchKey: 'clean audit opinion' },
+      { id: 'extracted-sync-1796516244137-1', kpiNo: 'KPI-2', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 4, baseline: '1', annualTarget: '1', q1Target: '1', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Compile and sign the annual performance agreement for the 2025/2026 financial year and submit to OPME & PMDS unit by 30 July 2026', matchKey: 'compile and sign the annual performance agreement' },
+      { id: 'extracted-sync-1796516244137-2', kpiNo: 'KPI-3', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 3, baseline: '4', annualTarget: '4', q1Target: '1 (annual assessment)', q2Target: '1 (Q1 assessment)', q3Target: '1 (midyear assessment)', q4Target: '1 (Q3 assessment)', poe: 'Quarterly Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Number of self-assessment reports compiled and submitted to Supervisor per quarter.', matchKey: 'self-assessment reports compiled' },
+      { id: 'extracted-sync-1796516244137-3', kpiNo: 'KPI-4', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 4, baseline: '1', annualTarget: '1 (annual assessment)', q1Target: '1 (annual assessment)', q2Target: 'N/A', q3Target: 'N/A', q4Target: 'N/A', poe: 'Compliance certificate from OPME & PMDS Unit', budget: 'OPEX', kpi: 'Submission of 2025/2026 Annual performance evaluation on E-PMS by 29 August 2026', matchKey: 'annual performance evaluation on e-pms' },
+      { id: 'extracted-sync-1796516244137-4', kpiNo: 'KPI-5', kpa: 'KPA 1: GOOD GOVERNANCE AND INSTITUTIONAL TRANSFORMATION', weight: 6, baseline: 'New', annualTarget: '100%', q1Target: '100%', q2Target: '100%', q3Target: '100%', q4Target: '100%', poe: 'Compliance certificate from Corporate Services', budget: 'OPEX', kpi: 'Percentage of leave requests captured on the system within the prescribed timeframes, in accordance with the Leave Management Policy, by 30 June 2027.', matchKey: 'leave requests captured on the system' },
+      { id: 'extracted-sync-1796516244137-5', kpiNo: 'M_67', kpa: 'KPA 2: BASIC SERVICE DELIVERY AND INFRASTRUCTURE', weight: 15, baseline: 'New', annualTarget: '4000 m2', q1Target: '1000 m2', q2Target: '1000 m2', q3Target: '1000 m2', q4Target: '1000 m2', poe: 'Signed Quarterly reports', budget: 'R1 413 328', kpi: 'Total m2 of potholes patched on municipal roads by 30 June 2027', matchKey: 'potholes patched on municipal roads' },
+      { id: 'extracted-sync-1796516244137-6', kpiNo: 'KPI-7', kpa: 'KPA 3: MANAGEMENT OF MAINTENANCE PLAN', weight: 20, baseline: 'New', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Monthly road maintenance reports', budget: 'OPEX', kpi: 'Number of monthly reports on Road Maintenance submitted to the Supervisor by 30 June 2027', matchKey: 'reports on road maintenance' },
+      { id: 'extracted-sync-1796516244137-7', kpiNo: 'KPI-8', kpa: 'KPA 4: REPORTING ON WORKPLACE SAFETY', weight: 20, baseline: 'New', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Monthly condition assessment reports', budget: 'OPEX', kpi: 'Number of monthly reports submitted on the condition assessment of machinery, tools and equipment submitted to the Supervisor by 30 June 2027', matchKey: 'condition assessment of machinery' },
+      { id: 'extracted-sync-1796516244137-8', kpiNo: 'KPI-9', kpa: 'KPA 5: MEETING MANAGEMENT', weight: 20, baseline: 'New', annualTarget: '12', q1Target: '3', q2Target: '3', q3Target: '3', q4Target: '3', poe: 'Attendance register', budget: 'OPEX', kpi: 'Number of unit monthly meetings attendant for the 2026 / 2027 financial year', matchKey: 'unit monthly meetings attendant' }
+    ];
+
+    result = jetpatcherCanonical9.map((canon) => {
+      const existing = result.find((it: any) => {
+        const itId = String(it?.id || '').trim();
+        const d = String(it?.kpiDescription || it?.['kpi description'] || it?.kpi || it?.description || '').toLowerCase();
+        if (itId.startsWith('ipp-kpi-1790274038476-')) return false;
+        if (d.includes('organisational performance management system') || d.includes('council resolutions') || d.includes('back to basics') || d.includes('sdbip')) return false;
+        return itId === canon.id || d.includes(canon.matchKey);
+      });
+      const isQ1Na = canon.q1Target.toUpperCase() === 'N/A';
+      const isQ2Na = canon.q2Target.toUpperCase() === 'N/A';
+      const isQ3Na = canon.q3Target.toUpperCase() === 'N/A';
+      const isQ4Na = canon.q4Target.toUpperCase() === 'N/A';
+      const hasReportedEvidence = !isQ1Na && Boolean(
+        (existing?.q1Actual && String(existing.q1Actual).trim() !== '' && String(existing.q1Actual).trim().toUpperCase() !== 'N/A') ||
+        (Array.isArray(existing?.q1PoeDocs) && existing.q1PoeDocs.length > 0)
+      );
+      const currentRevStatus = String(existing?.reviewStatus || '').trim();
+      const effectiveReviewStatus = isQ1Na
+        ? 'N/A'
+        : (!hasReportedEvidence
+            ? 'Draft'
+            : (currentRevStatus === 'Approved' || currentRevStatus === 'Revision Requested' || currentRevStatus === 'Rejected'
+                ? currentRevStatus
+                : 'Submitted for Approval'));
+      const effectiveApprovalStatus = isQ1Na || !hasReportedEvidence
+        ? ''
+        : (effectiveReviewStatus === 'Submitted for Approval'
+            ? 'Pending'
+            : (existing?.reviewApprovalStatus || effectiveReviewStatus));
+
+      return {
+        ...(existing || {}),
+        id: canon.id,
+        kpiNo: canon.kpiNo,
+        'kpi no': canon.kpiNo,
+        kpa: canon.kpa,
+        functionalKpa: canon.kpa,
+        'functional kpa': canon.kpa,
+        kpi: canon.kpi,
+        description: canon.kpi,
+        kpiDescription: canon.kpi,
+        'kpi description': canon.kpi,
+        indicator: canon.kpi,
+        weight: canon.weight,
+        weighting: String(canon.weight),
+        '%wt': String(canon.weight),
+        baseline: canon.baseline,
+        'baseline 2025/26': canon.baseline,
+        annualTarget: canon.annualTarget,
+        'annual target': canon.annualTarget,
+        q1Target: canon.q1Target,
+        '1st qtr target': canon.q1Target,
+        q2Target: canon.q2Target,
+        '2nd qtr target': canon.q2Target,
+        q3Target: canon.q3Target,
+        '3rd qtr target': canon.q3Target,
+        q4Target: canon.q4Target,
+        '4th qtr target': canon.q4Target,
+        poe: `Q1: ${canon.poe}\nQ2: ${canon.poe}\nQ3: ${canon.poe}\nQ4: ${canon.poe}`,
+        annualRequiredPoe: canon.poe,
+        q1Poe: canon.poe,
+        q2Poe: canon.poe,
+        midtermPoe: canon.poe,
+        q3Poe: canon.poe,
+        q4Poe: canon.poe,
+        budget: canon.budget,
+        q1Locked: isQ1Na,
+        q2Locked: isQ2Na,
+        q3Locked: isQ3Na,
+        q4Locked: isQ4Na,
+        q1Applicable: !isQ1Na,
+        q1Actual: isQ1Na ? '' : (existing?.q1Actual || ''),
+        q1PoeDocs: isQ1Na ? [] : (Array.isArray(existing?.q1PoeDocs) ? existing.q1PoeDocs : []),
+        reviewStatus: effectiveReviewStatus,
+        reviewApprovalStatus: effectiveApprovalStatus,
+        q1PoeStatus: isQ1Na
+          ? 'N/A'
+          : (!hasReportedEvidence
+              ? 'Draft'
+              : (effectiveReviewStatus === 'Approved' ? 'Approved' : 'Pending Verification')),
+        manager: 'Mxolisi AVM Bembe',
+        managerEmail: 'bembem@nkangaladm.gov.za',
+        reportTo: 'Mxolisi AVM Bembe'
+      };
+    });
   }
 
   // 28. Mr. Sibusiso P.L. Myeni (myenispl@nkangaladm.gov.za):

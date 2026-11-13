@@ -1108,11 +1108,11 @@ export function DraftingSuiteTeam({
 
       // 3. Backward-compatible fallback strictly for Team 1 (activeTeamIndex === 0)
       if (activeTeamIndex === 0) {
-        const emailToUse = getEmailScope(currentUser?.email || (normalizedSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : normalizedSuffix === 'cds' ? 'myenispl@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
+        const emailToUse = getEmailScope(currentUser?.email || (normalizedSuffix === 'pms_team' ? 'zulune@nkangaladm.gov.za' : normalizedSuffix === 'cds' ? 'mpofuhd@nkangaladm.gov.za' : 'khuboniy@nkangaladm.gov.za'));
         const candidateEmails = normalizedSuffix === 'pms_team'
           ? Array.from(new Set(['zulune@nkangaladm.gov.za', 'nsibandenp@nkangaladm.gov.za', emailToUse]))
           : normalizedSuffix === 'cds'
-            ? Array.from(new Set([emailToUse, 'myenispl@nkangaladm.gov.za', 'mpofuhd@nkangaladm.gov.za', 'maditsipc@nkangaladm.gov.za', 'nhlabathise@nkangaladm.gov.za', 'vallaa@nkangaladm.gov.za', 'khumalomd@nkangaladm.gov.za', 'sibekops@nkangaladm.gov.za', 'mashiloanedt@nkangaladm.gov.za', 'selobamc@nkangaladm.gov.za']))
+            ? Array.from(new Set(['mpofuhd@nkangaladm.gov.za', 'maditsipc@nkangaladm.gov.za', 'nhlabathise@nkangaladm.gov.za', 'vallaa@nkangaladm.gov.za', 'khumalomd@nkangaladm.gov.za', 'sibekops@nkangaladm.gov.za', 'mashiloanedt@nkangaladm.gov.za', 'selobamc@nkangaladm.gov.za']))
             : [emailToUse];
 
         for (const candidateEmail of candidateEmails) {
@@ -1940,7 +1940,6 @@ export function DraftingSuiteTeam({
               'nsibandenp@nkangaladm.gov.za'
             ]
           : [
-              'myenispl@nkangaladm.gov.za',
               'mpofuhd@nkangaladm.gov.za',
               'maditsipc@nkangaladm.gov.za',
               'nhlabathise@nkangaladm.gov.za',

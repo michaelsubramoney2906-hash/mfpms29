@@ -351,12 +351,10 @@ export function EvaluationIPMS({
     try {
       const tenant = activeTenantId || 'tenant-229';
       const endpoint = isTeamEvaluation ? 'team-pplan' : 'pplan';
-      const isMyeniTeamScope = isTeamEvaluation && userEmail.toLowerCase().includes('myenispl');
-      const fallbackUserEmail = isMyeniTeamScope ? 'mpofuhd@nkangaladm.gov.za' : userEmail;
       const [primaryRes, fallbackRes] = await Promise.all([
         fetch(`/api/tenant/${tenant}/${endpoint}?userId=${encodeURIComponent(userEmail)}&t=${Date.now()}`),
         isTeamEvaluation
-          ? fetch(`/api/tenant/${tenant}/pplan?userId=${encodeURIComponent(fallbackUserEmail)}&t=${Date.now()}`)
+          ? fetch(`/api/tenant/${tenant}/pplan?userId=${encodeURIComponent(userEmail)}&t=${Date.now()}`)
           : Promise.resolve(null)
       ]);
 
@@ -543,7 +541,7 @@ export function EvaluationIPMS({
         })
       });
 
-      if (isTeamEvaluation && !userEmail.toLowerCase().includes('myenispl')) {
+      if (isTeamEvaluation) {
         await fetch(`/api/tenant/${tenant}/pplan?userId=${encodeURIComponent(userEmail)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -668,15 +666,29 @@ export function EvaluationIPMS({
     try {
       const tenant = activeTenantId || 'tenant-229';
       const normEmail = (userEmail || '').toLowerCase().trim();
+      const isControlRoomOperator = ['mpofuhd', 'maditsipc', 'nhlabathise', 'miggelss', 'vallaa', 'khumalomd', 'sibekops', 'mashiloanedt', 'selobamc'].some(p => normEmail.startsWith(p));
+      const isJetpatcherOperator = ['ntulimp', 'mahlangua', 'skosanac', 'mananamn', 'nsingwaneb', 'mahlanguss'].some(p => normEmail.startsWith(p));
       const mgrEmail = normEmail === 'nkosis@nkangaladm.gov.za'
         ? 'skosanaj@nkangaladm.gov.za'
-        : String(metadata?.managerEmail || (currentUser as any)?.managerEmail || 'managers').toLowerCase().trim();
+        : isControlRoomOperator
+          ? 'myenispl@nkangaladm.gov.za'
+          : isJetpatcherOperator
+            ? 'bembem@nkangaladm.gov.za'
+            : String(metadata?.managerEmail || (currentUser as any)?.managerEmail || 'managers').toLowerCase().trim();
       const mgrName = normEmail === 'nkosis@nkangaladm.gov.za'
         ? 'Jackson Skosana'
-        : String(metadata?.manager || metadata?.reportTo || currentUser?.manager || currentUser?.reportTo || 'Line Manager').trim();
+        : isControlRoomOperator
+          ? 'Sibusiso P.L. Myeni'
+          : isJetpatcherOperator
+            ? 'Mxolisi AVM Bembe'
+            : String(metadata?.manager || metadata?.reportTo || currentUser?.manager || currentUser?.reportTo || 'Line Manager').trim();
       const senderDisplayName = normEmail === 'nkosis@nkangaladm.gov.za'
         ? 'Sanele Nkosi'
-        : String(metadata?.name || currentUser?.fullName || (currentUser as any)?.name || userEmail).trim();
+        : isControlRoomOperator
+          ? 'Herman Dumisani Mpofu — CDS Team 1 (TEAM CONTROL ROOM)'
+          : isJetpatcherOperator
+            ? 'Michael P. Ntuli — Technical Services Team 10 (Jetpatcher)'
+            : String(metadata?.name || currentUser?.fullName || (currentUser as any)?.name || userEmail).trim();
       const qUpper = selectedQuarter.toUpperCase();
       const submittedIds = submittedItems.map((it) => String(it.id || it.kpiNo || '')).filter(Boolean);
       const poeCount = submittedItems.reduce((acc, it) => {

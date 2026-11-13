@@ -599,6 +599,22 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
         bembeSubordinates.forEach(email => mySubordinateEmails.add(email));
       }
 
+      // Explicit list for Sibusiso P.L. Myeni (myenispl@nkangaladm.gov.za) - CDS Team 1 Control Room Operators led by Herman D. Mpofu
+      const myeniSubordinates = [
+        'mpofuhd@nkangaladm.gov.za',
+        'maditsipc@nkangaladm.gov.za',
+        'nhlabathise@nkangaladm.gov.za',
+        'vallaa@nkangaladm.gov.za',
+        'khumalomd@nkangaladm.gov.za',
+        'sibekops@nkangaladm.gov.za',
+        'mashiloanedt@nkangaladm.gov.za',
+        'selobamc@nkangaladm.gov.za'
+      ];
+
+      if (managerEmail.includes('myenispl') || normCurrent.includes('sibusiso myeni') || normCurrent.includes('myeni')) {
+        myeniSubordinates.forEach(email => mySubordinateEmails.add(email));
+      }
+
       // Explicit list for Demo Line Manager (manager@mzansiflow.co.za)
       if (managerEmail === 'manager@mzansiflow.co.za' || managerEmail.includes('manager@mzansiflow')) {
         mySubordinateEmails.add('user@mzansiflow.co.za');
@@ -846,6 +862,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
             const uManagerEmail = (u.managerEmail || '').toLowerCase().trim();
             const isSub = Boolean(
               doesManagerMatchCurrentUser(u.manager || u.reportTo || '', uManagerEmail) ||
+              ((managerEmail.includes('bembem') || normCurrent.includes('bembe')) && (bembeSubordinates.includes(uEmail) || uManager.includes('bembe'))) ||
+              ((managerEmail.includes('myenispl') || normCurrent.includes('myeni')) && (myeniSubordinates.includes(uEmail) || uManager.includes('myeni'))) ||
               ((managerEmail.includes('linkss') || normCurrent.includes('links')) && (linksSubordinates.includes(uEmail) || uManager.includes('links'))) ||
               ((managerEmail.includes('singhn') || normCurrent.includes('singh')) && (singhSubordinates.includes(uEmail) || uManager.includes('singh'))) ||
               ((managerEmail.includes('joubertm') || normCurrent.includes('joubert')) && (joubertSubordinates.includes(uEmail) || uManager.includes('joubert'))) ||
@@ -946,6 +964,8 @@ export function ManagerReviewIPMS({ currentUser, activeTenantId }: Props) {
 
         const isDirectSubordinate = mySubordinateEmails.has(targetEmail) || Boolean(
           doesManagerMatchCurrentUser(p.plan?.metadata?.manager || p.plan?.metadata?.reportTo || '', pManagerEmail) ||
+          ((managerEmail.includes('bembem') || normCurrent.includes('bembe')) && (bembeSubordinates.includes(targetEmail) || pManager.includes('bembe'))) ||
+          ((managerEmail.includes('myenispl') || normCurrent.includes('myeni')) && (myeniSubordinates.includes(targetEmail) || pManager.includes('myeni'))) ||
           ((managerEmail.includes('skosanaj') || normCurrent.includes('jackson skosana')) && (skosanaSubordinates.includes(targetEmail) || pManager.includes('skosana'))) ||
           ((managerEmail.includes('shabangusm') || normCurrent.includes('sibusiso') || (normCurrent.includes('shabangu') && !normCurrent.includes('mandla'))) && (shabanguSubordinates.includes(targetEmail) || pManager.includes('shabangu'))) ||
           ((managerEmail.includes('nparbhoo') || managerEmail.includes('parbhoon') || normCurrent.includes('nirupa') || normCurrent.includes('parbhoo')) && (parbhooSubordinates.includes(targetEmail) || pManager.includes('parbhoo'))) ||
