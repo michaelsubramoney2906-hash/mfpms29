@@ -1485,25 +1485,6 @@ export async function syncNedaPerformanceAgreements() {
       // Check if any existing pplan rows have POE documents or actuals/scores so we preserve 100% of existing progress
       const existingPplanKeys = targetTenants.flatMap(t => allEmails.map(em => `pplan_${t}_${em}`));
       const { data: existingPplanRows } = await supabase.from('messages').select('id, content').in('id', existingPplanKeys);
-      const existingItemOverlay = new Map<string, any>();
-      if (Array.isArray(existingPplanRows)) {
-        for (const r of existingPplanRows) {
-          try {
-            const p = JSON.parse(r.content);
-            const list = p?.items || p?.rows || p?.kpis || [];
-            if (Array.isArray(list)) {
-              for (const it of list) {
-                const kNo = String(it.kpiNo || '').toLowerCase().trim();
-                const kDesc = String(it.kpi || it.description || '').toLowerCase().trim();
-                const key = kNo || kDesc;
-                if (key && !existingItemOverlay.has(key)) {
-                  existingItemOverlay.set(key, it);
-                }
-              }
-            }
-          } catch {}
-        }
-      }
 
       const hasRealNedaKpiCapture = (it: any, q1TargetStr?: string): boolean => {
         if (!it) return false;
@@ -1545,10 +1526,39 @@ export async function syncNedaPerformanceAgreements() {
         return false;
       };
 
-      const mergedKpis = pkg.kpis.map((officialKpi: any) => {
+      const existingItemOverlay = new Map<string, any>();
+      if (Array.isArray(existingPplanRows)) {
+        for (const r of existingPplanRows) {
+          try {
+            const p = JSON.parse(r.content);
+            const list = p?.items || p?.rows || p?.kpis || [];
+            if (Array.isArray(list)) {
+              for (const it of list) {
+                const kId = String(it.id || '').toLowerCase().trim();
+                const kNo = String(it.kpiNo || '').toLowerCase().trim();
+                const kDesc = String(it.kpiDescription || it.kpi || it.description || '').toLowerCase().trim();
+                const candidateKeys = [kId, kNo, kDesc].filter(Boolean);
+                const candidateHasCapture = hasRealNedaKpiCapture(it);
+                for (const key of candidateKeys) {
+                  const prev = existingItemOverlay.get(key);
+                  const prevHasCapture = prev ? hasRealNedaKpiCapture(prev) : false;
+                  const prevDocsLen = Array.isArray(prev?.q1PoeDocs) ? prev.q1PoeDocs.length : 0;
+                  const candDocsLen = Array.isArray(it?.q1PoeDocs) ? it.q1PoeDocs.length : 0;
+                  if (!prev || (candidateHasCapture && !prevHasCapture) || candDocsLen > prevDocsLen) {
+                    existingItemOverlay.set(key, it);
+                  }
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+
+      const rawMergedKpis = pkg.kpis.map((officialKpi: any) => {
+        const kId = String(officialKpi.id || '').toLowerCase().trim();
         const kNo = String(officialKpi.kpiNo || '').toLowerCase().trim();
         const kDesc = String(officialKpi.kpi || '').toLowerCase().trim();
-        const existing = existingItemOverlay.get(kNo) || existingItemOverlay.get(kDesc);
+        const existing = existingItemOverlay.get(kId) || existingItemOverlay.get(kNo) || existingItemOverlay.get(kDesc);
         const isQ1Na = String(officialKpi.q1Target || '').trim().toUpperCase() === 'N/A';
         const hasCapture = hasRealNedaKpiCapture(existing, officialKpi.q1Target);
 
@@ -1606,6 +1616,7 @@ export async function syncNedaPerformanceAgreements() {
           midtermPoeDocs: existing.midtermPoeDocs || []
         };
       });
+      const mergedKpis = applyOfficialUserKpiFixes(rawMergedKpis, pkg.primaryEmail);
 
       const nedaMuniName = 'Nkangala Economic Development Agency (NEDA)';
       const kpaPayloadStr = JSON.stringify({
@@ -20723,11 +20734,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       let existingParsedPlan: any = null;
       if (!isExplicitlyClearedPost) {
         const candidateKeys = Array.from(new Set(
-          targetUsers.flatMap(u => [
-            `pplan_tenant-229_${u}`,
-            `pplan_${tenantId}_${u}`,
-            `pplan_nkangala_auto_${u}`
-          ])
+          targetUsers.flatMap(u =>
+            isNedaTenant
+              ? [`pplan_neda_${u}`, `pplan_tenant-neda_${u}`]
+              : [
+                  `pplan_tenant-229_${u}`,
+                  `pplan_${tenantId}_${u}`,
+                  `pplan_nkangala_auto_${u}`
+                ]
+          )
         ));
         for (const ck of candidateKeys) {
           const cached = pplanCache.get(ck);
@@ -20751,6 +20766,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
                     `team_pplan_tenant-229_${u}`
                   ])
                 ]))
+              : isNedaTenant
+              ? Array.from(new Set(targetUsers.flatMap(u => [`pplan_neda_${u}`, `pplan_tenant-neda_${u}`])))
               : [
                   (tenantId === 'nkangala_auto' || tenantId === 'tenant-229' || userId.includes('@nkangaladm.gov.za'))
                     ? `pplan_tenant-229_${userId}`

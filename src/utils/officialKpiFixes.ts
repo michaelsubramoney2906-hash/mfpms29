@@ -3682,6 +3682,650 @@ export function applyOfficialKpiRules(userEmail: string, inputKpis: any[]): any[
     });
   }
 
+  // 41. Johan P. Mangani (manganijp@nkangaladm.gov.za / manganijp@neda.gov.za) — Zero-Data-Loss Recovery of Real Uploaded Supabase POE Blobs & Q1 Actuals
+  if (normEmail.includes('manganijp')) {
+    const MANGANI_RECOVERED_Q1: Record<
+      string,
+      {
+        q1Actual: string;
+        q1Score: string;
+        reviewStatus: string;
+        docs: Array<{
+          id: string;
+          name: string;
+          mimeType: string;
+          size: number;
+          dataUrl: string;
+          url: string;
+          uploadedAt: string;
+          uploadedBy: string;
+        }>;
+      }
+    > = {
+      'kpi-mangani-1': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794578510257_r9kx7jpyn',
+            name: 'Fourth_Quarter_performance_report_.pdf',
+            mimeType: 'application/pdf',
+            size: 460175,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578510257_r9kx7jpyn',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578510257_r9kx7jpyn',
+            uploadedAt: '2026-11-13T14:01:50.475Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794578532162_au6lpxn90',
+            name: 'ME_07.10.2026.docx.pdf',
+            mimeType: 'application/pdf',
+            size: 297021,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578532162_au6lpxn90',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578532162_au6lpxn90',
+            uploadedAt: '2026-11-13T14:02:12.112Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794578569834_h9t2sekz7',
+            name: 'Quarter 4 Council resolution (1).pdf',
+            mimeType: 'application/pdf',
+            size: 266653,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578569834_h9t2sekz7',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578569834_h9t2sekz7',
+            uploadedAt: '2026-11-13T14:02:49.783Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-2': {
+        q1Actual: '10%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794578702138_rrm6tdqnz',
+            name: 'Vacancy rate report_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 144017,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578702138_rrm6tdqnz',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794578702138_rrm6tdqnz',
+            uploadedAt: '2026-11-13T14:05:01.964Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-4': {
+        q1Actual: '100%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794579177822_gc3gc4mjs',
+            name: 'Decleration of interest_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 86002,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579177822_gc3gc4mjs',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579177822_gc3gc4mjs',
+            uploadedAt: '2026-11-13T14:12:57.587Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-5': {
+        q1Actual: '100%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794579177822_gc3gc4mjs',
+            name: 'Decleration of interest_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 86002,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579177822_gc3gc4mjs',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579177822_gc3gc4mjs',
+            uploadedAt: '2026-11-13T14:12:57.587Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-14': {
+        q1Actual: '60%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794579508691_4iqzulha8',
+            name: 'Quarter 1 Strategic Risk Report_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 216243,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579508691_4iqzulha8',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579508691_4iqzulha8',
+            uploadedAt: '2026-11-13T14:18:28.691Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-15': {
+        q1Actual: '60%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794579549777_dreskoejj',
+            name: 'Quarter 1 Operational Risk Report_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 230811,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579549777_dreskoejj',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794579549777_dreskoejj',
+            uploadedAt: '2026-11-13T14:19:09.778Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-16': {
+        q1Actual: '100%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794580790126_qyseu92b9',
+            name: 'Neda 1st qtr follow-up final report.pdf',
+            mimeType: 'application/pdf',
+            size: 6360005,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794580790126_qyseu92b9',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794580790126_qyseu92b9',
+            uploadedAt: '2026-11-13T14:39:50.127Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794580811965_u1tlv3iwz',
+            name: 'Summary Neda 1st qtr follw-up.pdf',
+            mimeType: 'application/pdf',
+            size: 2123599,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794580811965_u1tlv3iwz',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794580811965_u1tlv3iwz',
+            uploadedAt: '2026-11-13T14:40:11.966Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-17': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794581168134_vpcs8rs4f',
+            name: 'Neda fourth quarter report.pdf',
+            mimeType: 'application/pdf',
+            size: 285755,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794581168134_vpcs8rs4f',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794581168134_vpcs8rs4f',
+            uploadedAt: '2026-11-13T14:46:08.134Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794581253291_ipp74dwf6',
+            name: 'ME_04.10.2026_.docx.pdf',
+            mimeType: 'application/pdf',
+            size: 297068,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794581253291_ipp74dwf6',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794581253291_ipp74dwf6',
+            uploadedAt: '2026-11-13T14:47:33.291Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-18': {
+        q1Actual: '100%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794581436125_l6qtme5nq',
+            name: 'Summary Neda 1st qtr follw-up.pdf',
+            mimeType: 'application/pdf',
+            size: 2123599,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794581436125_l6qtme5nq',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794581436125_l6qtme5nq',
+            uploadedAt: '2026-11-13T14:50:36.126Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-19': {
+        q1Actual: '100%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794582026097_7ntinb1s8',
+            name: 'NEDA_Q1_2026-2027_Implementation_of_Board_Resolutions.pdf',
+            mimeType: 'application/pdf',
+            size: 207566,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582026097_7ntinb1s8',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582026097_7ntinb1s8',
+            uploadedAt: '2026-11-13T15:00:26.097Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794582155947_n05c1w878',
+            name: 'Minutes of the 1st Ordinary Board Meeting_ 16102026.pdf',
+            mimeType: 'application/pdf',
+            size: 317361,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582155947_n05c1w878',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582155947_n05c1w878',
+            uploadedAt: '2026-11-13T15:02:35.947Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794582168167_919e2wczg',
+            name: 'Minutes of the 02nd Special Board Meeting_ 18082026.pdf',
+            mimeType: 'application/pdf',
+            size: 256402,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582168167_919e2wczg',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582168167_919e2wczg',
+            uploadedAt: '2026-11-13T15:02:48.167Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794582175197_qg83r8vp6',
+            name: 'Minutes of the 03rd Special Board Meeting_ 18092026.pdf',
+            mimeType: 'application/pdf',
+            size: 282934,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582175197_qg83r8vp6',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582175197_qg83r8vp6',
+            uploadedAt: '2026-11-13T15:02:55.197Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-20': {
+        q1Actual: '0',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794583181120_i9eouxq1h',
+            name: 'Minutes OF NEDA ORDINARY BOARD MEETING 12 MAY 2026.pdf',
+            mimeType: 'application/pdf',
+            size: 644130,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583181120_i9eouxq1h',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583181120_i9eouxq1h',
+            uploadedAt: '2026-11-13T15:19:41.121Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794583194599_cygtaoj3k',
+            name: 'NEDA 8th ORDINARY BOARD MEETING MINUTES.docx.pdf',
+            mimeType: 'application/pdf',
+            size: 308157,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583194599_cygtaoj3k',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583194599_cygtaoj3k',
+            uploadedAt: '2026-11-13T15:19:54.599Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794583213332_grr0pcxsb',
+            name: 'NEDA 9th ORDINARY BOARD MEETING MINUTES_.docx.pdf',
+            mimeType: 'application/pdf',
+            size: 302661,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583213332_grr0pcxsb',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583213332_grr0pcxsb',
+            uploadedAt: '2026-11-13T15:20:13.333Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-21': {
+        q1Actual: '60%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794582459165_yjg1p9cuw',
+            name: 'Quarter 1 Lekgotla_ NDM_signed.pdf',
+            mimeType: 'application/pdf',
+            size: 254219,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582459165_yjg1p9cuw',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794582459165_yjg1p9cuw',
+            uploadedAt: '2026-11-13T15:07:39.166Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-23': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794583058728_fxs5wxzd0',
+            name: 'ME_13.10.2026.docx.pdf',
+            mimeType: 'application/pdf',
+            size: 340458,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583058728_fxs5wxzd0',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583058728_fxs5wxzd0',
+            uploadedAt: '2026-11-13T15:17:38.729Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794583074851_xakfw5r0a',
+            name: 'Quarter 1 Catalytic Economic Development Projects.pdf',
+            mimeType: 'application/pdf',
+            size: 351505,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583074851_xakfw5r0a',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794583074851_xakfw5r0a',
+            uploadedAt: '2026-11-13T15:17:54.852Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-26': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794585108159_4idlh93px',
+            name: '0085 I - Lesedi la Balomo SANS 1215 (1) (1).pdf',
+            mimeType: 'application/pdf',
+            size: 1833307,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585108159_4idlh93px',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585108159_4idlh93px',
+            uploadedAt: '2026-11-13T15:51:49.454Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794585118541_nen940fl0',
+            name: '0086 I - Lesedi la Balomo SANS 1058 (1).pdf',
+            mimeType: 'application/pdf',
+            size: 1695664,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585118541_nen940fl0',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585118541_nen940fl0',
+            uploadedAt: '2026-11-13T15:51:59.771Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794585127709_9pgai2bn6',
+            name: '0086 I -80mm Lesedi la Balomo SANS 1058 (1).pdf',
+            mimeType: 'application/pdf',
+            size: 1684632,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585127709_9pgai2bn6',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585127709_9pgai2bn6',
+            uploadedAt: '2026-11-13T15:52:08.930Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794585137086_g3wuxoa78',
+            name: 'DOC (1).pdf',
+            mimeType: 'application/pdf',
+            size: 94387,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585137086_g3wuxoa78',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794585137086_g3wuxoa78',
+            uploadedAt: '2026-11-13T15:52:17.435Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-29': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794586124948_190uq4k1f',
+            name: 'Training matrix and First aid .pdf',
+            mimeType: 'application/pdf',
+            size: 1438648,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586124948_190uq4k1f',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586124948_190uq4k1f',
+            uploadedAt: '2026-11-13T16:08:44.948Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-31': {
+        q1Actual: '100%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794586300502_ttw9iqkwh',
+            name: 'Procurement  Plan Progress as at 30th September 2026_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 94308,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586300502_ttw9iqkwh',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586300502_ttw9iqkwh',
+            uploadedAt: '2026-11-13T16:11:40.502Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-33': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794586787198_kcfibka4d',
+            name: 'Acknowledgement of receipt of AFS and APR  -NEDA - Copy (1).pdf',
+            mimeType: 'application/pdf',
+            size: 240600,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586787198_kcfibka4d',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586787198_kcfibka4d',
+            uploadedAt: '2026-11-13T16:19:47.198Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794586796890_ipwabf8n2',
+            name: 'DRAFT AFS NEDA 30.09.2026 V2.. (1).pdf',
+            mimeType: 'application/pdf',
+            size: 424915,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586796890_ipwabf8n2',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586796890_ipwabf8n2',
+            uploadedAt: '2026-11-13T16:19:56.890Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-35': {
+        q1Actual: '1',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794586923441_s33mnc660',
+            name: 'SCM Report_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 187339,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586923441_s33mnc660',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586923441_s33mnc660',
+            uploadedAt: '2026-11-13T16:22:03.441Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794586934427_h9t507u24',
+            name: 'ME_20.10.2026.docx.pdf',
+            mimeType: 'application/pdf',
+            size: 297883,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586934427_h9t507u24',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794586934427_h9t507u24',
+            uploadedAt: '2026-11-13T16:22:14.427Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-37': {
+        q1Actual: '120',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794587124273_k95mg7e49',
+            name: 'Number of days_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 199316,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587124273_k95mg7e49',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587124273_k95mg7e49',
+            uploadedAt: '2026-11-13T16:25:24.273Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-38': {
+        q1Actual: '3',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794587269326_2khfkd5cb',
+            name: 'Chairperson__COVER_Letter_NDM__July.pdf',
+            mimeType: 'application/pdf',
+            size: 637499,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587269326_2khfkd5cb',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587269326_2khfkd5cb',
+            uploadedAt: '2026-11-13T16:27:49.327Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794587277254_y253v8xbj',
+            name: 'Chairperson__COVER_Letter_NDM__August.pdf',
+            mimeType: 'application/pdf',
+            size: 637148,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587277254_y253v8xbj',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587277254_y253v8xbj',
+            uploadedAt: '2026-11-13T16:27:57.254Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794587284771_md1jjasbp',
+            name: 'Chairperson__COVER_Letter_NDM__September.pdf',
+            mimeType: 'application/pdf',
+            size: 637188,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587284771_md1jjasbp',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587284771_md1jjasbp',
+            uploadedAt: '2026-11-13T16:28:04.771Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794587297079_21o1c85xo',
+            name: 'SEC 87 REPORT JULY SUBMITTED.pdf',
+            mimeType: 'application/pdf',
+            size: 873956,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587297079_21o1c85xo',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587297079_21o1c85xo',
+            uploadedAt: '2026-11-13T16:28:17.079Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794587308572_aewrabxos',
+            name: 'SECTION 87-Aug 2026.pdf',
+            mimeType: 'application/pdf',
+            size: 1239545,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587308572_aewrabxos',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587308572_aewrabxos',
+            uploadedAt: '2026-11-13T16:28:28.572Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+          {
+            id: 'poe_doc_Q1_1794587320774_t3eev4ald',
+            name: 'SECTION 87_SEPTEMBER 2026.pdf',
+            mimeType: 'application/pdf',
+            size: 1091988,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587320774_t3eev4ald',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587320774_t3eev4ald',
+            uploadedAt: '2026-11-13T16:28:40.774Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-39': {
+        q1Actual: '20%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794587625525_dsoi4xwd6',
+            name: 'NEDA Transfers and subsidies September 2026 (003)_signed (1).pdf',
+            mimeType: 'application/pdf',
+            size: 183228,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587625525_dsoi4xwd6',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587625525_dsoi4xwd6',
+            uploadedAt: '2026-11-13T16:33:45.525Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-40': {
+        q1Actual: '20%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794587757578_n7ax881i7',
+            name: 'NEDA_Opex_Q1_2026-27.pdf',
+            mimeType: 'application/pdf',
+            size: 203418,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587757578_n7ax881i7',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587757578_n7ax881i7',
+            uploadedAt: '2026-11-13T16:35:57.578Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+      'kpi-mangani-41': {
+        q1Actual: '5%',
+        q1Score: '3',
+        reviewStatus: 'Submitted for Approval',
+        docs: [
+          {
+            id: 'poe_doc_Q1_1794587973935_5gcfuo1xd',
+            name: 'NEDA_Capex_Q1_2026-27.pdf',
+            mimeType: 'application/pdf',
+            size: 190126,
+            dataUrl: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587973935_5gcfuo1xd',
+            url: '/api/poe/blob/poe_blob_poe_doc_Q1_1794587973935_5gcfuo1xd',
+            uploadedAt: '2026-11-13T16:39:33.935Z',
+            uploadedBy: 'manganijp@nkangaladm.gov.za',
+          },
+        ],
+      },
+    };
+
+    result = result.map((it: any, idx: number) => {
+      const kpiId = String(it.id || `kpi-mangani-${idx + 1}`).trim();
+      const rec = MANGANI_RECOVERED_Q1[kpiId];
+      if (!rec) return it;
+      const existingDocs = Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : [];
+      const mergedDocs =
+        existingDocs.length > 0
+          ? Array.from(new Map([...rec.docs, ...existingDocs].map((d: any) => [d.id || d.name, d])).values())
+          : rec.docs;
+      const q1Actual = it.q1Actual && String(it.q1Actual).trim() !== '' ? it.q1Actual : rec.q1Actual;
+      const q1Score = it.q1Score && String(it.q1Score).trim() !== '' ? it.q1Score : rec.q1Score;
+      const reviewStatus =
+        it.reviewStatus && it.reviewStatus !== 'Draft' && it.reviewStatus !== 'N/A'
+          ? it.reviewStatus
+          : rec.reviewStatus;
+      return {
+        ...it,
+        id: kpiId,
+        q1Actual,
+        q1Score,
+        myScore: it.myScore || q1Score,
+        ownScore: it.ownScore || q1Score,
+        q1PoeDocs: mergedDocs,
+        poeDocs: mergedDocs,
+        poeFileName: mergedDocs[0]?.name || it.poeFileName || '',
+        reviewStatus,
+        q1PoeStatus: 'Pending Verification',
+      };
+    });
+  }
+
   return result;
 }
 
