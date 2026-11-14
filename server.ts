@@ -19725,19 +19725,39 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const supabase = getSupabase();
       if (!supabase) throw new Error("Supabase is not initialized");
 
-      const [consolidatedUsers, pplanQueryRes, kpisQueryRes, gmPlansRes] = await Promise.all([
+      const [
+        consolidatedUsers,
+        pplanQueryRes,
+        kpisQueryRes,
+        gmPlansRes,
+        jscQueryRes,
+        ccompQueryRes,
+        pdpQueryRes
+      ] = await Promise.all([
         getConsolidatedUsersList('tenant-229'),
         supabase
           .from('messages')
           .select('id, tenant_id, sender_email, content, created_at, message_type')
-          .eq('message_type', 'pplan_list'),
+          .in('message_type', ['pplan_list', 'pplan_v1']),
         supabase
           .from('messages')
           .select('id, tenant_id, sender_email, content, created_at, message_type')
-          .eq('message_type', 'kpis_list'),
+          .in('message_type', ['kpis_list', 'kpis_v1', 'kpi_list']),
         supabase
           .from('ipms_gm_performance_plans')
-          .select('user_email, items_payload, source_file_name')
+          .select('user_email, items_payload, source_file_name'),
+        supabase
+          .from('messages')
+          .select('id, tenant_id, sender_email, content, created_at, message_type')
+          .or('id.ilike.job_competencies_%nkangala%,id.ilike.job_competencies_%neda%,id.ilike.team_jsc_%nkangala%'),
+        supabase
+          .from('messages')
+          .select('id, tenant_id, sender_email, content, created_at, message_type')
+          .or('id.ilike.core_competencies_%nkangala%,id.ilike.core_competencies_%neda%'),
+        supabase
+          .from('messages')
+          .select('id, tenant_id, sender_email, content, created_at, message_type')
+          .or('id.ilike.pdp_%nkangala%,id.ilike.pdp_%neda%,id.ilike.team_pdp_%nkangala%')
       ]);
 
       const ALIAS_TO_CANONICAL: Record<string, string> = {
@@ -19766,6 +19786,8 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         if (!rawEmail) return '';
         let em = normalizeNkangalaEmail(String(rawEmail).toLowerCase().trim()) || String(rawEmail).toLowerCase().trim();
         if (!em || !em.includes('@')) return '';
+        // Strip dual-role suffix if present on core_competencies IDs while preserving the official's canonical email
+        em = em.replace('_gm_cds@', '@').replace('_acting_gm_ped@', '@').replace('_manager_ped@', '@');
         if (ALIAS_TO_CANONICAL[em]) {
           em = ALIAS_TO_CANONICAL[em];
         }
@@ -19783,6 +19805,22 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           return '';
         }
         return em;
+      };
+
+      const extractUserFromPrefixedRowId = (rowId: string, prefixes: string[], fallbackEmail?: string): string => {
+        const allTenants = ['tenant-229', 'nkangala_auto', 'neda', 'tenant-neda', 'neda_auto', 'global'];
+        for (const pref of prefixes) {
+          if (rowId.startsWith(pref)) {
+            const rest = rowId.substring(pref.length);
+            const foundT = allTenants.find(tId => rest.startsWith(`${tId}_`));
+            if (foundT) {
+              return canonicalizeOfficialEmail(rest.substring(`${foundT}_`.length));
+            }
+          }
+        }
+        const parts = rowId.split('_');
+        const lastPart = parts[parts.length - 1] || fallbackEmail || '';
+        return canonicalizeOfficialEmail(lastPart);
       };
 
       const isSyntheticTeamKpi = (it: any): boolean => {
@@ -19812,12 +19850,15 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const allTenantPrefixes = ['tenant-229', 'nkangala_auto', 'neda', 'tenant-neda', 'neda_auto', 'global'];
       const kpisByUser = new Map<string, any[][]>();
       const pplansByUser = new Map<string, any[]>();
+      const jscsByUser = new Map<string, any[][]>();
+      const ccompsByUser = new Map<string, any[][]>();
+      const pdpsByUser = new Map<string, any[][]>();
 
       const combinedRows = [...(pplanQueryRes.data || []), ...(kpisQueryRes.data || [])];
       for (const row of combinedRows) {
         const rowId = String(row.id || '');
         if (rowId === 'team_pplan_tenant-229_all' || rowId === 'team_evaluation_tenant-229_all') continue;
-        const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpi_list';
+        const isKpiRow = rowId.startsWith('kpis_') || row.message_type === 'kpis_list' || row.message_type === 'kpis_v1' || row.message_type === 'kpi_list';
         const prefixType = isKpiRow ? 'kpis_' : 'pplan_';
         let rawUserId = '';
         const foundTenantId = allTenantPrefixes.find(tId => rowId.startsWith(`${prefixType}${tId}_`));
@@ -19856,6 +19897,56 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
             } catch {}
           }
         }
+      }
+
+      // Parse JSC rows per user
+      for (const row of (jscQueryRes.data || [])) {
+        const rowId = String(row.id || '');
+        const userId = extractUserFromPrefixedRowId(rowId, ['job_competencies_', 'team_jsc_2_', 'team_jsc_'], row.sender_email);
+        if (!userId || !row.content) continue;
+        try {
+          const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          if (parsed?.isCleared) continue;
+          const list = Array.isArray(parsed) ? parsed : (parsed?.competencies || parsed?.items || parsed?.rows || []);
+          if (Array.isArray(list) && list.length > 0) {
+            if (!jscsByUser.has(userId)) jscsByUser.set(userId, []);
+            jscsByUser.get(userId)!.push(list);
+          }
+        } catch {}
+      }
+
+      // Parse Core Competency rows per user
+      for (const row of (ccompQueryRes.data || [])) {
+        const rowId = String(row.id || '');
+        const userId = extractUserFromPrefixedRowId(rowId, ['core_competencies_'], row.sender_email);
+        if (!userId || !row.content) continue;
+        try {
+          const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          if (parsed?.isCleared) continue;
+          const list = Array.isArray(parsed)
+            ? parsed
+            : (parsed?.competencies || parsed?.items || parsed?.directorItems || parsed?.cfoItems || parsed?.pedItems || parsed?.communityServicesItems || []);
+          if (Array.isArray(list) && list.length > 0) {
+            if (!ccompsByUser.has(userId)) ccompsByUser.set(userId, []);
+            ccompsByUser.get(userId)!.push(list);
+          }
+        } catch {}
+      }
+
+      // Parse PDP rows per user
+      for (const row of (pdpQueryRes.data || [])) {
+        const rowId = String(row.id || '');
+        const userId = extractUserFromPrefixedRowId(rowId, ['pdp_', 'team_pdp_2_', 'team_pdp_'], row.sender_email);
+        if (!userId || !row.content) continue;
+        try {
+          const parsed = typeof row.content === 'string' ? JSON.parse(row.content) : row.content;
+          if (parsed?.isCleared) continue;
+          const list = Array.isArray(parsed) ? parsed : (parsed?.items || parsed?.rows || parsed?.pdps || []);
+          if (Array.isArray(list) && list.length > 0) {
+            if (!pdpsByUser.has(userId)) pdpsByUser.set(userId, []);
+            pdpsByUser.get(userId)!.push(list);
+          }
+        } catch {}
       }
 
       const gmPlansByUser = new Map<string, any[]>();
@@ -19923,14 +20014,19 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         }
       }
       for (const em of pplansByUser.keys()) {
-        if (!usersMap.has(em)) {
-          registerUser({ email: em, fullName: em.split('@')[0] });
-        }
+        if (!usersMap.has(em)) registerUser({ email: em, fullName: em.split('@')[0] });
       }
       for (const em of kpisByUser.keys()) {
-        if (!usersMap.has(em)) {
-          registerUser({ email: em, fullName: em.split('@')[0] });
-        }
+        if (!usersMap.has(em)) registerUser({ email: em, fullName: em.split('@')[0] });
+      }
+      for (const em of jscsByUser.keys()) {
+        if (!usersMap.has(em)) registerUser({ email: em, fullName: em.split('@')[0] });
+      }
+      for (const em of ccompsByUser.keys()) {
+        if (!usersMap.has(em)) registerUser({ email: em, fullName: em.split('@')[0] });
+      }
+      for (const em of pdpsByUser.keys()) {
+        if (!usersMap.has(em)) registerUser({ email: em, fullName: em.split('@')[0] });
       }
 
       const resolveCanonicalItemsForUser = (userId: string): { items: any[]; metadata: any } => {
@@ -20040,10 +20136,14 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           const existingMap = new Map<string, any>();
           resolvedItems.forEach((it: any) => {
             const kNo = String(it.kpiNo || '').toLowerCase().trim();
+            const kId = String(it.id || '').toLowerCase().trim();
             if (kNo) existingMap.set(kNo, it);
+            if (kId) existingMap.set(kId, it);
           });
           resolvedItems = nedaPkg.kpis.map((officialKpi: any) => {
-            const match = existingMap.get(String(officialKpi.kpiNo).toLowerCase().trim());
+            const match =
+              existingMap.get(String(officialKpi.id || '').toLowerCase().trim()) ||
+              existingMap.get(String(officialKpi.kpiNo || '').toLowerCase().trim());
             return match
               ? {
                   ...officialKpi,
@@ -20105,169 +20205,503 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
       const hasVal = (v: any) => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toUpperCase() !== 'N/A';
       const hasScore = (v: any) => v !== undefined && v !== null && !isNaN(parseFloat(String(v))) && parseFloat(String(v)) > 0;
 
+      const normalizeKpaCategory = (it: any): string => {
+        const raw = String(it.kpa || it.strategicGoal || it.functionalKpa || it['functional kpa'] || '').toLowerCase();
+        if (it.bsd || raw.includes('basic service') || raw.includes('infrastructure') || raw.includes('water') || raw.includes('sanitation')) {
+          return 'KPA 1: Basic Service Delivery';
+        }
+        if (it.led || raw.includes('local economic') || raw.includes('economic development') || raw.includes('tourism') || raw.includes('investment')) {
+          return 'KPA 2: Local Economic Development';
+        }
+        if (it.mfvm || raw.includes('financial viability') || raw.includes('finance') || raw.includes('budget') || raw.includes('supply chain') || raw.includes('scm')) {
+          return 'KPA 3: Municipal Financial Viability & Management';
+        }
+        if (it.midt || raw.includes('institutional') || raw.includes('transformation') || raw.includes('human resource') || raw.includes('ict') || raw.includes('corporate')) {
+          return 'KPA 4: Institutional Development & Transformation';
+        }
+        if (it.sr || raw.includes('spatial') || raw.includes('environmental') || raw.includes('town planning')) {
+          return 'KPA 6: Spatial Rationale';
+        }
+        return 'KPA 5: Good Governance & Public Participation';
+      };
+
+      const evaluateKpiForQuarter = (it: any, idx: number, qKey: string, planMeta?: any) => {
+        const kpiNo = String(it.kpiNo || it['kpi no'] || it.refNum || `${idx + 1}`).trim();
+        const kpiTitle = String(it.kpi || it.kpiDescription || it['kpi description'] || it.description || it.desc || `KPI ${idx + 1}`).trim();
+        const descLower = kpiTitle.toLowerCase();
+
+        const qTargetKey = qKey === 'annual' ? 'annualTarget' : `${qKey}Target`;
+        const qAltTargetKey = qKey === 'q1' ? '1st qtr target' : qKey === 'q2' ? '2nd qtr target' : qKey === 'q3' ? '3rd qtr target' : qKey === 'q4' ? '4th qtr target' : 'annual target';
+        const qActualKey = qKey === 'annual' ? 'annualActual' : `${qKey}Actual`;
+        const qScoreKey = qKey === 'annual' ? 'ownScore' : `${qKey}Score`;
+        const qPoeDocsKey = qKey === 'annual' ? 'annualPoeDocs' : `${qKey}PoeDocs`;
+        const qPoeStatusKey = `${qKey}PoeStatus`;
+        const qApplicableKey = `${qKey}Applicable`;
+
+        const targetVal = String(it[qTargetKey] ?? it[qAltTargetKey] ?? it.annualTarget ?? '').trim();
+        const actualVal = String(it[qActualKey] ?? (qKey === 'q1' ? it.q1Actual : '') ?? '').trim();
+        const selfScoreVal = String(it[qScoreKey] ?? (qKey === 'q1' ? it.ownScore : '') ?? '').trim();
+        const managerScoreVal = String(it[`${qKey}ManagerScore`] ?? (qKey === 'q1' ? it.managerScore : '') ?? '').trim();
+        const auditorScoreVal = String(it[`${qKey}AuditScore`] ?? it[`${qKey}AuditorScore`] ?? (qKey === 'q1' ? (it.auditorScore ?? it.internalAuditorScore) : '') ?? '').trim();
+        const poeDocsArr = Array.isArray(it[qPoeDocsKey]) ? it[qPoeDocsKey] : (qKey === 'q1' && Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : []);
+        const poeDocsCount = poeDocsArr.length;
+        const poeDocNames = poeDocsArr.map((d: any) => d?.name || 'Attachment').filter(Boolean);
+
+        const rawReviewStatus = String(it[`${qKey}ReviewStatus`] || (qKey === 'q1' ? it.reviewStatus : '') || '').trim();
+        const rawApprovalStatus = String(it[`${qKey}ApprovalStatus`] || (qKey === 'q1' ? it.reviewApprovalStatus : '') || '').trim();
+        const rawQPoeStatus = String(it[qPoeStatusKey] || '').trim();
+        const rawAuditStatus = String(
+          it[`${qKey}AuditStatus`] ||
+          it.internalAuditStatus ||
+          it.auditStatus ||
+          planMeta?.internalAuditStatus ||
+          ''
+        ).trim();
+
+        const isCleanAuditQ1 = qKey === 'q1' && (descLower.includes('clean audit opinion') || kpiNo.toUpperCase() === 'M_21' || kpiNo.toUpperCase() === 'M-21');
+        const isNa =
+          isCleanAuditQ1 ||
+          it[qApplicableKey] === false ||
+          rawReviewStatus.toUpperCase() === 'N/A' ||
+          rawQPoeStatus.toUpperCase() === 'N/A' ||
+          targetVal.toUpperCase() === 'N/A';
+
+        const hasGenuineEvidence =
+          poeDocsCount > 0 ||
+          (qKey === 'q1' && Boolean(it.poeFileBase64 || it.poeFileName)) ||
+          hasVal(actualVal) ||
+          hasScore(selfScoreVal) ||
+          hasVal(it[`${qKey}Comment`]) ||
+          (qKey === 'q1' && hasVal(it.evaluationComment));
+
+        const isRevisionRequired =
+          !isNa && (
+            rawReviewStatus === 'Revision Required' ||
+            rawApprovalStatus === 'Rejected' ||
+            rawQPoeStatus === 'Revision Required' ||
+            rawQPoeStatus === 'Rejected'
+          );
+
+        const isSubmittedStatus =
+          rawReviewStatus === 'Submitted for Approval' ||
+          rawReviewStatus === 'Submitted for Review' ||
+          rawReviewStatus === 'Submitted' ||
+          rawReviewStatus === 'Pending Manager Review' ||
+          rawReviewStatus === 'Approved' ||
+          rawReviewStatus === 'Reviewed' ||
+          rawReviewStatus === 'Verified' ||
+          rawReviewStatus === 'Dispatched to Audit' ||
+          rawReviewStatus === 'Dispatched to Internal Audit' ||
+          rawReviewStatus === 'Audited' ||
+          rawReviewStatus === 'Pushed to DPMC' ||
+          rawReviewStatus === 'Pushed to Moderation' ||
+          rawReviewStatus === 'Pushed to PMS' ||
+          rawApprovalStatus === 'Approved' ||
+          rawQPoeStatus === 'Approved' ||
+          rawQPoeStatus === 'Verified' ||
+          rawQPoeStatus === 'Pending Verification' ||
+          rawQPoeStatus === 'Submitted';
+
+        const isExplicitlyUnlockedDraft = Boolean(it.resubmissionUnlocked === true && rawReviewStatus === 'Draft' && !hasVal(actualVal) && poeDocsCount === 0);
+        const isSubmitted = !isNa && !isRevisionRequired && !isExplicitlyUnlockedDraft && (
+          (isSubmittedStatus && (hasGenuineEvidence || hasScore(managerScoreVal))) ||
+          poeDocsCount > 0 ||
+          hasVal(actualVal)
+        );
+
+        const isApproved = !isNa && isSubmitted && (
+          rawReviewStatus === 'Approved' ||
+          rawReviewStatus === 'Reviewed' ||
+          rawReviewStatus === 'Verified' ||
+          rawReviewStatus === 'Dispatched to Audit' ||
+          rawReviewStatus === 'Dispatched to Internal Audit' ||
+          rawReviewStatus === 'Audited' ||
+          rawReviewStatus === 'Pushed to DPMC' ||
+          rawReviewStatus === 'Pushed to Moderation' ||
+          rawReviewStatus === 'Pushed to PMS' ||
+          rawApprovalStatus === 'Approved' ||
+          hasScore(managerScoreVal)
+        );
+
+        const isAudited = !isNa && isSubmitted && (
+          rawAuditStatus === 'Audited' ||
+          rawAuditStatus === 'Verified' ||
+          rawAuditStatus === 'Pushed to DPMC' ||
+          rawAuditStatus === 'Pushed to Moderation' ||
+          rawReviewStatus === 'Audited' ||
+          rawReviewStatus === 'Verified' ||
+          rawReviewStatus === 'Pushed to DPMC' ||
+          rawReviewStatus === 'Pushed to Moderation' ||
+          rawQPoeStatus === 'Verified' ||
+          hasScore(auditorScoreVal)
+        );
+
+        const isAwaitingManager = !isNa && isSubmitted && !isApproved;
+        const isAwaitingAudit = !isNa && isApproved && !isAudited;
+        const isDraftInProgress = !isNa && !isSubmitted && !isRevisionRequired && hasGenuineEvidence;
+
+        let statusLabel = 'Not Submitted (Draft)';
+        if (isNa) statusLabel = 'Not Applicable (N/A)';
+        else if (isAudited) statusLabel = 'Audited by Internal Audit';
+        else if (isApproved) statusLabel = 'Approved by Manager';
+        else if (isAwaitingManager) statusLabel = 'Submitted — Awaiting Manager Approval';
+        else if (isRevisionRequired) statusLabel = 'Returned for Revision';
+        else if (isDraftInProgress) statusLabel = 'In Progress (Draft — Not Yet Submitted)';
+
+        return {
+          index: idx + 1,
+          id: it.id || `kpi-${idx + 1}`,
+          kpiNo,
+          kpiTitle,
+          kpaName: normalizeKpaCategory(it),
+          target: targetVal || '—',
+          actual: actualVal || '—',
+          selfScore: selfScoreVal || '—',
+          managerScore: isApproved || (isSubmitted && hasScore(managerScoreVal)) ? (managerScoreVal || '—') : '—',
+          auditorScore: isAudited || hasScore(auditorScoreVal) ? (auditorScoreVal || 'Verified') : '—',
+          poeDocsCount,
+          poeDocNames,
+          reviewStatus: rawReviewStatus || 'Draft',
+          qPoeStatus: rawQPoeStatus || 'Draft',
+          internalAuditStatus: isAudited ? (rawAuditStatus || 'Audited') : (isApproved ? 'Awaiting Audit' : 'Pending'),
+          statusLabel,
+          isNa,
+          isSubmitted,
+          isApproved,
+          isAudited,
+          isAwaitingManager,
+          isAwaitingAudit,
+          isRevisionRequired,
+          isDraftInProgress
+        };
+      };
+
+      // Helper to resolve and evaluate Competency rows (JSCs or Core Competencies) per user and per quarter
+      const evaluateCompetenciesForUser = (
+        rawLists: any[][],
+        fallbackPkgItems: any[],
+        typeLabel: 'JSC' | 'Core Competency'
+      ) => {
+        const mergedMap = new Map<string, any>();
+        const ingestItem = (item: any, idx: number) => {
+          if (!item) return;
+          const title = String(item.competency || item.name || item.title || '').trim();
+          const code = String(item.jscNo || item.code || item.id || `${typeLabel}-${idx + 1}`).trim();
+          if (!title && !code) return;
+          // Exclude synthetic global template IDs
+          if (String(item.id || '').startsWith('comp_1780595326407')) return;
+          const key = (title || code).toLowerCase();
+          const existing = mergedMap.get(key);
+          if (!existing) {
+            mergedMap.set(key, { ...item, _code: code, _title: title || code });
+          } else {
+            // Merge quarterly evaluations preferring whichever has higher scores/status
+            const next = { ...existing };
+            for (const qk of ['q1', 'q2', 'q3', 'q4'] as const) {
+              const exQ = existing[qk] || {};
+              const inQ = item[qk] || {};
+              const exScore = Number(exQ.selfScore || 0) + Number(exQ.managerScore || 0) + Number(exQ.internalAuditorScore || 0);
+              const inScore = Number(inQ.selfScore || 0) + Number(inQ.managerScore || 0) + Number(inQ.internalAuditorScore || 0);
+              if (inScore > exScore || (inQ.status && inQ.status !== 'draft' && (!exQ.status || exQ.status === 'draft'))) {
+                next[qk] = { ...exQ, ...inQ };
+              }
+            }
+            mergedMap.set(key, next);
+          }
+        };
+
+        for (const list of rawLists) {
+          if (Array.isArray(list)) list.forEach((it, idx) => ingestItem(it, idx));
+        }
+        if (mergedMap.size === 0 && Array.isArray(fallbackPkgItems)) {
+          fallbackPkgItems.forEach((it, idx) => ingestItem(it, idx));
+        }
+
+        const items = Array.from(mergedMap.values());
+        const evalQuarter = (qKey: 'q1' | 'q2' | 'q3' | 'q4') => {
+          let total = items.length;
+          let submitted = 0;
+          let approved = 0;
+          let audited = 0;
+          const details = items.map((it, idx) => {
+            const qObj = it[qKey] || {};
+            const selfScore = Number(qObj.selfScore ?? (qKey === 'q1' ? it.selfScore : 0) ?? 0);
+            const managerScore = Number(qObj.managerScore ?? (qKey === 'q1' ? it.managerScore : 0) ?? 0);
+            const auditorScore = Number(qObj.internalAuditorScore ?? qObj.auditorScore ?? (qKey === 'q1' ? it.internalAuditorScore : 0) ?? 0);
+            const status = String(qObj.status || (qKey === 'q1' ? it.status : '') || 'draft').toLowerCase().trim();
+            const poeCount = Array.isArray(qObj.poeDocs) ? qObj.poeDocs.length : (qKey === 'q1' && Array.isArray(it.poeDocs) ? it.poeDocs.length : 0);
+
+            const isSubmitted =
+              selfScore > 0 ||
+              poeCount > 0 ||
+              hasVal(qObj.selfComments) ||
+              ['pending_approval', 'submitted', 'approved', 'audited', 'moderated', 'verified'].includes(status);
+
+            const isApproved =
+              isSubmitted && (
+                managerScore > 0 ||
+                ['approved', 'audited', 'moderated', 'verified'].includes(status)
+              );
+
+            const isAudited =
+              isSubmitted && (
+                auditorScore > 0 ||
+                ['audited', 'moderated', 'verified'].includes(status)
+              );
+
+            if (isSubmitted) submitted++;
+            if (isApproved) approved++;
+            if (isAudited) audited++;
+
+            return {
+              index: idx + 1,
+              code: it._code || `${idx + 1}`,
+              title: it._title || `${typeLabel} ${idx + 1}`,
+              weight: Number(it.weight ?? it.weighting ?? 0) || 0,
+              quarter: qKey.toUpperCase(),
+              selfScore: selfScore > 0 ? String(selfScore) : '—',
+              managerScore: managerScore > 0 ? String(managerScore) : '—',
+              auditorScore: auditorScore > 0 ? String(auditorScore) : '—',
+              poeDocsCount: poeCount,
+              status: isAudited ? 'Audited' : isApproved ? 'Approved by Manager' : isSubmitted ? 'Submitted' : 'Not Submitted',
+              isSubmitted,
+              isApproved,
+              isAudited
+            };
+          });
+
+          return {
+            total,
+            submitted,
+            notSubmitted: Math.max(0, total - submitted),
+            approved,
+            notApproved: Math.max(0, total - approved),
+            audited,
+            notAudited: Math.max(0, total - audited),
+            details
+          };
+        };
+
+        const q1 = evalQuarter('q1');
+        const q2 = evalQuarter('q2');
+        const q3 = evalQuarter('q3');
+        const q4 = evalQuarter('q4');
+        const active =
+          activeQuarter === 'q2' ? q2 :
+          activeQuarter === 'q3' ? q3 :
+          activeQuarter === 'q4' || activeQuarter === 'annual' ? q4 :
+          q1;
+
+        return {
+          active,
+          quarters: { q1, q2, q3, q4 }
+        };
+      };
+
+      // Helper to evaluate PDPs per user and per quarter
+      const evaluatePdpsForUser = (rawLists: any[][], fallbackPkgPdps: any[]) => {
+        const mergedMap = new Map<string, any>();
+        const ingestPdp = (item: any, idx: number) => {
+          if (!item) return;
+          const gap = String(item.skillsGap || item['Skills performance gap (in order of priority)'] || item.skillGap || item.training || '').trim();
+          const outcomes = String(item.outcomes || item['Outcomes expected'] || '').trim();
+          if ((!gap || gap.toUpperCase() === 'N/A') && (!outcomes || outcomes.toUpperCase() === 'N/A')) return;
+          const key = (gap || outcomes || `pdp-${idx}`).toLowerCase();
+          if (!mergedMap.has(key)) {
+            mergedMap.set(key, { ...item, _gap: gap || outcomes, _outcomes: outcomes });
+          }
+        };
+
+        for (const list of rawLists) {
+          if (Array.isArray(list)) list.forEach((it, idx) => ingestPdp(it, idx));
+        }
+        if (mergedMap.size === 0 && Array.isArray(fallbackPkgPdps)) {
+          fallbackPkgPdps.forEach((it, idx) => ingestPdp(it, idx));
+        }
+
+        const items = Array.from(mergedMap.values());
+        const evalQuarter = (qKey: 'q1' | 'q2' | 'q3' | 'q4') => {
+          const total = items.length;
+          let submitted = 0;
+          let approved = 0;
+          let audited = 0;
+          const details = items.map((it, idx) => {
+            const qObj = it[qKey] || {};
+            const rawStatus = String(qObj.status || it.status || it.reviewStatus || '').toLowerCase().trim();
+            // A non-empty PDP skills gap defined in the user's PDP plan counts as submitted in Q1 if populated, or if status indicates submitted
+            const hasContent = Boolean(it._gap && it._gap.toUpperCase() !== 'N/A');
+            const isSubmitted =
+              (qKey === 'q1' && hasContent) ||
+              ['submitted', 'pending_approval', 'approved', 'audited', 'completed', 'verified'].includes(rawStatus);
+            const isApproved =
+              isSubmitted && (
+                ['approved', 'audited', 'completed', 'verified'].includes(rawStatus) ||
+                Boolean(it.managerApproved || qObj.managerApproved)
+              );
+            const isAudited =
+              isSubmitted && (
+                ['audited', 'verified'].includes(rawStatus) ||
+                Boolean(it.audited || qObj.audited)
+              );
+            if (isSubmitted) submitted++;
+            if (isApproved) approved++;
+            if (isAudited) audited++;
+            return {
+              index: idx + 1,
+              skillsGap: it._gap,
+              outcomes: it._outcomes || '—',
+              suggestedTraining: String(it.suggestedTraining || it['Suggested training and/or development activity'] || '—'),
+              timeFrame: String(it.timeFrame || it['Suggested time frame'] || '—'),
+              quarter: qKey.toUpperCase(),
+              status: isAudited ? 'Audited' : isApproved ? 'Approved by Manager' : isSubmitted ? 'Submitted' : 'Not Submitted',
+              isSubmitted,
+              isApproved,
+              isAudited
+            };
+          });
+          return {
+            total,
+            submitted,
+            notSubmitted: Math.max(0, total - submitted),
+            approved,
+            notApproved: Math.max(0, total - approved),
+            audited,
+            notAudited: Math.max(0, total - audited),
+            details
+          };
+        };
+
+        const q1 = evalQuarter('q1');
+        const q2 = evalQuarter('q2');
+        const q3 = evalQuarter('q3');
+        const q4 = evalQuarter('q4');
+        const active =
+          activeQuarter === 'q2' ? q2 :
+          activeQuarter === 'q3' ? q3 :
+          activeQuarter === 'q4' || activeQuarter === 'annual' ? q4 :
+          q1;
+
+        return { active, quarters: { q1, q2, q3, q4 } };
+      };
+
       const userReports: any[] = [];
 
       for (const [email, uProfile] of usersMap.entries()) {
         const { items, metadata } = resolveCanonicalItemsForUser(email);
+        const nedaPkg = findNedaPackageByEmailOrName(email);
 
-        let totalKpis = items.length;
-        let naKpis = 0;
-        let applicableKpis = 0;
-        let submittedKpis = 0;
-        let notSubmittedKpis = 0;
-        let approvedKpis = 0;
-        let notApprovedKpis = 0;
-        let awaitingManagerApprovalKpis = 0;
-        let revisionRequiredKpis = 0;
-        let draftInProgressKpis = 0;
+        // Evaluate KPIs across all 4 quarters + active quarter
+        const evalKpiListForQ = (qKey: string) => {
+          const details = items.map((it: any, idx: number) => evaluateKpiForQuarter(it, idx, qKey, metadata));
+          let total = details.length;
+          let na = 0;
+          let applicable = 0;
+          let submitted = 0;
+          let notSubmitted = 0;
+          let approved = 0;
+          let notApproved = 0;
+          let audited = 0;
+          let notAudited = 0;
+          let awaitingManager = 0;
+          let awaitingAudit = 0;
+          let revisionRequired = 0;
+          let draftInProgress = 0;
 
-        const kpiDetails = items.map((it: any, idx: number) => {
-          const kpiNo = String(it.kpiNo || it['kpi no'] || it.refNum || `${idx + 1}`).trim();
-          const kpiTitle = String(it.kpi || it.kpiDescription || it['kpi description'] || it.description || it.desc || `KPI ${idx + 1}`).trim();
-          const descLower = kpiTitle.toLowerCase();
-
-          const qTargetKey = activeQuarter === 'annual' ? 'annualTarget' : `${activeQuarter}Target`;
-          const qAltTargetKey = activeQuarter === 'q1' ? '1st qtr target' : activeQuarter === 'q2' ? '2nd qtr target' : activeQuarter === 'q3' ? '3rd qtr target' : activeQuarter === 'q4' ? '4th qtr target' : 'annual target';
-          const qActualKey = activeQuarter === 'annual' ? 'annualActual' : `${activeQuarter}Actual`;
-          const qScoreKey = activeQuarter === 'annual' ? 'ownScore' : `${activeQuarter}Score`;
-          const qPoeDocsKey = activeQuarter === 'annual' ? 'annualPoeDocs' : `${activeQuarter}PoeDocs`;
-          const qPoeStatusKey = `${activeQuarter}PoeStatus`;
-          const qApplicableKey = `${activeQuarter}Applicable`;
-
-          const targetVal = String(it[qTargetKey] ?? it[qAltTargetKey] ?? it.annualTarget ?? '').trim();
-          const actualVal = String(it[qActualKey] ?? (activeQuarter === 'q1' ? it.q1Actual : '') ?? '').trim();
-          const selfScoreVal = String(it[qScoreKey] ?? it.ownScore ?? (it.myScore && String(it.myScore).trim() !== '3.0' ? it.myScore : '') ?? '').trim();
-          const managerScoreVal = String(it.managerScore ?? it[`${activeQuarter}ManagerScore`] ?? '').trim();
-          const poeDocsArr = Array.isArray(it[qPoeDocsKey]) ? it[qPoeDocsKey] : (activeQuarter === 'q1' && Array.isArray(it.q1PoeDocs) ? it.q1PoeDocs : []);
-          const poeDocsCount = poeDocsArr.length;
-          const poeDocNames = poeDocsArr.map((d: any) => d?.name || 'Attachment').filter(Boolean);
-
-          const rawReviewStatus = String(it.reviewStatus || '').trim();
-          const rawApprovalStatus = String(it.reviewApprovalStatus || '').trim();
-          const rawQPoeStatus = String(it[qPoeStatusKey] || '').trim();
-
-          const isCleanAuditQ1 = activeQuarter === 'q1' && (descLower.includes('clean audit opinion') || kpiNo.toUpperCase() === 'M_21' || kpiNo.toUpperCase() === 'M-21');
-          const isNa =
-            isCleanAuditQ1 ||
-            it[qApplicableKey] === false ||
-            rawReviewStatus.toUpperCase() === 'N/A' ||
-            rawQPoeStatus.toUpperCase() === 'N/A' ||
-            targetVal.toUpperCase() === 'N/A';
-
-          const hasGenuineEvidence =
-            poeDocsCount > 0 ||
-            Boolean(it.poeFileBase64 || it.poeFileName) ||
-            hasVal(actualVal) ||
-            hasScore(selfScoreVal) ||
-            hasVal(it[`${activeQuarter}Comment`]) ||
-            hasVal(it.evaluationComment);
-
-          const isRevisionRequired =
-            !isNa && (
-              rawReviewStatus === 'Revision Required' ||
-              rawApprovalStatus === 'Rejected' ||
-              rawQPoeStatus === 'Revision Required' ||
-              rawQPoeStatus === 'Rejected'
-            );
-
-          const isSubmittedStatus =
-            rawReviewStatus === 'Submitted for Approval' ||
-            rawReviewStatus === 'Submitted for Review' ||
-            rawReviewStatus === 'Submitted' ||
-            rawReviewStatus === 'Pending Manager Review' ||
-            rawReviewStatus === 'Approved' ||
-            rawReviewStatus === 'Reviewed' ||
-            rawReviewStatus === 'Verified' ||
-            rawReviewStatus === 'Dispatched to Audit' ||
-            rawReviewStatus === 'Dispatched to Internal Audit' ||
-            rawReviewStatus === 'Pushed to PMS' ||
-            rawApprovalStatus === 'Approved' ||
-            rawQPoeStatus === 'Approved' ||
-            rawQPoeStatus === 'Verified' ||
-            rawQPoeStatus === 'Pending Verification' ||
-            rawQPoeStatus === 'Submitted';
-
-          // Align with team-pplans: if an item has POE docs or captured actuals (or explicit submitted status with evidence), count as Submitted unless explicitly Unlocked for Resubmission
-          const isExplicitlyUnlockedDraft = Boolean(it.resubmissionUnlocked === true && rawReviewStatus === 'Draft' && !hasVal(actualVal) && poeDocsCount === 0);
-          const isSubmitted = !isNa && !isRevisionRequired && !isExplicitlyUnlockedDraft && (
-            (isSubmittedStatus && (hasGenuineEvidence || hasScore(managerScoreVal))) ||
-            poeDocsCount > 0 ||
-            hasVal(actualVal)
-          );
-
-          const isApproved = !isNa && isSubmitted && (
-            rawReviewStatus === 'Approved' ||
-            rawReviewStatus === 'Reviewed' ||
-            rawReviewStatus === 'Verified' ||
-            rawReviewStatus === 'Dispatched to Audit' ||
-            rawReviewStatus === 'Dispatched to Internal Audit' ||
-            rawReviewStatus === 'Pushed to PMS' ||
-            rawApprovalStatus === 'Approved'
-          );
-
-          const isAwaitingManager = !isNa && isSubmitted && !isApproved;
-          const isDraftInProgress = !isNa && !isSubmitted && !isRevisionRequired && hasGenuineEvidence;
-
-          if (isNa) {
-            naKpis++;
-          } else {
-            applicableKpis++;
-            if (isSubmitted) {
-              submittedKpis++;
+          for (const d of details) {
+            if (d.isNa) {
+              na++;
             } else {
-              notSubmittedKpis++;
-            }
-            if (isApproved) {
-              approvedKpis++;
-            } else {
-              notApprovedKpis++;
-            }
-            if (isAwaitingManager) {
-              awaitingManagerApprovalKpis++;
-            }
-            if (isRevisionRequired) {
-              revisionRequiredKpis++;
-            }
-            if (isDraftInProgress) {
-              draftInProgressKpis++;
+              applicable++;
+              if (d.isSubmitted) submitted++;
+              else notSubmitted++;
+              if (d.isApproved) approved++;
+              else notApproved++;
+              if (d.isAudited) audited++;
+              else notAudited++;
+              if (d.isAwaitingManager) awaitingManager++;
+              if (d.isAwaitingAudit) awaitingAudit++;
+              if (d.isRevisionRequired) revisionRequired++;
+              if (d.isDraftInProgress) draftInProgress++;
             }
           }
-
-          let statusLabel = 'Not Submitted (Draft)';
-          if (isNa) statusLabel = 'Not Applicable (N/A)';
-          else if (isApproved) statusLabel = 'Approved by Manager';
-          else if (isAwaitingManager) statusLabel = 'Submitted — Awaiting Manager Approval';
-          else if (isRevisionRequired) statusLabel = 'Returned for Revision';
-          else if (isDraftInProgress) statusLabel = 'In Progress (Draft — Not Yet Submitted)';
-
           return {
-            index: idx + 1,
-            id: it.id || `kpi-${idx + 1}`,
-            kpiNo,
-            kpiTitle,
-            target: targetVal || '—',
-            actual: actualVal || '—',
-            selfScore: selfScoreVal || '—',
-            managerScore: isApproved || (isSubmitted && hasScore(managerScoreVal)) ? (managerScoreVal || '—') : '—',
-            poeDocsCount,
-            poeDocNames,
-            reviewStatus: rawReviewStatus || 'Draft',
-            qPoeStatus: rawQPoeStatus || 'Draft',
-            statusLabel,
-            isNa,
-            isSubmitted,
-            isApproved,
-            isAwaitingManager,
-            isRevisionRequired,
-            isDraftInProgress
+            total,
+            na,
+            applicable,
+            submitted,
+            notSubmitted,
+            approved,
+            notApproved,
+            audited,
+            notAudited,
+            awaitingManager,
+            awaitingAudit,
+            revisionRequired,
+            draftInProgress,
+            details
           };
-        });
+        };
+
+        const kpiQ1 = evalKpiListForQ('q1');
+        const kpiQ2 = evalKpiListForQ('q2');
+        const kpiQ3 = evalKpiListForQ('q3');
+        const kpiQ4 = evalKpiListForQ('q4');
+        const kpiActive =
+          activeQuarter === 'q1' ? kpiQ1 :
+          activeQuarter === 'q2' ? kpiQ2 :
+          activeQuarter === 'q3' ? kpiQ3 :
+          activeQuarter === 'q4' ? kpiQ4 :
+          evalKpiListForQ('annual');
+
+        const totalKpis = kpiActive.total;
+        const naKpis = kpiActive.na;
+        const applicableKpis = kpiActive.applicable;
+        const submittedKpis = kpiActive.submitted;
+        const notSubmittedKpis = kpiActive.notSubmitted;
+        const approvedKpis = kpiActive.approved;
+        const notApprovedKpis = kpiActive.notApproved;
+        const auditedKpis = kpiActive.audited;
+        const notAuditedKpis = kpiActive.notAudited;
+        const awaitingManagerApprovalKpis = kpiActive.awaitingManager;
+        const awaitingAuditKpis = kpiActive.awaitingAudit;
+        const revisionRequiredKpis = kpiActive.revisionRequired;
+        const draftInProgressKpis = kpiActive.draftInProgress;
+        const kpiDetails = kpiActive.details;
+
+        // Evaluate KPAs from user's real KPIs
+        const kpaMap = new Map<string, { kpa: string; total: number; applicable: number; submitted: number; approved: number; audited: number }>();
+        for (const d of kpiDetails) {
+          const kName = d.kpaName || 'KPA 5: Good Governance & Public Participation';
+          if (!kpaMap.has(kName)) {
+            kpaMap.set(kName, { kpa: kName, total: 0, applicable: 0, submitted: 0, approved: 0, audited: 0 });
+          }
+          const kr = kpaMap.get(kName)!;
+          kr.total += 1;
+          if (!d.isNa) {
+            kr.applicable += 1;
+            if (d.isSubmitted) kr.submitted += 1;
+            if (d.isApproved) kr.approved += 1;
+            if (d.isAudited) kr.audited += 1;
+          }
+        }
+        const kpaDetails = Array.from(kpaMap.values());
+        const totalKpas = kpaDetails.length;
+        const submittedKpas = kpaDetails.filter(k => k.applicable > 0 && k.submitted > 0).length;
+        const approvedKpas = kpaDetails.filter(k => k.applicable > 0 && k.approved > 0).length;
+        const auditedKpas = kpaDetails.filter(k => k.applicable > 0 && k.audited > 0).length;
+
+        // Evaluate JSCs & Core Competencies & PDPs per user across Q1..Q4
+        const jscEval = evaluateCompetenciesForUser(jscsByUser.get(email) || [], nedaPkg?.jscs || [], 'JSC');
+        const ccompEval = evaluateCompetenciesForUser(ccompsByUser.get(email) || [], nedaPkg?.coreCompetencies || [], 'Core Competency');
+        const pdpEval = evaluatePdpsForUser(pdpsByUser.get(email) || [], nedaPkg?.pdps || []);
 
         let overallStatus = 'No KPIs Assigned';
         if (totalKpis > 0 && applicableKpis === 0) {
           overallStatus = 'All N/A This Quarter';
         } else if (applicableKpis > 0) {
-          if (approvedKpis === applicableKpis) {
+          if (auditedKpis === applicableKpis) {
+            overallStatus = 'Fully Audited';
+          } else if (approvedKpis === applicableKpis) {
             overallStatus = 'Fully Approved';
           } else if (submittedKpis === applicableKpis && approvedKpis > 0) {
             overallStatus = 'Partially Approved';
@@ -20447,13 +20881,77 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
           notSubmittedKpis,
           approvedKpis,
           notApprovedKpis,
+          auditedKpis,
+          notAuditedKpis,
           awaitingManagerApprovalKpis,
+          awaitingAuditKpis,
           revisionRequiredKpis,
           draftInProgressKpis,
           submissionRate: applicableKpis > 0 ? Math.round((submittedKpis / applicableKpis) * 100) : 0,
           approvalRate: applicableKpis > 0 ? Math.round((approvedKpis / applicableKpis) * 100) : 0,
+          auditRate: applicableKpis > 0 ? Math.round((auditedKpis / applicableKpis) * 100) : 0,
           overallStatus,
-          kpiDetails
+          kpiDetails,
+          kpiQuarters: {
+            q1: { total: kpiQ1.total, na: kpiQ1.na, applicable: kpiQ1.applicable, submitted: kpiQ1.submitted, notSubmitted: kpiQ1.notSubmitted, approved: kpiQ1.approved, audited: kpiQ1.audited },
+            q2: { total: kpiQ2.total, na: kpiQ2.na, applicable: kpiQ2.applicable, submitted: kpiQ2.submitted, notSubmitted: kpiQ2.notSubmitted, approved: kpiQ2.approved, audited: kpiQ2.audited },
+            q3: { total: kpiQ3.total, na: kpiQ3.na, applicable: kpiQ3.applicable, submitted: kpiQ3.submitted, notSubmitted: kpiQ3.notSubmitted, approved: kpiQ3.approved, audited: kpiQ3.audited },
+            q4: { total: kpiQ4.total, na: kpiQ4.na, applicable: kpiQ4.applicable, submitted: kpiQ4.submitted, notSubmitted: kpiQ4.notSubmitted, approved: kpiQ4.approved, audited: kpiQ4.audited }
+          },
+          // KPAs
+          totalKpas,
+          submittedKpas,
+          notSubmittedKpas: Math.max(0, totalKpas - submittedKpas),
+          approvedKpas,
+          notApprovedKpas: Math.max(0, totalKpas - approvedKpas),
+          auditedKpas,
+          notAuditedKpas: Math.max(0, totalKpas - auditedKpas),
+          kpaDetails,
+          // JSCs (Job Specific Competencies)
+          totalJscs: jscEval.active.total,
+          submittedJscs: jscEval.active.submitted,
+          notSubmittedJscs: jscEval.active.notSubmitted,
+          approvedJscs: jscEval.active.approved,
+          notApprovedJscs: jscEval.active.notApproved,
+          auditedJscs: jscEval.active.audited,
+          notAuditedJscs: jscEval.active.notAudited,
+          jscDetails: jscEval.active.details,
+          jscQuarters: {
+            q1: { total: jscEval.quarters.q1.total, submitted: jscEval.quarters.q1.submitted, approved: jscEval.quarters.q1.approved, audited: jscEval.quarters.q1.audited },
+            q2: { total: jscEval.quarters.q2.total, submitted: jscEval.quarters.q2.submitted, approved: jscEval.quarters.q2.approved, audited: jscEval.quarters.q2.audited },
+            q3: { total: jscEval.quarters.q3.total, submitted: jscEval.quarters.q3.submitted, approved: jscEval.quarters.q3.approved, audited: jscEval.quarters.q3.audited },
+            q4: { total: jscEval.quarters.q4.total, submitted: jscEval.quarters.q4.submitted, approved: jscEval.quarters.q4.approved, audited: jscEval.quarters.q4.audited }
+          },
+          // Core Competencies
+          totalCcomp: ccompEval.active.total,
+          submittedCcomp: ccompEval.active.submitted,
+          notSubmittedCcomp: ccompEval.active.notSubmitted,
+          approvedCcomp: ccompEval.active.approved,
+          notApprovedCcomp: ccompEval.active.notApproved,
+          auditedCcomp: ccompEval.active.audited,
+          notAuditedCcomp: ccompEval.active.notAudited,
+          ccompDetails: ccompEval.active.details,
+          ccompQuarters: {
+            q1: { total: ccompEval.quarters.q1.total, submitted: ccompEval.quarters.q1.submitted, approved: ccompEval.quarters.q1.approved, audited: ccompEval.quarters.q1.audited },
+            q2: { total: ccompEval.quarters.q2.total, submitted: ccompEval.quarters.q2.submitted, approved: ccompEval.quarters.q2.approved, audited: ccompEval.quarters.q2.audited },
+            q3: { total: ccompEval.quarters.q3.total, submitted: ccompEval.quarters.q3.submitted, approved: ccompEval.quarters.q3.approved, audited: ccompEval.quarters.q3.audited },
+            q4: { total: ccompEval.quarters.q4.total, submitted: ccompEval.quarters.q4.submitted, approved: ccompEval.quarters.q4.approved, audited: ccompEval.quarters.q4.audited }
+          },
+          // PDPs
+          totalPdps: pdpEval.active.total,
+          submittedPdps: pdpEval.active.submitted,
+          notSubmittedPdps: pdpEval.active.notSubmitted,
+          approvedPdps: pdpEval.active.approved,
+          notApprovedPdps: pdpEval.active.notApproved,
+          auditedPdps: pdpEval.active.audited,
+          notAuditedPdps: pdpEval.active.notAudited,
+          pdpDetails: pdpEval.active.details,
+          pdpQuarters: {
+            q1: { total: pdpEval.quarters.q1.total, submitted: pdpEval.quarters.q1.submitted, approved: pdpEval.quarters.q1.approved, audited: pdpEval.quarters.q1.audited },
+            q2: { total: pdpEval.quarters.q2.total, submitted: pdpEval.quarters.q2.submitted, approved: pdpEval.quarters.q2.approved, audited: pdpEval.quarters.q2.audited },
+            q3: { total: pdpEval.quarters.q3.total, submitted: pdpEval.quarters.q3.submitted, approved: pdpEval.quarters.q3.approved, audited: pdpEval.quarters.q3.audited },
+            q4: { total: pdpEval.quarters.q4.total, submitted: pdpEval.quarters.q4.submitted, approved: pdpEval.quarters.q4.approved, audited: pdpEval.quarters.q4.audited }
+          }
         });
       }
 
@@ -20475,6 +20973,7 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         fullyApprovedUsers: userReports.filter(u => u.applicableKpis > 0 && u.approvedKpis === u.applicableKpis).length,
         partiallyApprovedUsers: userReports.filter(u => u.applicableKpis > 0 && u.approvedKpis > 0 && u.approvedKpis < u.applicableKpis).length,
         notApprovedUsers: userReports.filter(u => u.applicableKpis > 0 && u.approvedKpis === 0).length,
+        fullyAuditedUsers: userReports.filter(u => u.applicableKpis > 0 && u.auditedKpis === u.applicableKpis).length,
         totalKpisSystemWide: userReports.reduce((acc, u) => acc + u.totalKpis, 0),
         totalNaKpisSystemWide: userReports.reduce((acc, u) => acc + u.naKpis, 0),
         totalApplicableKpisSystemWide: userReports.reduce((acc, u) => acc + u.applicableKpis, 0),
@@ -20482,7 +20981,21 @@ Return a concise, authoritative audit summary confirming whether 100% data integ
         totalNotSubmittedKpisSystemWide: userReports.reduce((acc, u) => acc + u.notSubmittedKpis, 0),
         totalApprovedKpisSystemWide: userReports.reduce((acc, u) => acc + u.approvedKpis, 0),
         totalNotApprovedKpisSystemWide: userReports.reduce((acc, u) => acc + u.notApprovedKpis, 0),
+        totalAuditedKpisSystemWide: userReports.reduce((acc, u) => acc + u.auditedKpis, 0),
         totalAwaitingManagerKpisSystemWide: userReports.reduce((acc, u) => acc + u.awaitingManagerApprovalKpis, 0),
+        totalAwaitingAuditKpisSystemWide: userReports.reduce((acc, u) => acc + u.awaitingAuditKpis, 0),
+        totalJscsSystemWide: userReports.reduce((acc, u) => acc + u.totalJscs, 0),
+        totalSubmittedJscsSystemWide: userReports.reduce((acc, u) => acc + u.submittedJscs, 0),
+        totalApprovedJscsSystemWide: userReports.reduce((acc, u) => acc + u.approvedJscs, 0),
+        totalAuditedJscsSystemWide: userReports.reduce((acc, u) => acc + u.auditedJscs, 0),
+        totalCcompSystemWide: userReports.reduce((acc, u) => acc + u.totalCcomp, 0),
+        totalSubmittedCcompSystemWide: userReports.reduce((acc, u) => acc + u.submittedCcomp, 0),
+        totalApprovedCcompSystemWide: userReports.reduce((acc, u) => acc + u.approvedCcomp, 0),
+        totalAuditedCcompSystemWide: userReports.reduce((acc, u) => acc + u.auditedCcomp, 0),
+        totalPdpsSystemWide: userReports.reduce((acc, u) => acc + u.totalPdps, 0),
+        totalSubmittedPdpsSystemWide: userReports.reduce((acc, u) => acc + u.submittedPdps, 0),
+        totalApprovedPdpsSystemWide: userReports.reduce((acc, u) => acc + u.approvedPdps, 0),
+        totalAuditedPdpsSystemWide: userReports.reduce((acc, u) => acc + u.auditedPdps, 0),
         quarter: activeQuarter.toUpperCase(),
         generatedAt: new Date().toISOString()
       };
@@ -26594,30 +27107,17 @@ User Request: ${prompt}`;
   });
 
   // ----------------------------------------------------
-  // IPMS QUARTER REPORTING 11:59:59 PM TODAY CUTOFF ENDPOINT
+  // IPMS QUARTER REPORTING 13 NOVEMBER 2026 11:59:59 PM CUTOFF ENDPOINT
   // ----------------------------------------------------
   const getTodaySastCutoffMs = (): { dateStr: string; cutoffTimestampMs: number } => {
-    try {
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Africa/Johannesburg',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-      const dateStr = formatter.format(new Date());
-      const cutoffTimestampMs = new Date(`${dateStr}T23:59:59.999+02:00`).getTime();
-      if (!Number.isNaN(cutoffTimestampMs)) {
-        return { dateStr, cutoffTimestampMs };
-      }
-    } catch {}
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    const dateStr = `${y}-${m}-${d}`;
+    const dateStr = '2026-11-13';
+    const cutoffTimestampMs = new Date(`${dateStr}T23:59:59.999+02:00`).getTime();
+    if (!Number.isNaN(cutoffTimestampMs)) {
+      return { dateStr, cutoffTimestampMs };
+    }
     return {
       dateStr,
-      cutoffTimestampMs: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime(),
+      cutoffTimestampMs: new Date(2026, 10, 13, 23, 59, 59, 999).getTime(),
     };
   };
 
@@ -26636,8 +27136,9 @@ User Request: ${prompt}`;
         remainingMs,
         isLocked,
         forceLocked: false,
+        lockedModules: ['ipms', 'opms-admin', 'opms-political', 'sharepoint', 'more', 'support'],
         bannerMessage:
-          'Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head',
+          'Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head. The cut-off for the 1st quarter reporting was 13 November 2026.',
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message || 'Failed to compute cutoff' });

@@ -10,6 +10,7 @@ export const CUTOFF_LOCKED_MODULE_IDS = new Set([
   'opms-political',
   'sharepoint',
   'more',
+  'support',
 ]);
 
 export function isCutoffControlledModule(moduleId?: string | null): boolean {
@@ -23,36 +24,19 @@ export function isNkangalaDomainUser(email?: string | null): boolean {
   return clean.endsWith('@nkangaladm.gov.za') || clean.endsWith('@nkangaldm.gov.za');
 }
 
+export const Q1_REPORTING_CUTOFF_DATE_STR = '2026-11-13';
+export const Q1_REPORTING_CUTOFF_DISPLAY_DATE = '13 November 2026';
+
 export function getTodaySastDateString(): string {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Africa/Johannesburg',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-    return formatter.format(new Date());
-  } catch {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  }
+  return Q1_REPORTING_CUTOFF_DATE_STR;
 }
 
 export function getTodayCutoffTimestampMs(): number {
-  try {
-    const dateStr = getTodaySastDateString();
-    const targetSast = new Date(`${dateStr}T23:59:59.999+02:00`).getTime();
-    if (!Number.isNaN(targetSast)) {
-      return targetSast;
-    }
-  } catch {
-    // Fallback to local 23:59:59.999
+  const targetSast = new Date(`${Q1_REPORTING_CUTOFF_DATE_STR}T23:59:59.999+02:00`).getTime();
+  if (!Number.isNaN(targetSast)) {
+    return targetSast;
   }
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+  return new Date(2026, 10, 13, 23, 59, 59, 999).getTime();
 }
 
 export interface CutoffCountdownState {
@@ -216,21 +200,21 @@ export const IPMSReportingCutoffBannerAndModal: React.FC<IPMSReportingCutoffBann
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2.5 py-0.5 rounded-md bg-red-600 text-white text-[10px] font-black uppercase tracking-widest border border-red-300/40">
-                    {moduleName.toUpperCase()} LOCKED • 11:59:59 PM CUTOFF REACHED
+                    {moduleName.toUpperCase()} LOCKED • 1ST QUARTER CUT-OFF: 13 NOVEMBER 2026
                   </span>
                   <span className="text-[11px] font-mono text-red-200 font-bold">
                     @nkangaladm.gov.za Official Lock
                   </span>
                 </div>
                 <h3 className="text-base sm:text-lg font-black tracking-wide text-white mt-1 leading-snug">
-                  Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head
+                  Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head. The cut-off for the 1st quarter reporting was 13 November 2026.
                 </h3>
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 bg-black/40 px-4 py-2.5 rounded-xl border border-red-400/40">
               <ShieldAlert className="w-5 h-5 text-red-400 shrink-0" />
               <div className="text-right">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-red-300">Countdown Expired</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-red-300">Cut-Off: 13 Nov 2026</div>
                 <div className="text-sm font-mono font-black text-white">00h : 00m : 00s</div>
               </div>
             </div>
@@ -246,7 +230,7 @@ export const IPMSReportingCutoffBannerAndModal: React.FC<IPMSReportingCutoffBann
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-black uppercase tracking-wider">
-                    MANDATORY DEADLINE TODAY AT 11:59:59 PM ({moduleName.toUpperCase()})
+                    MANDATORY 1ST QUARTER CUT-OFF: 13 NOVEMBER 2026 AT 11:59:59 PM ({moduleName.toUpperCase()})
                   </span>
                   <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1">
                     <BellRing className="w-3.5 h-3.5" />
@@ -254,7 +238,7 @@ export const IPMSReportingCutoffBannerAndModal: React.FC<IPMSReportingCutoffBann
                   </span>
                 </div>
                 <p className="text-xs sm:text-sm font-bold text-slate-100 mt-1">
-                  At <span className="text-red-300 font-black">11:59:59 PM today</span>, IPMS, OPMS Admin, OPMS Political, Share Point &amp; More for all <span className="font-mono text-emerald-300">@nkangaladm.gov.za</span> users will automatically lock by order of the <span className="text-amber-300 font-black">PMS Divisional Head</span>.
+                  The cut-off for the 1st quarter reporting is <span className="text-red-300 font-black">13 November 2026 at 11:59:59 PM</span>. IPMS, OPMS Admin, OPMS Political, Share Point, More &amp; Support for all <span className="font-mono text-emerald-300">@nkangaladm.gov.za</span> users will automatically lock by order of the <span className="text-amber-300 font-black">PMS Divisional Head</span>.
                 </p>
               </div>
             </div>
@@ -304,12 +288,12 @@ export const IPMSReportingCutoffBannerAndModal: React.FC<IPMSReportingCutoffBann
                     MANDATORY 15-MINUTE OFFICIAL REMINDER
                   </span>
                   <h3 className="text-base sm:text-lg font-black text-white uppercase tracking-wide">
-                    Quarter Reporting Cutoff Countdown
+                    1st Quarter Reporting Cut-Off: 13 November 2026
                   </h3>
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-lg bg-black/40 border border-red-400/40 text-[11px] font-mono font-bold text-red-200">
-                11:59:59 PM Today
+                13 Nov 2026 • 11:59:59 PM
               </span>
             </div>
 
@@ -318,7 +302,7 @@ export const IPMSReportingCutoffBannerAndModal: React.FC<IPMSReportingCutoffBann
               {/* Live Countdown Tiles */}
               <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 text-center">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-3">
-                  Time Remaining Until Automatic System Lock (11:59:59 PM Today)
+                  Time Remaining Until Automatic System Lock (13 November 2026 at 11:59:59 PM)
                 </p>
                 <div className="grid grid-cols-3 gap-3 max-w-md mx-auto">
                   <div className="bg-slate-950 border border-red-500/40 rounded-2xl p-3.5 shadow-inner">
@@ -349,12 +333,12 @@ export const IPMSReportingCutoffBannerAndModal: React.FC<IPMSReportingCutoffBann
                   <span>Directive from the PMS Divisional Head</span>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
-                  Please take note that at exactly <strong className="text-white">11:59:59 PM today</strong>,{' '}
-                  <strong className="text-white">IPMS, OPMS Admin, OPMS Political, Share Point, and More</strong> for all{' '}
+                  Please take note that on <strong className="text-white">13 November 2026 at 11:59:59 PM</strong>,{' '}
+                  <strong className="text-white">IPMS, OPMS Admin, OPMS Political, Share Point, More, and Support</strong> for all{' '}
                   <strong className="text-emerald-300 font-mono">@nkangaladm.gov.za</strong> officials will automatically lock with the official notice:
                 </p>
                 <div className="p-3 rounded-xl bg-red-900/50 border border-red-400/50 text-white font-black text-xs sm:text-sm text-center">
-                  "Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head"
+                  "Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head. The cut-off for the 1st quarter reporting was 13 November 2026."
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed pt-1">
                   Ensure all KPI actuals, self-evaluation scores, Job Specific Competencies (JSCs), Core Competencies, SDBIP submissions, and Portfolios of Evidence (POEs) are saved and submitted prior to <strong className="text-white">11:59:59 PM</strong>. This reminder pops up every <strong className="text-amber-300">15 minutes</strong> and requires your acknowledgement.
@@ -397,10 +381,10 @@ export const IPMSLockedClosureScreen: React.FC<{ currentUser?: User; moduleName?
         <div className="w-full bg-gradient-to-r from-red-800 via-red-600 to-red-800 border border-red-400/60 text-white px-5 py-4 rounded-2xl mb-8 shadow-lg">
           <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-red-100 mb-1">
             <Lock className="w-4 h-4" />
-            <span>OFFICIAL PMS DIVISIONAL HEAD DIRECTIVE • 11:59:59 PM CUTOFF</span>
+            <span>OFFICIAL PMS DIVISIONAL HEAD DIRECTIVE • 1ST QUARTER CUT-OFF: 13 NOVEMBER 2026</span>
           </div>
           <p className="text-base sm:text-lg font-black text-white leading-snug">
-            Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head
+            Reporting for the quarter of the 2026/2027 financial year has now been closed by order of the PMS Divisional Head. The cut-off for the 1st quarter reporting was 13 November 2026.
           </p>
         </div>
 
@@ -413,10 +397,10 @@ export const IPMSLockedClosureScreen: React.FC<{ currentUser?: User; moduleName?
         </h2>
 
         <p className="text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed mb-6">
-          The quarterly reporting window for the <strong className="text-white">2026/2027 financial year</strong> closed at{' '}
-          <strong className="text-red-400">11:59:59 PM</strong> for all{' '}
+          The cut-off for the <strong className="text-white">1st quarter reporting</strong> was{' '}
+          <strong className="text-red-400">13 November 2026</strong> at <strong className="text-red-400">11:59:59 PM</strong>. The quarterly reporting window for the <strong className="text-white">2026/2027 financial year</strong> has closed for all{' '}
           <strong className="text-emerald-400 font-mono">@nkangaladm.gov.za</strong> users across{' '}
-          <strong className="text-white">IPMS, OPMS Admin, OPMS Political, Share Point, and More</strong>. All submitted actuals, self-evaluations, SDBIP records, and uploaded Portfolios of Evidence (POEs) have been securely preserved in the database with zero data loss.
+          <strong className="text-white">IPMS, OPMS Admin, OPMS Political, Share Point, More, and Support</strong>. All submitted actuals, self-evaluations, SDBIP records, and uploaded Portfolios of Evidence (POEs) have been securely preserved in the database with zero data loss.
         </p>
 
         {currentUser?.email && (

@@ -1223,7 +1223,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           </div>
 
           {/* QUARTER REPORTING CUTOFF COUNTDOWN BANNER, RED CLOSURE BANNER & 15-MINUTE ACKNOWLEDGEMENT MODAL */}
-          {isCutoffControlledModule(activeModule.id) && ipmsCutoffState.isNkangalaUser && (
+          {(isCutoffControlledModule(activeModule.id) || activeModule.id === 'dashboard') && ipmsCutoffState.isNkangalaUser && (
             <IPMSReportingCutoffBannerAndModal
               currentUser={fullUserProfile}
               activeTenantId={activeTenantId}
@@ -1233,7 +1233,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           )}
 
           {/* DUAL-POSITION ROLE CAPACITY SWITCHER FOR THANDIWE M. LENGWATE */}
-          {isLengwateDualUser && (
+          {isLengwateDualUser && !ipmsCutoffState.isLocked && (
             <div className={cn(
               "p-4 rounded-2xl border shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition-all",
               lengwateRoleCapacity === 'acting_gm_cds'
@@ -1294,7 +1294,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           )}
 
           {/* Dual-Position Capacity Switcher for Alvin Bvuma */}
-          {isBvumaDualUser && (
+          {isBvumaDualUser && !ipmsCutoffState.isLocked && (
             <div className={cn(
               "mb-4 rounded-2xl p-4 shadow-xl border flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition-all animate-in fade-in-50 duration-300",
               bvumaRoleCapacity === 'manager_ped'
@@ -1355,7 +1355,7 @@ export function Dashboard({ user, onLogout, onImpersonate }: DashboardProps) {
           )}
 
           {/* IPMS GUIDED WORKFLOW WORKSPACE BAR */}
-          {activeModule.id === 'ipms' && (
+          {activeModule.id === 'ipms' && !ipmsCutoffState.isLocked && (
             <GuidedIPMSWorkflow
               activeTenantId={activeTenantId}
               currentUser={effectiveIpmsUser}

@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../types';
 import { JSCAnalyticalReportingSection } from './JSCModules';
+import { AdminIPMSReports } from '../Admin/AdminIPMSReports';
 import { calculateProgressPercentage } from '../../utils/varianceCalculator';
 
 interface ReportsProps {
@@ -51,8 +52,8 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
 
   const [sharedReports, setSharedReports] = useState<SharedReport[]>([]);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'catalogue' | 'dispatcher' | 'jsc_reporting'>('catalogue');
-  const [isLoadingShared, setIsLoadingShared] = useState(false);
+  const [activeTab, setActiveTab] = useState<'live_dashboard' | 'catalogue' | 'dispatcher' | 'jsc_reporting'>('live_dashboard');
+  const [, setIsLoadingShared] = useState(false);
 
   // Dynamic selector states
   const [teamPlans, setTeamPlans] = useState<any[]>([]);
@@ -97,25 +98,7 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
       const res = await fetch(`/api/tenant/${activeTenantId}/shared-reports?t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
-        if (!data.reports || data.reports.length === 0) {
-          const defaultShared: SharedReport[] = [
-            {
-              id: 'shared-1',
-              title: 'Annual Moderated Performance Plan Summary (FY 2025/2026)',
-              type: 'Performance Plan',
-              period: 'Annual',
-              auditorEmail: 'chief.auditor@local',
-              auditorComments: 'Following complete legislative compliance review and portfolio of evidence inspections, the general outcomes are certified compliant.',
-              auditorRating: 'Compliant',
-              status: 'Dispatched to Managers',
-              createdAt: new Date(Date.now() - 86400000 * 2).toISOString()
-            }
-          ];
-          setSharedReports(defaultShared);
-          await saveSharedReports(defaultShared);
-        } else {
-          setSharedReports(data.reports);
-        }
+        setSharedReports(Array.isArray(data.reports) ? data.reports : []);
       }
     } catch (e) {
       console.error("Failed to load shared reports:", e);
@@ -280,74 +263,7 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
     period: "2025/2026 Financial Year"
   };
 
-  const planItems = selectedPlanObj?.plan?.items || [
-    {
-      id: "demo-1",
-      strategicGoal: "Good Governance and Public Participation",
-      kpiNo: "1",
-      kpi: "Develop and implement risk management strategy and submit to council by 31 August 2026",
-      description: "Establish complete risk identification & mitigation profiles department-wide.",
-      bsd: false,
-      led: false,
-      mfvm: false,
-      ggpp: true,
-      midt: false,
-      sr: false,
-      kpa: "KPA 5: Good Governance and Public Participation",
-      mscoaCode: "GG-101",
-      baseline: "Risk register active",
-      budget: "R 150,000",
-      annualTarget: "100% execution of risk protocol",
-      q1Target: "Draft register compiled",
-      q1Actual: "Draft list reviewed and accepted by committee",
-      q1Poe: "Risk_Draft_Register_2026.pdf",
-      q2Target: "Approved by municipal manager",
-      q2Actual: "MM signature obtained",
-      q2Poe: "MM_Signed_Risk_Reg.docx",
-      midtermTarget: "Mid-year risk assessment finalized",
-      midtermActual: "Mid-year assessment completed successfully",
-      midtermPoe: "Midyear_Risk_Report_Final.pdf",
-      q3Target: "Implement 75% mitigations",
-      q3Actual: "78% progress compiled",
-      q3Poe: "Mitigations_Q3_Tracking.xlsx",
-      q4Target: "100% mitigation execution",
-      q4Actual: "100% complete and tabled to council",
-      q4Poe: "Council_Approved_Risk_Register.pdf"
-    },
-    {
-      id: "demo-2",
-      strategicGoal: "Municipal Financial Viability and Management",
-      kpiNo: "2",
-      kpi: "Achieve 95% spend on capital budget allocations by 30 June 2027",
-      description: "Capital budget utilization oversight against treasury guidelines.",
-      bsd: true,
-      led: false,
-      mfvm: true,
-      ggpp: false,
-      midt: false,
-      sr: false,
-      kpa: "KPA 4: Municipal Financial Viability and Management",
-      mscoaCode: "FM-402",
-      baseline: "92% spend in previous year",
-      budget: "R 24,500,000",
-      annualTarget: "95% spend of R24.5m",
-      q1Target: "20% capex spent",
-      q1Actual: "22.4% spend logged with Finance",
-      q1Poe: "Treasury_Q1_Spend_Report.xlsx",
-      q2Target: "50% capex spent",
-      q2Actual: "48.9% spend achieved",
-      q2Poe: "Treasury_Q2_Spend_Report.xlsx",
-      midtermTarget: "Internal audit verified spend audit",
-      midtermActual: "Capital expenditure audit completed with minor findings",
-      midtermPoe: "IA_Capex_Opinion_Signed.pdf",
-      q3Target: "75% capex spent",
-      q3Actual: "76.1% capex spent and verified",
-      q3Poe: "Treasury_Q3_Spend_Report.xlsx",
-      q4Target: "95% capex spent",
-      q4Actual: "96.5% capex spent and finalized",
-      q4Poe: "Treasury_Q4_Spend_Report.xlsx"
-    }
-  ];
+  const planItems = Array.isArray(selectedPlanObj?.plan?.items) ? selectedPlanObj.plan.items : [];
 
   const getPeriodData = (item: any, p: 'Q1' | 'Q2' | 'Mid Term' | 'Q3' | 'Q4') => {
     let target = 'N/A';
@@ -701,7 +617,13 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
           </div>
         </div>
 
-        <div className="flex bg-slate-850 rounded-xl p-1 shrink-0 border border-slate-705 font-semibold text-xs text-white">
+        <div className="flex flex-wrap bg-slate-850 rounded-xl p-1 shrink-0 border border-slate-705 font-semibold text-xs text-white gap-1">
+          <button 
+            onClick={() => setActiveTab('live_dashboard')}
+            className={`px-4 py-2 rounded-lg transition-colors cursor-pointer ${activeTab === 'live_dashboard' ? 'bg-[#00D65B] text-slate-950 font-black' : 'text-slate-300 hover:text-white'}`}
+          >
+            Live Multi-Dimension Dashboard & Excel (.xlsx)
+          </button>
           <button 
             onClick={() => setActiveTab('catalogue')}
             className={`px-4 py-2 rounded-lg transition-colors cursor-pointer ${activeTab === 'catalogue' ? 'bg-indigo-600 text-white font-extrabold' : 'text-slate-400 hover:text-white'}`}
@@ -728,7 +650,9 @@ export function Reports({ currentUser, activeTenantId }: ReportsProps) {
       <div className="flex-1 overflow-y-auto p-6 bg-slate-100/50 print:p-0 print:bg-white">
         <div className="max-w-7xl mx-auto space-y-6 print:max-w-full print:space-y-4">
 
-          {activeTab === 'jsc_reporting' ? (
+          {activeTab === 'live_dashboard' ? (
+            <AdminIPMSReports currentUser={currentUser} activeTenantId={activeTenantId} />
+          ) : activeTab === 'jsc_reporting' ? (
             <JSCAnalyticalReportingSection currentUser={currentUser} activeTenantId={activeTenantId} />
           ) : activeTab === 'catalogue' ? (
             <div className="space-y-6 print:space-y-4">
